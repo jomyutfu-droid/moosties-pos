@@ -4,20 +4,29 @@ import { useSessionStore } from '@/store/session'
 import { formatStockQty } from '@/lib/money'
 import type { Ingredient, StockMovementType } from '@/types'
 
-export function MovementModal({ ingredient, onClose }: { ingredient: Ingredient; onClose: () => void }) {
+interface Props {
+  /** ถ้าส่งมา = เปิดจากแถวในตาราง (ingredient ถูกเลือกแล้ว)
+   *  ถ้าไม่ส่ง = เปิดจากปุ่มด้านบน (แสดง dropdown เลือกวัตถุดิบ) */
+  ingredient?: Ingredient
+  ingredients?: Ingredient[]
+  onClose: () => void
+}
+
+export function MovementModal({ ingredient: preSelected, ingredients = [], onClose }: Props) {
   const record = useRecordStockMovement()
   const activeStaff = useSessionStore((s) => s.activeStaff)
+  const [selectedId, setSelectedId] = useState(preSelected?.id ?? '')
   const [type, setType] = useState<StockMovementType>('receive')
   const [qty, setQty] = useState<number>(0)
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
 
+  const ingredient = preSelected ?? ingredients.find((i) => i.id === selectedId)
+
   async function handleSave() {
     setError(null)
-    if (qty <= 0) {
-      setError('กรอกจำนวนมากกว่า 0')
-      return
-    }
+    if (!ingredient) { setError('เลือกวัตถุดิบก่อน'); return }
+    if (qty <= 0) { setError('กรอกจำนวนมากกว่า 0'); return }
     const delta = type === 'receive' ? qty : -qty
     try {
       await record.mutateAsync({
@@ -37,10 +46,33 @@ export function MovementModal({ ingredient, onClose }: { ingredient: Ingredient;
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-2xl shadow-lg w-full max-w-sm">
         <div className="p-5 border-b border-gray-200">
-          <h2 className="text-lg font-bold">{ingredient.name}</h2>
-          <p className="text-sm text-gray-500">คงเหลือ {formatStockQty(ingredient.stock_qty, ingredient.unit)}</p>
+          {preSelected ? (
+            <>
+              <h2 className="text-lg font-bold">{preSelected.name}</h2>
+              <p className="text-sm text-gray-500">คงเหลือ {formatStockQty(preSelected.stock_qty, preSelected.unit)}</p>
+            </>
+          ) : (
+            <h2 className="text-lg font-bold">รับ / ปรับสต็อก</h2>
+          )}
         </div>
         <div className="p-5 space-y-3">
+          {!preSelected && (
+            <div>
+              <label className="label">วัตถุดิบ</label>
+              <select
+                className="input"
+                value={selectedId}
+                onChange={(e) => { setSelectedId(e.target.value); setQty(0) }}
+              >
+                <option value="">— เลือกวัตถุดิบ —</option>
+                {ingredients.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.name} (คงเหลือ {formatStockQty(i.stock_qty, i.unit)})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="grid grid-cols-3 gap-2">
             <button
               className={`btn text-sm ${type === 'receive' ? 'btn-primary' : 'btn-secondary'}`}
@@ -62,7 +94,7 @@ export function MovementModal({ ingredient, onClose }: { ingredient: Ingredient;
             </button>
           </div>
           <div>
-            <label className="label">จำนวน ({ingredient.unit})</label>
+            <label className="label">จำนวน{ingredient ? ` (${ingredient.unit})` : ''}</label>
             <input type="number" className="input" value={qty} onChange={(e) => setQty(Number(e.target.value))} />
             <p className="text-xs text-gray-400 mt-1">
               {type === 'receive' ? 'จะเพิ่มเข้าสต็อก' : 'จะตัดออกจากสต็อก'}

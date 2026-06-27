@@ -10,6 +10,7 @@ export default function InventoryPage() {
   const { data: ingredients, isLoading } = useIngredientsFull()
   const [editing, setEditing] = useState<Ingredient | null | undefined>(undefined)
   const [movementTarget, setMovementTarget] = useState<Ingredient | null>(null)
+  const [quickMovement, setQuickMovement] = useState(false)
 
   const active = (ingredients ?? []).filter((i) => i.is_active)
   const lowStock = getLowStockIngredients(active)
@@ -19,9 +20,14 @@ export default function InventoryPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-800">สต็อกวัตถุดิบ</h1>
-        <button className="btn-primary" onClick={() => setEditing(null)}>
-          + เพิ่มวัตถุดิบ
-        </button>
+        <div className="flex gap-2">
+          <button className="btn-secondary" onClick={() => setQuickMovement(true)}>
+            รับ / ปรับสต็อก
+          </button>
+          <button className="btn-primary" onClick={() => setEditing(null)}>
+            + เพิ่มวัตถุดิบ
+          </button>
+        </div>
       </div>
 
       {lowStock.length > 0 && (
@@ -79,7 +85,12 @@ export default function InventoryPage() {
       </div>
 
       {editing !== undefined && <IngredientEditor ingredient={editing} onClose={() => setEditing(undefined)} />}
-      {movementTarget && <MovementModal ingredient={movementTarget} onClose={() => setMovementTarget(null)} />}
+      {movementTarget && (
+        <MovementModal ingredient={movementTarget} onClose={() => setMovementTarget(null)} />
+      )}
+      {quickMovement && (
+        <MovementModal ingredients={active} onClose={() => setQuickMovement(false)} />
+      )}
     </div>
   )
 }
