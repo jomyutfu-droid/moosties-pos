@@ -5,14 +5,17 @@ import type { Ingredient } from '@/types'
 
 export function IngredientEditor({
   ingredient,
+  existingCategories = [],
   onClose,
 }: {
   ingredient: Ingredient | null // null = เพิ่มใหม่
+  existingCategories?: string[]
   onClose: () => void
 }) {
   const save = useSaveIngredient()
   const [name, setName] = useState(ingredient?.name ?? '')
   const [unit, setUnit] = useState(ingredient?.unit ?? 'กรัม')
+  const [category, setCategory] = useState(ingredient?.category ?? '')
   const [packPrice, setPackPrice] = useState(ingredient?.pack_price ?? 0)
   const [packQty, setPackQty] = useState(ingredient?.pack_qty ?? 1)
   const [reorderPoint, setReorderPoint] = useState(ingredient?.reorder_point ?? 0)
@@ -27,6 +30,7 @@ export function IngredientEditor({
         id: ingredient?.id,
         name,
         unit,
+        category: category || null,
         pack_price: packPrice,
         pack_qty: packQty,
         reorder_point: reorderPoint,
@@ -50,6 +54,21 @@ export function IngredientEditor({
             <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">หมวดหมู่</label>
+              <input
+                className="input"
+                list="category-list"
+                placeholder="เช่น นม, น้ำตาล, แป้ง"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              />
+              <datalist id="category-list">
+                {existingCategories.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            </div>
             <div>
               <label className="label">หน่วย</label>
               <input className="input" value={unit} onChange={(e) => setUnit(e.target.value)} />

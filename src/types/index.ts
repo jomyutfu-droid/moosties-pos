@@ -41,6 +41,7 @@ export interface Ingredient {
   id: UUID
   name: string
   unit: string
+  category: string | null
   pack_price: number
   pack_qty: number
   cost_per_unit: number

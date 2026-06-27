@@ -1,12 +1,10 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRecordStockMovement } from '@/hooks/useInventory'
 import { useSessionStore } from '@/store/session'
 import { formatStockQty } from '@/lib/money'
 import type { Ingredient, StockMovementType } from '@/types'
 
 interface Props {
-  /** ถ้าส่งมา = เปิดจากแถวในตาราง (ingredient ถูกเลือกแล้ว)
-   *  ถ้าไม่ส่ง = เปิดจากปุ่มด้านบน (แสดง dropdown เลือกวัตถุดิบ) */
   ingredient?: Ingredient
   ingredients?: Ingredient[]
   onClose: () => void
@@ -15,13 +13,31 @@ interface Props {
 export function MovementModal({ ingredient: preSelected, ingredients = [], onClose }: Props) {
   const record = useRecordStockMovement()
   const activeStaff = useSessionStore((s) => s.activeStaff)
-  const [selectedId, setSelectedId] = useState(preSelected?.id ?? '')
+
+  // smart-search state (ใช้เฉพาะโหมดไม่มี preSelected)
+  const [query, setQuery] = useState('')
+  const [selected, setSelected] = useState<Ingredient | null>(null)
+  const [open, setOpen] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
   const [type, setType] = useState<StockMovementType>('receive')
   const [qty, setQty] = useState<number>(0)
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  const ingredient = preSelected ?? ingredients.find((i) => i.id === selectedId)
+  const ingredient = preSelected ?? selected
+
+  const filtered = query.trim()
+    ? ingredients.filter((i) => i.name.toLowerCase().includes(query.toLowerCase()))
+    : ingredients
+
+  function pickIngredient(ing: Ingredient) {
+    setSelected(ing)
+    setQuery(ing.name)
+    setOpen(false)
+    setQty(0)
+    inputRef.current?.blur()
+  }
 
   async function handleSave() {
     setError(null)
@@ -55,24 +71,44 @@ export function MovementModal({ ingredient: preSelected, ingredients = [], onClo
             <h2 className="text-lg font-bold">รับ / ปรับสต็อก</h2>
           )}
         </div>
+
         <div className="p-5 space-y-3">
+          {/* Smart search — แสดงเฉพาะโหมดไม่มี preSelected */}
           {!preSelected && (
-            <div>
-              <label className="label">วัตถุดิบ</label>
-              <select
+            <div className="relative">
+              <label className="label">ค้นหาวัตถุดิบ</label>
+              <input
+                ref={inputRef}
                 className="input"
-                value={selectedId}
-                onChange={(e) => { setSelectedId(e.target.value); setQty(0) }}
-              >
-                <option value="">— เลือกวัตถุดิบ —</option>
-                {ingredients.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.name} (คงเหลือ {formatStockQty(i.stock_qty, i.unit)})
-                  </option>
-                ))}
-              </select>
+                placeholder="พิมชื่อเพื่อค้นหา…"
+                value={query}
+                autoComplete="off"
+                onChange={(e) => { setQuery(e.target.value); setSelected(null); setOpen(true) }}
+                onFocus={() => setOpen(true)}
+                onBlur={() => setTimeout(() => setOpen(false), 150)}
+              />
+              {open && filtered.length > 0 && (
+                <ul className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
+                  {filtered.map((i) => (
+                    <li
+                      key={i.id}
+                      className="px-3 py-2 cursor-pointer hover:bg-blue-50 flex justify-between items-center text-sm"
+                      onMouseDown={() => pickIngredient(i)}
+                    >
+                      <span className="font-medium">{i.name}</span>
+                      <span className="text-gray-400 text-xs ml-2">{formatStockQty(i.stock_qty, i.unit)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {selected && (
+                <p className="text-xs text-gray-500 mt-1">
+                  คงเหลือ {formatStockQty(selected.stock_qty, selected.unit)}
+                </p>
+              )}
             </div>
           )}
+
           <div className="grid grid-cols-3 gap-2">
             <button
               className={`btn text-sm ${type === 'receive' ? 'btn-primary' : 'btn-secondary'}`}
@@ -106,10 +142,9 @@ export function MovementModal({ ingredient: preSelected, ingredients = [], onClo
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
+
         <div className="p-5 border-t border-gray-200 flex justify-end gap-2">
-          <button className="btn-ghost" onClick={onClose}>
-            ยกเลิก
-          </button>
+          <button className="btn-ghost" onClick={onClose}>ยกเลิก</button>
           <button className="btn-primary" disabled={record.isPending} onClick={handleSave}>
             {record.isPending ? 'กำลังบันทึก…' : 'บันทึก'}
           </button>

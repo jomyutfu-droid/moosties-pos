@@ -16,7 +16,7 @@ export function useIngredientsFull() {
 
 export type IngredientInput = Pick<
   Ingredient,
-  'name' | 'unit' | 'pack_price' | 'pack_qty' | 'reorder_point' | 'is_active'
+  'name' | 'unit' | 'category' | 'pack_price' | 'pack_qty' | 'reorder_point' | 'is_active'
 > & { id?: string }
 
 export function useSaveIngredient() {
