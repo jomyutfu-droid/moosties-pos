@@ -30,6 +30,8 @@ export default function PosPage() {
     paid: number
     change: number
     createdAt: string
+    lines: typeof lines
+    discount: number
   } | null>(null)
 
   function handleSelectProduct(product: ProductWithRecipe) {
@@ -101,12 +103,15 @@ export default function PosPage() {
     const cashPayment = payments.find((p) => p.method === 'cash')
     const paidAmount = payments.reduce((s, p) => s + p.amount, 0)
 
+    // Feature 2: ส่ง lines และ discount ไปให้ ReceiptModal เพื่อพิมพ์ใบเสร็จ + สติกเกอร์
     setReceiptOrder({
       orderNo: `(ออฟไลน์) ${clientUuid.slice(0, 8)}`,
       total,
       paid: paidAmount,
       change: cashPayment ? round2(cashPayment.amount - total) : 0,
       createdAt: outboxOrder.created_at,
+      lines: [...lines], // snapshot ก่อน clear
+      discount,
     })
 
     clear()

@@ -22,6 +22,7 @@ export function MovementModal({ ingredient: preSelected, ingredients = [], onClo
 
   const [type, setType] = useState<StockMovementType>('receive')
   const [qty, setQty] = useState<number>(0)
+  const [pricePerUnit, setPricePerUnit] = useState<number>(0) // Feature 5: WAC
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
 
@@ -51,6 +52,7 @@ export function MovementModal({ ingredient: preSelected, ingredients = [], onClo
         qty_delta: delta,
         user_id: activeStaff?.id ?? null,
         note: note || null,
+        price_per_unit: type === 'receive' && pricePerUnit > 0 ? pricePerUnit : undefined,
       })
       onClose()
     } catch (err) {
@@ -136,6 +138,23 @@ export function MovementModal({ ingredient: preSelected, ingredients = [], onClo
               {type === 'receive' ? 'จะเพิ่มเข้าสต็อก' : 'จะตัดออกจากสต็อก'}
             </p>
           </div>
+
+          {/* Feature 5: ราคาซื้อเพื่อคำนวณ WAC */}
+          {type === 'receive' && (
+            <div>
+              <label className="label">
+                ราคาซื้อต่อหน่วย (฿)
+                <span className="ml-1 text-xs font-normal text-gray-400">ใช้คำนวณต้นทุนถัวเฉลี่ย</span>
+              </label>
+              <input
+                type="number"
+                className="input"
+                value={pricePerUnit || ''}
+                placeholder={ingredient ? `ปัจจุบัน ${ingredient.cost_per_unit.toFixed(2)}` : '0.00'}
+                onChange={(e) => setPricePerUnit(Number(e.target.value))}
+              />
+            </div>
+          )}
           <div>
             <label className="label">หมายเหตุ</label>
             <input className="input" value={note} onChange={(e) => setNote(e.target.value)} />

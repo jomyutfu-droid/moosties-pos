@@ -67,3 +67,26 @@ export function cartSubtotal(lines: CartLine[]): number {
 export function cartCogsTotal(lines: CartLine[]): number {
   return lines.reduce((sum, l) => sum + l.unitCogs * l.qty, 0)
 }
+
+/** Feature 7: sync สถานะตะกร้าไปยัง localStorage เพื่อให้หน้าจอลูกค้าอ่านได้ */
+const DISPLAY_KEY = 'moosties-display'
+
+useCartStore.subscribe((state) => {
+  try {
+    const payload = {
+      lines: state.lines.map((l) => ({
+        name: l.product.name,
+        qty: l.qty,
+        unitPrice: l.unitPrice,
+        options: l.selectedOptions.map((o) => o.name).join(', '),
+      })),
+      discount: state.discount,
+      subtotal: cartSubtotal(state.lines),
+      total: Math.max(0, cartSubtotal(state.lines) - state.discount),
+      updatedAt: Date.now(),
+    }
+    localStorage.setItem(DISPLAY_KEY, JSON.stringify(payload))
+  } catch {
+    // ไม่ทำให้แอปพัง ถ้า localStorage เต็ม/ไม่พร้อม
+  }
+})

@@ -60,6 +60,7 @@ export function useRecordStockMovement() {
       qty_delta: number
       user_id: string | null
       note: string | null
+      price_per_unit?: number // Feature 5: WAC — ส่งเมื่อ type='receive' เท่านั้น
     }) => {
       const { error } = await supabase.rpc('record_stock_movement', {
         p_ingredient_id: params.ingredient_id,
@@ -67,6 +68,7 @@ export function useRecordStockMovement() {
         p_qty_delta: round3(params.qty_delta),
         p_user_id: params.user_id,
         p_note: params.note,
+        p_price_per_unit: params.price_per_unit != null ? round2(params.price_per_unit) : null,
       })
       if (error) throw error
     },

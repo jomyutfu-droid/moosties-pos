@@ -1,28 +1,37 @@
 import type { ReactNode } from 'react'
-import { Navigate, useLocation } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { useSessionStore } from '@/store/session'
 import type { Role } from '@/types'
 
-/** ต้องล็อกอินด้วย Supabase Auth (เจ้าของ/ผู้จัดการ) ก่อนเข้าได้ */
+/**
+ * Feature 4: แสดง spinner ขณะ anonymous session กำลัง init
+ * เมื่อ authReady = true จะผ่านเสมอ (anonymous users มี authUserId อยู่แล้ว)
+ */
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const authUserId = useSessionStore((s) => s.authUserId)
-  const location = useLocation()
-  if (!authUserId) {
-    return <Navigate to="/login" replace state={{ from: location }} />
+  const authReady = useSessionStore((s) => s.authReady)
+
+  if (!authReady) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-4 border-brand-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-gray-500 text-sm">กำลังโหลด…</p>
+        </div>
+      </div>
+    )
   }
+
   return <>{children}</>
 }
 
 /** ต้องเลือกพนักงาน (PIN) ก่อนเข้าหน้าขาย/ปฏิบัติงาน */
 export function RequireStaff({ children }: { children: ReactNode }) {
-  const authUserId = useSessionStore((s) => s.authUserId)
   const activeStaff = useSessionStore((s) => s.activeStaff)
-  if (!authUserId) return <Navigate to="/login" replace />
   if (!activeStaff) return <Navigate to="/pin" replace />
   return <>{children}</>
 }
 
-/** จำกัดสิทธิ์ตาม role ของพนักงานที่ active (สเปกหัวข้อ 3) */
+/** จำกัดสิทธิ์ตาม role ของพนักงานที่ active */
 export function RequireRole({ roles, children }: { roles: Role[]; children: ReactNode }) {
   const activeStaff = useSessionStore((s) => s.activeStaff)
   if (!activeStaff) return <Navigate to="/pin" replace />

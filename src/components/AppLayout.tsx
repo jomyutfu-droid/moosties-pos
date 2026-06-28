@@ -3,12 +3,15 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/db'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useSessionStore } from '@/store/session'
-import { signOut } from '@/hooks/useAuth'
 
-const navItems: { to: string; label: string; roles?: Array<'owner' | 'manager' | 'staff'> }[] = [
+type NavRole = 'owner' | 'manager' | 'staff'
+
+const navItems: { to: string; label: string; roles?: NavRole[] }[] = [
   { to: '/', label: 'หน้าขาย' },
   { to: '/menu', label: 'เมนู/สูตร', roles: ['owner', 'manager'] },
   { to: '/inventory', label: 'สต็อก', roles: ['owner', 'manager', 'staff'] },
+  { to: '/queue', label: 'คิวออเดอร์', roles: ['owner', 'manager', 'staff'] }, // Feature 6
+  { to: '/time', label: 'เวลาพนักงาน', roles: ['owner', 'manager', 'staff'] }, // Feature 8
   { to: '/reports', label: 'รายงาน', roles: ['owner', 'manager'] },
   { to: '/users', label: 'ผู้ใช้', roles: ['owner'] },
   { to: '/settings', label: 'ตั้งค่า', roles: ['owner'] },
@@ -18,7 +21,6 @@ export function AppLayout() {
   const online = useOnlineStatus()
   const activeStaff = useSessionStore((s) => s.activeStaff)
   const clearActiveStaff = useSessionStore((s) => s.clearActiveStaff)
-  const logout = useSessionStore((s) => s.logout)
   const navigate = useNavigate()
 
   const pendingCount =
@@ -29,7 +31,7 @@ export function AppLayout() {
     ) ?? 0
 
   const visibleItems = navItems.filter(
-    (item) => !item.roles || (activeStaff && item.roles.includes(activeStaff.role)),
+    (item) => !item.roles || (activeStaff && item.roles.includes(activeStaff.role as NavRole)),
   )
 
   function handleSwitchStaff() {
@@ -37,10 +39,9 @@ export function AppLayout() {
     navigate('/pin')
   }
 
-  async function handleLogout() {
-    await signOut()
-    logout()
-    navigate('/login')
+  /** Feature 7: เปิดหน้าจอลูกค้าในหน้าต่างใหม่ */
+  function handleOpenDisplay() {
+    window.open('/display', 'customer-display', 'width=800,height=600,menubar=no,toolbar=no')
   }
 
   return (
@@ -52,6 +53,7 @@ export function AppLayout() {
             <NavLink
               key={item.to}
               to={item.to}
+              end={item.to === '/'}
               className={({ isActive }) =>
                 `whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium ${
                   isActive ? 'bg-brand-600 text-white' : 'text-gray-700 hover:bg-gray-100'
@@ -82,8 +84,8 @@ export function AppLayout() {
             <button onClick={handleSwitchStaff} className="btn-secondary text-xs flex-1">
               สลับพนักงาน
             </button>
-            <button onClick={handleLogout} className="btn-ghost text-xs">
-              ออกจากระบบ
+            <button onClick={handleOpenDisplay} className="btn-ghost text-xs" title="เปิดจอลูกค้า">
+              📺
             </button>
           </div>
         </div>

@@ -3,9 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { AppLayout } from '@/components/AppLayout'
 import { RequireAuth, RequireStaff, RequireRole } from '@/components/guards'
 import { useAuthListener } from '@/hooks/useAuth'
-import { refreshReferenceData } from '@/lib/sync'
-import { startAutoSync } from '@/lib/sync'
-import LoginPage from '@/pages/LoginPage'
+import { refreshReferenceData, startAutoSync } from '@/lib/sync'
 import PinPage from '@/pages/PinPage'
 import PosPage from '@/pages/PosPage'
 import MenuPage from '@/pages/MenuPage'
@@ -13,6 +11,9 @@ import InventoryPage from '@/pages/InventoryPage'
 import ReportsPage from '@/pages/ReportsPage'
 import UsersPage from '@/pages/UsersPage'
 import SettingsPage from '@/pages/SettingsPage'
+import QueuePage from '@/pages/QueuePage'
+import TimePage from '@/pages/TimePage'
+import CustomerDisplayPage from '@/pages/CustomerDisplayPage'
 
 function App() {
   useAuthListener()
@@ -25,7 +26,7 @@ function App() {
 
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      {/* Feature 4: ลบ /login ออก — ใช้ anonymous auth แทน */}
       <Route
         path="/pin"
         element={
@@ -34,6 +35,11 @@ function App() {
           </RequireAuth>
         }
       />
+
+      {/* Feature 7: หน้าจอลูกค้า — ไม่ต้อง auth */}
+      <Route path="/display" element={<CustomerDisplayPage />} />
+
+      {/* หน้าหลัก — ต้องผ่าน RequireAuth (anonymous OK) + RequireStaff */}
       <Route
         element={
           <RequireAuth>
@@ -77,7 +83,12 @@ function App() {
             </RequireRole>
           }
         />
+        {/* Feature 6: คิวออเดอร์ */}
+        <Route path="/queue" element={<QueuePage />} />
+        {/* Feature 8: บันทึกเวลาพนักงาน */}
+        <Route path="/time" element={<TimePage />} />
       </Route>
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

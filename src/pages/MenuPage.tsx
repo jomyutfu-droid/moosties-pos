@@ -1,20 +1,27 @@
 import { useState } from 'react'
-import { useCategories, useProducts, useSaveCategory } from '@/hooks/useMenu'
+import { useCategories, useProducts, useSaveCategory, useToggleProductActive } from '@/hooks/useMenu'
+import { useSessionStore } from '@/store/session'
 import { marginPercent, unitProfit } from '@/domain/cogs'
 import { formatBahtSymbol } from '@/lib/money'
 import { ProductEditor } from '@/components/ProductEditor'
+import type { Product } from '@/types'
 
 export default function MenuPage() {
   const { data: categories } = useCategories()
   const { data: products, isLoading } = useProducts()
   const saveCategory = useSaveCategory()
+  const toggleActive = useToggleProductActive()
+  const activeStaff = useSessionStore((s) => s.activeStaff)
+  const isOwnerOrManager = activeStaff?.role === 'owner' || activeStaff?.role === 'manager'
+
   const [editingProductId, setEditingProductId] = useState<string | null | undefined>(undefined)
   const [newCategory, setNewCategory] = useState('')
+  const [showInactive, setShowInactive] = useState(false)
 
-  const activeProducts = (products ?? []).filter((p) => p.is_active)
+  const visibleProducts = (products ?? []).filter((p) => showInactive || p.is_active)
 
   function productsInCategory(categoryId: string | null) {
-    return activeProducts.filter((p) => p.category_id === categoryId)
+    return visibleProducts.filter((p) => p.category_id === categoryId)
   }
 
   async function handleAddCategory() {
@@ -31,9 +38,22 @@ export default function MenuPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-800">เมนู / สูตร (Recipe Card)</h1>
-        <button className="btn-primary" onClick={() => setEditingProductId(null)}>
-          + เพิ่มเมนู
-        </button>
+        <div className="flex gap-2 items-center">
+          {isOwnerOrManager && (
+            <label className="flex items-center gap-1 text-sm text-gray-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+                className="rounded"
+              />
+              แสดงที่ปิดใช้งาน
+            </label>
+          )}
+          <button className="btn-primary" onClick={() => setEditingProductId(null)}>
+            + เพิ่มเมนู
+          </button>
+        </div>
       </div>
 
       <div className="card p-3 flex gap-2 items-center">
@@ -42,6 +62,7 @@ export default function MenuPage() {
           placeholder="เพิ่มหมวดหมู่ใหม่"
           value={newCategory}
           onChange={(e) => setNewCategory(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
         />
         <button className="btn-secondary" onClick={handleAddCategory}>
           + หมวด
@@ -58,7 +79,13 @@ export default function MenuPage() {
             <h2 className="font-semibold text-gray-700 mb-2">{cat.name}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {items.map((p) => (
-                <ProductCard key={p.id} product={p} onEdit={() => setEditingProductId(p.id)} />
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  canToggle={isOwnerOrManager}
+                  onEdit={() => setEditingProductId(p.id)}
+                  onToggle={() => toggleActive.mutate({ id: p.id, is_active: !p.is_active })}
+                />
               ))}
             </div>
           </section>
@@ -70,7 +97,13 @@ export default function MenuPage() {
           <h2 className="font-semibold text-gray-700 mb-2">ไม่มีหมวด</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {productsInCategory(null).map((p) => (
-              <ProductCard key={p.id} product={p} onEdit={() => setEditingProductId(p.id)} />
+              <ProductCard
+                key={p.id}
+                product={p}
+                canToggle={isOwnerOrManager}
+                onEdit={() => setEditingProductId(p.id)}
+                onToggle={() => toggleActive.mutate({ id: p.id, is_active: !p.is_active })}
+              />
             ))}
           </div>
         </section>
@@ -85,21 +118,35 @@ export default function MenuPage() {
 
 function ProductCard({
   product,
+  canToggle,
   onEdit,
+  onToggle,
 }: {
-  product: { id: string; name: string; price: number; cost_cached: number; sku: string | null }
+  product: Product
+  canToggle: boolean
   onEdit: () => void
+  onToggle: () => void
 }) {
   const profit = unitProfit(product.price, product.cost_cached)
   const margin = marginPercent(product.price, product.cost_cached)
   return (
-    <button onClick={onEdit} className="card p-4 text-left hover:border-brand-500 hover:shadow">
-      <div className="font-semibold">{product.name}</div>
-      <div className="text-sm text-gray-500 mt-1">ราคา {formatBahtSymbol(product.price)}</div>
-      <div className="text-sm text-gray-500">ต้นทุน {formatBahtSymbol(product.cost_cached)}</div>
-      <div className="text-sm mt-1">
-        กำไร <span className="font-medium text-brand-700">{formatBahtSymbol(profit)}</span> ({margin}%)
-      </div>
-    </button>
+    <div className={`card p-4 relative ${!product.is_active ? 'opacity-50' : ''}`}>
+      <button onClick={onEdit} className="w-full text-left hover:opacity-80 transition-opacity">
+        <div className="font-semibold">{product.name}</div>
+        <div className="text-sm text-gray-500 mt-1">ราคา {formatBahtSymbol(product.price)}</div>
+        <div className="text-sm text-gray-500">ต้นทุน {formatBahtSymbol(product.cost_cached)}</div>
+        <div className="text-sm mt-1">
+          กำไร <span className="font-medium text-brand-700">{formatBahtSymbol(profit)}</span> ({margin}%)
+        </div>
+      </button>
+      {canToggle && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggle() }}
+          className={`mt-2 w-full btn text-xs ${product.is_active ? 'btn-secondary' : 'btn-primary'}`}
+        >
+          {product.is_active ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}
+        </button>
+      )}
+    </div>
   )
 }

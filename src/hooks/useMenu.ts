@@ -102,6 +102,21 @@ export function useDeleteProduct() {
   })
 }
 
+/** Feature 1: สลับ active/inactive สำหรับ owner/manager */
+export function useToggleProductActive() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const { error } = await supabase.from('products').update({ is_active }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['products'] })
+      qc.invalidateQueries({ queryKey: ['pos-catalog'] })
+    },
+  })
+}
+
 export function useSaveCategory() {
   const qc = useQueryClient()
   return useMutation({
