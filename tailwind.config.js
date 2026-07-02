@@ -18,6 +18,7 @@ export default {
           700: '#15803d',
           800: '#166534',
           900: '#14532d',
+          950: '#123524', // primary dark text (from design)
         },
       },
     },
