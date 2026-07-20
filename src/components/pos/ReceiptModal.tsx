@@ -100,9 +100,9 @@ function buildPrintHTML(order: ReceiptInfo): string {
   return `<!DOCTYPE html><html lang="th"><head>
     <meta charset="UTF-8"/>
     <title>ใบเสร็จ ${order.orderNo}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet"/>
     <style>
-      * { box-sizing: border-box; margin: 0; padding: 0; color: #000; }
+      * { box-sizing: border-box; margin: 0; padding: 0; color: #000 !important; }
       body { font-family: 'Sarabun', sans-serif; font-size: 14px; font-weight: 600; }
 
       /* ── ใบเสร็จ ── */
@@ -134,6 +134,7 @@ function buildPrintHTML(order: ReceiptInfo): string {
 
       @page { margin: 0; }
       @media print {
+        * { color: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .receipt { page-break-after: always; }
         .sticker  { page-break-after: always; }
       }
