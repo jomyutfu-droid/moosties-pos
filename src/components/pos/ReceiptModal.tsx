@@ -16,19 +16,22 @@ interface ReceiptInfo {
   discount?: number
 }
 
-/** สร้าง HTML ใบเสร็จ + สติกเกอร์สำหรับพิมพ์ผ่าน window.open */
+/** สร้าง HTML ใบเสร็จ + สติกเกอร์สำหรับพิมพ์ผ่าน window.open (80mm thermal) */
 function buildPrintHTML(order: ReceiptInfo): string {
   const dateStr = new Date(order.createdAt).toLocaleString('th-TH')
 
-  // --- ใบเสร็จ ---
+  // --- ใบเสร็จ: 3 คอลัมน์ (ชื่อ | จำนวน | รวม) ---
   const lineRows = (order.lines ?? [])
     .map(
       (l) =>
         `<tr>
-          <td>${l.product.name}${l.selectedOptions.length ? '<br><small>' + l.selectedOptions.map((o) => o.name).join(', ') + '</small>' : ''}</td>
-          <td style="text-align:right">${l.qty}</td>
-          <td style="text-align:right">${l.unitPrice.toFixed(2)}</td>
-          <td style="text-align:right">${(l.unitPrice * l.qty).toFixed(2)}</td>
+          <td class="item-name">${l.product.name}${
+            l.selectedOptions.length
+              ? '<br><small>' + l.selectedOptions.map((o) => o.name).join(', ') + '</small>'
+              : ''
+          }</td>
+          <td class="r">x${l.qty}</td>
+          <td class="r">${(l.unitPrice * l.qty).toFixed(2)}</td>
         </tr>`,
     )
     .join('')
@@ -37,83 +40,113 @@ function buildPrintHTML(order: ReceiptInfo): string {
 
   const receiptSection = `
     <div class="receipt">
-      <h2>MOOSTTIES</h2>
-      <p class="sub">${dateStr}</p>
-      <p class="sub">เลขบิล: ${order.orderNo}</p>
-      <hr/>
+      <div class="store">MOOSTTIES</div>
+      <div class="meta">${dateStr}</div>
+      <div class="meta">บิล: ${order.orderNo}</div>
+      <div class="dash"></div>
       <table>
-        <thead><tr><th>รายการ</th><th>จำนวน</th><th>ราคา</th><th>รวม</th></tr></thead>
+        <thead><tr><th>รายการ</th><th class="r">จำนวน</th><th class="r">รวม</th></tr></thead>
         <tbody>${lineRows}</tbody>
       </table>
-      <hr/>
+      <div class="dash"></div>
       <table class="totals">
-        <tr><td>ยอดรวม</td><td>${subtotal.toFixed(2)}</td></tr>
-        ${order.discount ? `<tr><td>ส่วนลด</td><td>-${(order.discount ?? 0).toFixed(2)}</td></tr>` : ''}
-        <tr class="bold"><td>ยอดสุทธิ</td><td>${order.total.toFixed(2)}</td></tr>
-        <tr><td>รับเงิน</td><td>${order.paid.toFixed(2)}</td></tr>
-        ${order.change > 0 ? `<tr><td>เงินทอน</td><td>${order.change.toFixed(2)}</td></tr>` : ''}
+        <tr><td>ยอดรวม</td><td class="r">${subtotal.toFixed(2)}</td></tr>
+        ${order.discount ? `<tr><td>ส่วนลด</td><td class="r">-${(order.discount ?? 0).toFixed(2)}</td></tr>` : ''}
+        <tr class="grand"><td>ยอดสุทธิ</td><td class="r">${order.total.toFixed(2)}</td></tr>
+        <tr><td>รับเงิน</td><td class="r">${order.paid.toFixed(2)}</td></tr>
+        ${order.change > 0 ? `<tr><td>เงินทอน</td><td class="r">${order.change.toFixed(2)}</td></tr>` : ''}
       </table>
-      <hr/>
-      <p class="sub center">ขอบคุณที่ใช้บริการ</p>
+      <div class="dash"></div>
+      <div class="thank">ขอบคุณที่ใช้บริการ 🙏</div>
     </div>`
 
-  // --- สติกเกอร์ต่อถ้วย ---
-  const stickers = (order.lines ?? [])
-    .flatMap((l) => {
-      // กรองวัตถุดิบ — ไม่รวม category บรรจุภัณฑ์
-      const recipeItems = (l.product.recipe_items ?? []).filter(
-        (ri) => ri.ingredient?.category?.trim() !== 'บรรจุภัณฑ์',
-      )
-      // ตัวเลือกที่เลือก
-      const optLabel = l.selectedOptions.map((o) => o.name).join(', ')
-      // สร้าง 1 สติกเกอร์ต่อ qty
-      return Array.from({ length: l.qty }, (_, i) => {
-        const ingredientList = recipeItems.length
-          ? recipeItems.map((ri) => `<span>${ri.ingredient.name} ${ri.qty} ${ri.ingredient.unit}</span>`).join(' · ')
-          : '<span class="muted">ไม่มีสูตรวัตถุดิบ</span>'
-        return `
-          <div class="sticker">
-            <div class="sticker-name">${l.product.name}${l.qty > 1 ? ` (${i + 1}/${l.qty})` : ''}</div>
-            ${optLabel ? `<div class="sticker-opt">${optLabel}</div>` : ''}
-            <div class="sticker-ing">${ingredientList}</div>
-          </div>`
-      })
+  // --- สติกเกอร์: 1 หน้าต่อแก้ว — ตัดกระดาษหลังทุกหน้า ---
+  const stickerPages = (order.lines ?? []).flatMap((l) => {
+    const recipeItems = (l.product.recipe_items ?? []).filter(
+      (ri) => ri.ingredient?.category?.trim() !== 'บรรจุภัณฑ์',
+    )
+    const optLabel = l.selectedOptions.map((o) => o.name).join(', ')
+
+    return Array.from({ length: l.qty }, (_, i) => {
+      const ingRows = recipeItems.length
+        ? recipeItems
+            .map(
+              (ri) =>
+                `<tr>
+                  <td>${ri.ingredient.name}${ri.note ? `<br><small>${ri.note}</small>` : ''}</td>
+                  <td class="r">${ri.qty}</td>
+                  <td class="r unit">${ri.ingredient.unit}</td>
+                </tr>`,
+            )
+            .join('')
+        : `<tr><td colspan="3" class="muted">ไม่มีสูตรวัตถุดิบ</td></tr>`
+
+      return `
+        <div class="sticker">
+          <div class="shead">
+            <span class="sname">${l.product.name}${l.qty > 1 ? ` (${i + 1}/${l.qty})` : ''}</span>
+            <span class="sno">#${order.orderNo}</span>
+          </div>
+          ${optLabel ? `<div class="sopt">${optLabel}</div>` : ''}
+          <div class="dash"></div>
+          <table class="ing">
+            <thead><tr><th>วัตถุดิบ</th><th class="r">ปริมาณ</th><th class="r">หน่วย</th></tr></thead>
+            <tbody>${ingRows}</tbody>
+          </table>
+        </div>`
     })
-    .join('')
+  })
 
   return `<!DOCTYPE html><html lang="th"><head>
     <meta charset="UTF-8"/>
     <title>ใบเสร็จ ${order.orderNo}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet"/>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { font-family: 'Sarabun', sans-serif; font-size: 12px; color: #111; }
-      .receipt { width: 72mm; margin: 0 auto; padding: 8px 4px; }
-      .receipt h2 { text-align: center; font-size: 16px; margin-bottom: 4px; }
-      .receipt .sub { text-align: center; color: #555; margin-bottom: 2px; }
-      .receipt .center { text-align: center; }
-      .receipt table { width: 100%; border-collapse: collapse; margin: 4px 0; }
-      .receipt table th { text-align: left; padding: 2px; border-bottom: 1px solid #ccc; }
-      .receipt table td { padding: 2px; vertical-align: top; }
-      .receipt table small { color: #777; }
-      .receipt .totals td:last-child { text-align: right; }
-      .receipt .bold td { font-weight: 700; }
-      hr { border: none; border-top: 1px dashed #aaa; margin: 6px 0; }
-      /* สติกเกอร์ */
-      .stickers { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; }
-      .sticker { border: 1px solid #ddd; border-radius: 6px; padding: 6px 8px; width: 72mm; break-inside: avoid; }
-      .sticker-name { font-weight: 700; font-size: 14px; }
-      .sticker-opt { color: #555; font-size: 11px; margin-top: 2px; }
-      .sticker-ing { font-size: 11px; color: #333; margin-top: 4px; line-height: 1.6; }
-      .muted { color: #aaa; }
+      body { font-family: 'Sarabun', sans-serif; font-size: 14px; color: #111; }
+
+      /* ── ใบเสร็จ ── */
+      .receipt { width: 76mm; padding: 4px 2mm 2px; }
+      .store   { text-align: center; font-size: 20px; font-weight: 700; margin-bottom: 2px; }
+      .meta    { text-align: center; font-size: 12px; color: #555; line-height: 1.4; }
+      .dash    { border-top: 1px dashed #999; margin: 5px 0; }
+      table    { width: 100%; border-collapse: collapse; }
+      th       { text-align: left; font-size: 12px; padding: 2px 0; border-bottom: 1px solid #bbb; font-weight: 600; }
+      td       { padding: 3px 0; vertical-align: top; font-size: 14px; }
+      small    { font-size: 11px; color: #666; }
+      .item-name { padding-right: 3px; }
+      .r       { text-align: right; white-space: nowrap; padding-left: 4px; }
+      .totals td { font-size: 14px; }
+      .totals .r { min-width: 16mm; }
+      .grand td  { font-size: 18px; font-weight: 700; padding-top: 3px; }
+      .thank   { text-align: center; font-size: 13px; color: #555; padding: 2px 0; }
+
+      /* ── สติกเกอร์ ── */
+      .sticker { width: 76mm; padding: 4px 2mm 2px; }
+      .shead   { display: flex; justify-content: space-between; align-items: baseline; }
+      .sname   { font-size: 18px; font-weight: 700; }
+      .sno     { font-size: 12px; color: #777; padding-left: 4px; white-space: nowrap; }
+      .sopt    { font-size: 12px; color: #444; margin-top: 2px; }
+      .ing th  { font-size: 11px; }
+      .ing td  { font-size: 14px; }
+      .unit    { font-size: 12px; color: #555; }
+      .muted   { color: #aaa; font-size: 12px; text-align: center; padding: 4px 0; }
+
       @media print {
-        .no-print { display: none !important; }
-        .page-break { page-break-after: always; }
+        .receipt { page-break-after: always; }
+        .sticker  { page-break-after: always; }
       }
     </style>
   </head><body>
     ${receiptSection}
-    ${stickers ? `<div class="page-break"></div><div class="stickers">${stickers}</div>` : ''}
-    <script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }</script>
+    ${stickerPages.join('')}
+    <script>
+      // รอ font โหลดก่อน print
+      document.fonts.ready.then(() => {
+        window.print()
+        window.onafterprint = () => window.close()
+      })
+    </script>
   </body></html>`
 }
 
