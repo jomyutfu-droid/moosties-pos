@@ -102,36 +102,37 @@ function buildPrintHTML(order: ReceiptInfo): string {
     <title>ใบเสร็จ ${order.orderNo}</title>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet"/>
     <style>
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { font-family: 'Sarabun', sans-serif; font-size: 14px; color: #111; }
+      * { box-sizing: border-box; margin: 0; padding: 0; color: #000; }
+      body { font-family: 'Sarabun', sans-serif; font-size: 14px; font-weight: 600; }
 
       /* ── ใบเสร็จ ── */
       .receipt { width: 76mm; padding: 4px 2mm 2px; }
-      .store   { text-align: center; font-size: 20px; font-weight: 700; margin-bottom: 2px; }
-      .meta    { text-align: center; font-size: 12px; color: #555; line-height: 1.4; }
-      .dash    { border-top: 1px dashed #999; margin: 5px 0; }
+      .store   { text-align: center; font-size: 20px; font-weight: 800; margin-bottom: 2px; }
+      .meta    { text-align: center; font-size: 12px; font-weight: 600; line-height: 1.4; }
+      .dash    { border-top: 1px dashed #000; margin: 5px 0; }
       table    { width: 100%; border-collapse: collapse; }
-      th       { text-align: left; font-size: 12px; padding: 2px 0; border-bottom: 1px solid #bbb; font-weight: 600; }
-      td       { padding: 3px 0; vertical-align: top; font-size: 14px; }
-      small    { font-size: 11px; color: #666; }
+      th       { text-align: left; font-size: 12px; padding: 2px 0; border-bottom: 1px solid #000; font-weight: 700; }
+      td       { padding: 3px 0; vertical-align: top; font-size: 14px; font-weight: 600; }
+      small    { font-size: 11px; font-weight: 600; }
       .item-name { padding-right: 3px; }
       .r       { text-align: right; white-space: nowrap; padding-left: 4px; }
       .totals td { font-size: 14px; }
       .totals .r { min-width: 16mm; }
-      .grand td  { font-size: 18px; font-weight: 700; padding-top: 3px; }
-      .thank   { text-align: center; font-size: 13px; color: #555; padding: 2px 0; }
+      .grand td  { font-size: 18px; font-weight: 800; padding-top: 3px; }
+      .thank   { text-align: center; font-size: 13px; font-weight: 600; padding: 2px 0; }
 
       /* ── สติกเกอร์ ── */
       .sticker { width: 76mm; padding: 4px 2mm 2px; }
       .shead   { display: flex; justify-content: space-between; align-items: baseline; }
-      .sname   { font-size: 18px; font-weight: 700; }
-      .sno     { font-size: 12px; color: #777; padding-left: 4px; white-space: nowrap; }
-      .sopt    { font-size: 12px; color: #444; margin-top: 2px; }
+      .sname   { font-size: 18px; font-weight: 800; }
+      .sno     { font-size: 12px; font-weight: 700; padding-left: 4px; white-space: nowrap; }
+      .sopt    { font-size: 12px; font-weight: 700; margin-top: 2px; }
       .ing th  { font-size: 11px; }
       .ing td  { font-size: 14px; }
-      .unit    { font-size: 12px; color: #555; }
-      .muted   { color: #aaa; font-size: 12px; text-align: center; padding: 4px 0; }
+      .unit    { font-size: 12px; font-weight: 600; }
+      .muted   { font-size: 12px; text-align: center; padding: 4px 0; }
 
+      @page { margin: 0; }
       @media print {
         .receipt { page-break-after: always; }
         .sticker  { page-break-after: always; }
