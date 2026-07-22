@@ -105,7 +105,7 @@ export default function PosPage() {
 
     // Feature 2: ส่ง lines และ discount ไปให้ ReceiptModal เพื่อพิมพ์ใบเสร็จ + สติกเกอร์
     setReceiptOrder({
-      orderNo: `(ออฟไลน์) ${clientUuid.slice(0, 8)}`,
+      orderNo: clientUuid.slice(0, 8),
       total,
       paid: paidAmount,
       change: cashPayment ? round2(cashPayment.amount - total) : 0,

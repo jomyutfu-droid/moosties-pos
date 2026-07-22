@@ -43,7 +43,6 @@ function buildPrintHTML(order: ReceiptInfo): string {
     <div class="receipt">
       <div class="store">MOOSTTIES</div>
       <div class="meta">${dateStr}</div>
-      <div class="meta">บิล: ${order.orderNo}</div>
       <div class="dash"></div>
       <table>
         <thead><tr><th>รายการ</th><th class="r">จำนวน</th><th class="r">ราคา</th><th class="r">รวม</th></tr></thead>
@@ -86,7 +85,6 @@ function buildPrintHTML(order: ReceiptInfo): string {
         <div class="sticker">
           <div class="shead">
             <span class="sname">${l.product.name}${l.qty > 1 ? ` (${i + 1}/${l.qty})` : ''}</span>
-            <span class="sno">#${order.orderNo}</span>
           </div>
           ${optLabel ? `<div class="sopt">${optLabel}</div>` : ''}
           <div class="dash"></div>
