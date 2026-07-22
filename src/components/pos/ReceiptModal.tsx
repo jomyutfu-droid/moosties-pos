@@ -142,13 +142,8 @@ function buildPrintHTML(order: ReceiptInfo): string {
     ${receiptSection}
     ${stickerPages.join('')}
     <script>
-      window.onafterprint = () => window.close()
-      window.addEventListener('afterprint', () => window.close())
-      // รอ 400ms ให้ font render แล้ว print — ปิดอัตโนมัติ 2 วินาทีหลัง print
-      setTimeout(function() {
-        window.print()
-        setTimeout(() => window.close(), 2000)
-      }, 400)
+      // รอ 400ms ให้ font render แล้ว print
+      setTimeout(function() { window.print() }, 400)
     </script>
   </body></html>`
 }
@@ -160,6 +155,8 @@ export function ReceiptModal({ order, onClose }: { order: ReceiptInfo; onClose: 
     if (!win) return
     win.document.write(html)
     win.document.close()
+    // ปิดจาก parent — reliable กว่าให้ popup ปิดตัวเอง
+    setTimeout(() => { try { win.close() } catch { /* ignore */ } }, 2500)
   }
 
   return (
