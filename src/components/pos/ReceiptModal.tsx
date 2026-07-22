@@ -142,10 +142,12 @@ function buildPrintHTML(order: ReceiptInfo): string {
     ${receiptSection}
     ${stickerPages.join('')}
     <script>
-      // รอ font โหลดก่อน print
+      // assign onafterprint ก่อน print เสมอ (สำคัญสำหรับ --kiosk-printing)
+      window.onafterprint = () => window.close()
       document.fonts.ready.then(() => {
         window.print()
-        window.onafterprint = () => window.close()
+        // fallback: ถ้า onafterprint ไม่ fire (บาง browser) ให้ปิดเองใน 4 วินาที
+        setTimeout(() => window.close(), 4000)
       })
     </script>
   </body></html>`
