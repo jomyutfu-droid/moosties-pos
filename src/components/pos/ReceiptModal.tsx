@@ -31,6 +31,7 @@ function buildPrintHTML(order: ReceiptInfo): string {
               : ''
           }</td>
           <td class="r">x${l.qty}</td>
+          <td class="r">${l.unitPrice.toFixed(2)}</td>
           <td class="r">${(l.unitPrice * l.qty).toFixed(2)}</td>
         </tr>`,
     )
@@ -45,7 +46,7 @@ function buildPrintHTML(order: ReceiptInfo): string {
       <div class="meta">บิล: ${order.orderNo}</div>
       <div class="dash"></div>
       <table>
-        <thead><tr><th>รายการ</th><th class="r">จำนวน</th><th class="r">รวม</th></tr></thead>
+        <thead><tr><th>รายการ</th><th class="r">จำนวน</th><th class="r">ราคา</th><th class="r">รวม</th></tr></thead>
         <tbody>${lineRows}</tbody>
       </table>
       <div class="dash"></div>
