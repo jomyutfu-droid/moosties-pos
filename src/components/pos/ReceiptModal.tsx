@@ -17,10 +17,13 @@ interface ReceiptInfo {
 }
 
 /** สร้าง HTML ใบเสร็จ + สติกเกอร์สำหรับพิมพ์ผ่าน window.open (80mm thermal) */
+/** แสดงตัวเลขโดยตัดทศนิยมที่ไม่จำเป็น: 60.00 → 60, 60.50 → 60.50 */
+const b = (n: number) => (n % 1 === 0 ? String(Math.round(n)) : n.toFixed(2))
+
 function buildPrintHTML(order: ReceiptInfo): string {
   const dateStr = new Date(order.createdAt).toLocaleString('th-TH')
 
-  // --- ใบเสร็จ: 3 คอลัมน์ (ชื่อ | จำนวน | รวม) ---
+  // --- ใบเสร็จ: 4 คอลัมน์ (ชื่อ | จำนวน | ราคา | รวม) ---
   const lineRows = (order.lines ?? [])
     .map(
       (l) =>
@@ -31,8 +34,8 @@ function buildPrintHTML(order: ReceiptInfo): string {
               : ''
           }</td>
           <td class="r">x${l.qty}</td>
-          <td class="r">${l.unitPrice.toFixed(2)}</td>
-          <td class="r">${(l.unitPrice * l.qty).toFixed(2)}</td>
+          <td class="r">${b(l.unitPrice)}</td>
+          <td class="r">${b(l.unitPrice * l.qty)}</td>
         </tr>`,
     )
     .join('')
@@ -50,11 +53,11 @@ function buildPrintHTML(order: ReceiptInfo): string {
       </table>
       <div class="dash"></div>
       <table class="totals">
-        <tr><td>ยอดรวม</td><td class="r">${subtotal.toFixed(2)}</td></tr>
-        ${order.discount ? `<tr><td>ส่วนลด</td><td class="r">-${(order.discount ?? 0).toFixed(2)}</td></tr>` : ''}
-        <tr class="grand"><td>ยอดสุทธิ</td><td class="r">${order.total.toFixed(2)}</td></tr>
-        <tr><td>รับเงิน</td><td class="r">${order.paid.toFixed(2)}</td></tr>
-        ${order.change > 0 ? `<tr><td>เงินทอน</td><td class="r">${order.change.toFixed(2)}</td></tr>` : ''}
+        <tr><td>ยอดรวม</td><td class="r">${b(subtotal)}</td></tr>
+        ${order.discount ? `<tr><td>ส่วนลด</td><td class="r">-${b(order.discount ?? 0)}</td></tr>` : ''}
+        <tr class="grand"><td>ยอดสุทธิ</td><td class="r">${b(order.total)}</td></tr>
+        <tr><td>รับเงิน</td><td class="r">${b(order.paid)}</td></tr>
+        ${order.change > 0 ? `<tr><td>เงินทอน</td><td class="r">${b(order.change)}</td></tr>` : ''}
       </table>
       <div class="dash"></div>
       <div class="thank">ขอบคุณที่ใช้บริการ 🙏</div>
