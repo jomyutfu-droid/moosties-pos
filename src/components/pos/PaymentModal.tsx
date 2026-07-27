@@ -70,10 +70,16 @@ export function PaymentModal({
             <div className="space-y-2">
               <label className="label">รับเงินมา (บาท)</label>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 className="input text-lg"
-                value={cashReceived}
-                onChange={(e) => setCashReceived(Number(e.target.value))}
+                value={cashReceived === 0 ? '' : cashReceived}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/[^0-9]/g, '')
+                  setCashReceived(digits === '' ? 0 : parseInt(digits, 10))
+                }}
               />
               <div className="flex justify-between text-sm">
                 <span>เงินทอน</span>
