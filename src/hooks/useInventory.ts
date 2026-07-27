@@ -1,7 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { refreshReferenceData } from '@/lib/sync'
 import { round3, round2 } from '@/lib/money'
 import type { Ingredient, StockMovement, StockMovementType } from '@/types'
+
+/** หน้าขายอ่านวัตถุดิบ/ต้นทุนจากแคช Dexie — ต้อง refresh หลังแก้สต็อกหรือราคาวัตถุดิบ */
+function syncCatalogCache() {
+  refreshReferenceData().catch(() => undefined)
+}
 
 export function useIngredientsFull() {
   return useQuery({
@@ -35,6 +41,7 @@ export function useSaveIngredient() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ingredients-full'] })
       qc.invalidateQueries({ queryKey: ['ingredients'] })
+      syncCatalogCache()
     },
   })
 }
@@ -46,7 +53,10 @@ export function useDeactivateIngredient() {
       const { error } = await supabase.from('ingredients').update({ is_active: false }).eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['ingredients-full'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ingredients-full'] })
+      syncCatalogCache()
+    },
   })
 }
 
@@ -76,6 +86,7 @@ export function useRecordStockMovement() {
       qc.invalidateQueries({ queryKey: ['ingredients-full'] })
       qc.invalidateQueries({ queryKey: ['ingredients'] })
       qc.invalidateQueries({ queryKey: ['stock-movements'] })
+      syncCatalogCache()
     },
   })
 }

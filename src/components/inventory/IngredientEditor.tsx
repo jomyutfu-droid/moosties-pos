@@ -34,7 +34,8 @@ export function IngredientEditor({
         pack_price: packPrice,
         pack_qty: packQty,
         reorder_point: reorderPoint,
-        is_active: true,
+        // คงสถานะเดิมไว้ — แก้ไขวัตถุดิบที่ปิดใช้งานไม่ควรเปิดกลับมาเอง
+        is_active: ingredient?.is_active ?? true,
       })
       onClose()
     } catch (err) {

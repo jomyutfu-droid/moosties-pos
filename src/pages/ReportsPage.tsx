@@ -3,8 +3,12 @@ import { useTodaySummary, useSalesByDateRange } from '@/hooks/useReports'
 import { useCloseSession, useOpenCashSession, useOpenSession } from '@/hooks/useCashSession'
 import { formatBahtSymbol } from '@/lib/money'
 
+/** วันที่ "วันนี้" ตามเวลาเครื่อง — toISOString() ให้วันที่ UTC ซึ่งก่อน 07:00 น. ไทยจะเป็นเมื่อวาน */
 function todayStr() {
-  return new Date().toISOString().slice(0, 10)
+  const d = new Date()
+  const m = `${d.getMonth() + 1}`.padStart(2, '0')
+  const day = `${d.getDate()}`.padStart(2, '0')
+  return `${d.getFullYear()}-${m}-${day}`
 }
 
 export default function ReportsPage() {

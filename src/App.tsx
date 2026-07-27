@@ -3,7 +3,9 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { AppLayout } from '@/components/AppLayout'
 import { RequireAuth, RequireStaff, RequireRole } from '@/components/guards'
 import { useAuthListener } from '@/hooks/useAuth'
+import { useSessionStore } from '@/store/session'
 import { refreshReferenceData, startAutoSync } from '@/lib/sync'
+import { pendingOutboxCount } from '@/lib/db'
 import PinPage from '@/pages/PinPage'
 import PosPage from '@/pages/PosPage'
 import MenuPage from '@/pages/MenuPage'
@@ -17,12 +19,27 @@ import CustomerDisplayPage from '@/pages/CustomerDisplayPage'
 
 function App() {
   useAuthListener()
+  const authReady = useSessionStore((s) => s.authReady)
 
   useEffect(() => {
-    refreshReferenceData().catch(() => undefined)
     const stop = startAutoSync()
     return stop
   }, [])
+
+  useEffect(() => {
+    // ต้องรอ anonymous session ก่อน — ถ้ายิงเร็วเกินไป RLS จะปฏิเสธและแคชเมนูจะว่าง
+    if (!authReady) return
+    refreshReferenceData().catch(() => undefined)
+
+    // ดึงข้อมูลอ้างอิงใหม่เป็นระยะ เพื่อให้เครื่อง POS เห็นราคา/สูตร/สต็อกที่แก้จากเครื่องอื่น
+    // ข้ามรอบถ้ายังมีออเดอร์ค้างใน outbox — การรีเฟรชจะเขียนทับสต็อกที่ตัดไว้ล่วงหน้าแบบออฟไลน์
+    const id = setInterval(async () => {
+      if (!navigator.onLine) return
+      if ((await pendingOutboxCount()) > 0) return
+      refreshReferenceData().catch(() => undefined)
+    }, 120_000)
+    return () => clearInterval(id)
+  }, [authReady])
 
   return (
     <Routes>

@@ -80,7 +80,7 @@ export class MoosttiesDB extends Dexie {
 
 export const db = new MoosttiesDB()
 
-/** จำนวนออเดอร์ที่ยังรอ sync */
+/** จำนวนออเดอร์ที่ยังรอ sync (รวม 'syncing' ที่อาจค้างจากรอบก่อน) */
 export async function pendingOutboxCount(): Promise<number> {
-  return db.outbox_orders.where('status').anyOf(['pending', 'error']).count()
+  return db.outbox_orders.where('status').anyOf(['pending', 'error', 'syncing']).count()
 }

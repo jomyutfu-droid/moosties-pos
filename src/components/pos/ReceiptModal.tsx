@@ -4,6 +4,7 @@
  * - สติกเกอร์ (ต่อถ้วย): ชื่อสินค้า + ตัวเลือก + วัตถุดิบ (ไม่รวม category "บรรจุภัณฑ์")
  */
 import { formatBahtSymbol } from '@/lib/money'
+import { useSettings } from '@/hooks/useSettings'
 import type { CartLine } from '@/types'
 
 interface ReceiptInfo {
@@ -16,11 +17,20 @@ interface ReceiptInfo {
   discount?: number
 }
 
-/** สร้าง HTML ใบเสร็จ + สติกเกอร์สำหรับพิมพ์ผ่าน window.open (80mm thermal) */
+interface ReceiptText {
+  header: string
+  footer: string
+}
+
 /** แสดงตัวเลขโดยตัดทศนิยมที่ไม่จำเป็น: 60.00 → 60, 60.50 → 60.50 */
 const b = (n: number) => (n % 1 === 0 ? String(Math.round(n)) : n.toFixed(2))
 
-function buildPrintHTML(order: ReceiptInfo): string {
+/** escape ข้อความจากผู้ใช้ก่อนใส่ลง HTML ที่จะพิมพ์ */
+const esc = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+/** สร้าง HTML ใบเสร็จ + สติกเกอร์สำหรับพิมพ์ผ่าน window.open (80mm thermal) */
+function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
   const dateStr = new Date(order.createdAt).toLocaleString('th-TH')
 
   // --- ใบเสร็จ: 4 คอลัมน์ (ชื่อ | จำนวน | ราคา | รวม) ---
@@ -44,7 +54,7 @@ function buildPrintHTML(order: ReceiptInfo): string {
 
   const receiptSection = `
     <div class="receipt">
-      <div class="store">MOOSTTIES</div>
+      <div class="store">${esc(text.header)}</div>
       <div class="meta">${dateStr}</div>
       <div class="dash"></div>
       <table>
@@ -60,7 +70,7 @@ function buildPrintHTML(order: ReceiptInfo): string {
         ${order.change > 0 ? `<tr><td>เงินทอน</td><td class="r">${b(order.change)}</td></tr>` : ''}
       </table>
       <div class="dash"></div>
-      <div class="thank">ขอบคุณที่ใช้บริการ 🙏</div>
+      <div class="thank">${esc(text.footer)}</div>
     </div>`
 
   // --- สติกเกอร์: 1 หน้าต่อแก้ว — ตัดกระดาษหลังทุกหน้า ---
@@ -177,8 +187,13 @@ function buildPrintHTML(order: ReceiptInfo): string {
 }
 
 export function ReceiptModal({ order, onClose }: { order: ReceiptInfo; onClose: () => void }) {
+  const { data: settings } = useSettings()
+
   function handlePrint() {
-    const html = buildPrintHTML(order)
+    const html = buildPrintHTML(order, {
+      header: settings?.receipt_header?.trim() || settings?.store_name?.trim() || 'MOOSTTIES',
+      footer: settings?.receipt_footer?.trim() || 'ขอบคุณที่ใช้บริการ',
+    })
     const win = window.open('', '_blank', 'width=420,height=700')
     if (!win) return
     win.document.write(html)

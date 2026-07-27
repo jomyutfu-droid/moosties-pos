@@ -5,7 +5,7 @@
 import { useState } from 'react'
 import { useSessionStore } from '@/store/session'
 import { useStaffList } from '@/hooks/useAuth'
-import { useTodayTimeLogs, useClockIn, useClockOut } from '@/hooks/useTimeLogs'
+import { useTodayTimeLogs, useActiveTimeLogs, useClockIn, useClockOut } from '@/hooks/useTimeLogs'
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
@@ -23,6 +23,7 @@ export default function TimePage() {
   const activeStaff = useSessionStore((s) => s.activeStaff)
   const { data: staffList } = useStaffList()
   const { data: logs, isLoading } = useTodayTimeLogs()
+  const { data: openLogs } = useActiveTimeLogs()
   const clockIn = useClockIn()
   const clockOut = useClockOut()
 
@@ -30,9 +31,9 @@ export default function TimePage() {
   const [note, setNote] = useState('')
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
-  // ตรวจสอบว่าพนักงานที่เลือกยัง clock-in อยู่ไหม
-  const activeLogs = (logs ?? []).filter((l) => l.user_id === selectedUserId && !l.clock_out)
-  const isClockdIn = activeLogs.length > 0
+  // เช็คจากรายการที่ยังไม่ clock-out (ไม่ผูกกับวันที่)
+  // ถ้าใช้ logs ของวันนี้ พนักงานกะดึกที่ข้ามเที่ยงคืนจะกดปุ่มออกงานไม่ได้
+  const isClockdIn = (openLogs ?? []).some((l) => l.user_id === selectedUserId)
 
   async function handleClockIn() {
     if (!selectedUserId) return

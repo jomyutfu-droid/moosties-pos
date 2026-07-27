@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { cartSubtotal, useCartStore } from '@/store/cart'
 import { formatBahtSymbol } from '@/lib/money'
+import { useSettings } from '@/hooks/useSettings'
+import { useSessionStore } from '@/store/session'
 import type { CartLine } from '@/types'
 
 function RecipeModal({ line, onClose }: { line: CartLine; onClose: () => void }) {
@@ -102,6 +104,13 @@ export function CartPanel({ onCheckout }: { onCheckout: () => void }) {
   const total = Math.max(0, subtotal - discount)
   const [recipeLine, setRecipeLine] = useState<CartLine | null>(null)
 
+  // สิทธิ์ส่วนลด: พนักงานทั่วไปจำกัดตาม staff_discount_limit, เจ้าของ/ผู้จัดการไม่จำกัด
+  const { data: settings } = useSettings()
+  const role = useSessionStore((s) => s.activeStaff?.role)
+  const isManagerUp = role === 'owner' || role === 'manager'
+  const discountCap = isManagerUp ? subtotal : Math.min(settings?.staff_discount_limit ?? 0, subtotal)
+  const discountBlocked = !isManagerUp && discountCap <= 0
+
   return (
     <aside
       className="w-full md:w-80 flex-none flex flex-col"
@@ -178,13 +187,25 @@ export function CartPanel({ onCheckout }: { onCheckout: () => void }) {
           <span>{formatBahtSymbol(subtotal)}</span>
         </div>
         <div className="flex justify-between text-sm items-center">
-          <span style={{ color: '#5c7466' }}>ส่วนลด</span>
+          <span style={{ color: '#5c7466' }}>
+            ส่วนลด
+            {!isManagerUp && discountCap > 0 && (
+              <span className="ml-1 text-xs" style={{ color: '#8a8f8b' }}>
+                (สูงสุด {discountCap})
+              </span>
+            )}
+          </span>
           <input
             type="number"
             className="input w-24 text-right"
             value={discount}
             min={0}
-            onChange={(e) => setDiscount(Math.max(0, Number(e.target.value)))}
+            max={discountCap}
+            disabled={discountBlocked}
+            title={discountBlocked ? 'พนักงานไม่มีสิทธิ์ให้ส่วนลด — ตั้งค่าได้ที่หน้าตั้งค่า' : undefined}
+            onChange={(e) =>
+              setDiscount(Math.min(Math.max(0, Number(e.target.value)), discountCap))
+            }
           />
         </div>
         <div className="flex justify-between font-extrabold text-lg">

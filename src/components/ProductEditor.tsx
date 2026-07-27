@@ -6,7 +6,9 @@ import {
   useSaveProduct,
   useSaveProductOptions,
   useSaveRecipeItems,
+  recalcProductCost,
 } from '@/hooks/useMenu'
+import { refreshReferenceData } from '@/lib/sync'
 import { baseCost, marginPercent, unitProfit } from '@/domain/cogs'
 import { formatBahtSymbol } from '@/lib/money'
 import type { ProductOption, RecipeItem } from '@/types'
@@ -155,7 +157,8 @@ export function ProductEditor({
         category_id: categoryId || null,
         sku: sku || null,
         prep_steps: prepSteps || null,
-        is_active: true,
+        // อย่าบังคับ true — ไม่งั้นการแก้ไขเมนูที่ถูกปิดไว้จะเปิดใช้งานกลับมาเงียบ ๆ
+        is_active: detail?.is_active ?? true,
         sort_order: detail?.sort_order ?? 0,
       } as never)
 
@@ -168,6 +171,8 @@ export function ProductEditor({
         await saveOptionsForProduct(targetId)
       }
 
+      // แคชเมนูของหน้าขายอ่านจาก Dexie — ต้องดึงใหม่ ไม่งั้นหน้าขายยังใช้ราคา/สูตรเดิม
+      await refreshReferenceData().catch(() => undefined)
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'บันทึกไม่สำเร็จ')
@@ -192,6 +197,9 @@ export function ProductEditor({
       if (upserts.length) {
         await supabase.from('recipe_items').insert(upserts.map((u) => ({ ...u, product_id: targetId, id: undefined })))
       }
+      // เส้นทางนี้ไม่ผ่าน useSaveRecipeItems จึงต้องคำนวณ cost_cached เอง
+      // ไม่งั้นเมนูใหม่จะมีต้นทุน = 0 และกำไรในรายงานจะสูงเกินจริง
+      await recalcProductCost(targetId)
     }
   }
 

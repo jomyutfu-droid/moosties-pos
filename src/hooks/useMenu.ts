@@ -1,7 +1,39 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { refreshReferenceData } from '@/lib/sync'
 import { baseCost } from '@/domain/cogs'
 import type { Category, Ingredient, Product, ProductOption, ProductWithRecipe, RecipeItem } from '@/types'
+
+/**
+ * หน้าขาย (usePosCatalog) อ่านจากแคช Dexie ไม่ใช่ react-query
+ * ทุก mutation ที่แก้เมนู/สูตร/ตัวเลือก/หมวด ต้องดึงข้อมูลอ้างอิงใหม่ลงแคช
+ * ไม่งั้นหน้าขายจะยังใช้ราคา/สูตรเดิมจนกว่าจะรีโหลดหน้า
+ */
+function syncCatalogCache() {
+  refreshReferenceData().catch(() => undefined)
+}
+
+/** คำนวณ cost_cached ของสินค้าใหม่จากสูตรล่าสุด — ต้องเรียกทุกครั้งที่สูตรเปลี่ยน */
+export async function recalcProductCost(productId: string): Promise<number> {
+  const [recipeRes, ingredientsRes] = await Promise.all([
+    supabase.from('recipe_items').select('qty, ingredient_id').eq('product_id', productId),
+    supabase.from('ingredients').select('id, cost_per_unit'),
+  ])
+  if (recipeRes.error) throw recipeRes.error
+  if (ingredientsRes.error) throw ingredientsRes.error
+
+  const costMap = new Map((ingredientsRes.data ?? []).map((i) => [i.id, i.cost_per_unit as number]))
+  const cost = baseCost({
+    recipe_items: (recipeRes.data ?? []).map((r) => ({
+      qty: r.qty as number,
+      ingredient: { cost_per_unit: costMap.get(r.ingredient_id as string) ?? 0 } as Ingredient,
+    })) as unknown as ProductWithRecipe['recipe_items'],
+  })
+
+  const { error } = await supabase.from('products').update({ cost_cached: cost }).eq('id', productId)
+  if (error) throw error
+  return cost
+}
 
 export function useCategories() {
   return useQuery({
@@ -87,6 +119,7 @@ export function useSaveProduct() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['products'] })
+      syncCatalogCache()
     },
   })
 }
@@ -98,7 +131,10 @@ export function useDeleteProduct() {
       const { error } = await supabase.from('products').update({ is_active: false }).eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['products'] })
+      syncCatalogCache()
+    },
   })
 }
 
@@ -112,7 +148,7 @@ export function useToggleProductActive() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['products'] })
-      qc.invalidateQueries({ queryKey: ['pos-catalog'] })
+      syncCatalogCache()
     },
   })
 }
@@ -125,7 +161,10 @@ export function useSaveCategory() {
       if (error) throw error
       return data as Category
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['categories'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['categories'] })
+      syncCatalogCache()
+    },
   })
 }
 
@@ -147,33 +186,12 @@ export function useSaveRecipeItems(productId: string) {
         if (error) throw error
       }
 
-      // คำนวณ cost_cached ใหม่จากสูตรล่าสุด
-      const [recipeRes, ingredientsRes] = await Promise.all([
-        supabase.from('recipe_items').select('qty, ingredient_id').eq('product_id', productId),
-        supabase.from('ingredients').select('id, cost_per_unit'),
-      ])
-      if (recipeRes.error) throw recipeRes.error
-      if (ingredientsRes.error) throw ingredientsRes.error
-
-      const costMap = new Map((ingredientsRes.data ?? []).map((i) => [i.id, i.cost_per_unit as number]))
-      const cost = baseCost({
-        recipe_items: (recipeRes.data ?? []).map((r) => ({
-          qty: r.qty as number,
-          ingredient: { cost_per_unit: costMap.get(r.ingredient_id as string) ?? 0 } as Ingredient,
-        })) as unknown as ProductWithRecipe['recipe_items'],
-      })
-
-      const { error: updateError } = await supabase
-        .from('products')
-        .update({ cost_cached: cost })
-        .eq('id', productId)
-      if (updateError) throw updateError
-
-      return cost
+      return recalcProductCost(productId)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['product-detail', productId] })
       qc.invalidateQueries({ queryKey: ['products'] })
+      syncCatalogCache()
     },
   })
 }
@@ -199,6 +217,7 @@ export function useSaveProductOptions(productId: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['product-detail', productId] })
+      syncCatalogCache()
     },
   })
 }
