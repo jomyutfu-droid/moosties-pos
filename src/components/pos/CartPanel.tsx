@@ -4,38 +4,71 @@ import { formatBahtSymbol } from '@/lib/money'
 import { useSettings } from '@/hooks/useSettings'
 import { useSessionStore } from '@/store/session'
 import { parseUnsignedNumber, displayNumber } from '@/lib/forms'
+import { escapeHtml, openPrintWindow, THERMAL_BASE_CSS } from '@/lib/html'
 import type { CartLine } from '@/types'
 
 function RecipeModal({ line, onClose }: { line: CartLine; onClose: () => void }) {
   const handlePrint = () => {
-    const win = window.open('', '_blank', 'width=420,height=600')
-    if (!win) return
-    const rows = line.product.recipe_items
-      .map(
-        (r) => `<tr>
-          <td>${r.ingredient.name}${r.note ? `<br/><span style="color:#999;font-size:11px">${r.note}</span>` : ''}</td>
-          <td style="text-align:right">${r.qty}</td>
-          <td style="text-align:right;padding-left:8px;color:#555">${r.ingredient.unit}</td>
-        </tr>`,
+    // ใช้ตรรกะเดียวกับสติกเกอร์: ตัดบรรจุภัณฑ์ออก และรวมปริมาณที่ตัวเลือกปรับเข้าไปด้วย
+    // ไม่งั้นการ์ดสูตรจะบอกปริมาณไม่ตรงกับสติกเกอร์และกับที่ตัดสต็อกจริง
+    const recipeItems = line.product.recipe_items.filter(
+      (r) => r.ingredient?.category?.trim() !== 'บรรจุภัณฑ์',
+    )
+    const optDeltaById = new Map<string, number>()
+    for (const opt of line.selectedOptions) {
+      if (!opt.linked_ingredient_id || !opt.qty_delta) continue
+      optDeltaById.set(
+        opt.linked_ingredient_id,
+        (optDeltaById.get(opt.linked_ingredient_id) ?? 0) + opt.qty_delta,
       )
-      .join('')
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/>
-      <title>สูตร ${line.product.name}</title>
+    }
+
+    const rows = recipeItems.map((r) => {
+      const delta = optDeltaById.get(r.ingredient_id) ?? 0
+      if (delta) optDeltaById.delete(r.ingredient_id)
+      const qty = Math.round((r.qty + delta) * 1000) / 1000
+      return `<tr>
+          <td>${escapeHtml(r.ingredient.name)}${delta ? ' <small>(ปรับตามตัวเลือก)</small>' : ''}${
+            r.note ? `<br><small>${escapeHtml(r.note)}</small>` : ''
+          }</td>
+          <td class="r">${qty}</td>
+          <td class="r">${escapeHtml(r.ingredient.unit)}</td>
+        </tr>`
+    })
+
+    // วัตถุดิบที่มาจากตัวเลือกล้วน ๆ
+    for (const [ingId, qty] of optDeltaById.entries()) {
+      const name = line.selectedOptions.find((o) => o.linked_ingredient_id === ingId)?.name ?? 'ตัวเลือก'
+      rows.push(
+        `<tr><td>${escapeHtml(name)} <small>(ตัวเลือก)</small></td><td class="r">${qty}</td><td class="r">-</td></tr>`,
+      )
+    }
+
+    const optLabel = line.selectedOptions.map((o) => o.name).join(', ')
+    openPrintWindow(
+      `<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"/>
+      <title>สูตร</title>
+      <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet"/>
       <style>
-        body{font-family:'Sarabun',sans-serif;padding:20px;font-size:14px}
-        h2{margin:0 0 4px}
-        .opts{color:#777;font-size:12px;margin-bottom:12px}
-        table{width:100%;border-collapse:collapse}
-        th{text-align:left;border-bottom:2px solid #333;padding:4px 0}
-        td{padding:5px 0;border-bottom:1px solid #eee;vertical-align:top}
+        ${THERMAL_BASE_CSS}
+        .wrap { width: 76mm; padding: 4px 2mm 2px; }
+        .name { font-size: 18px; font-weight: 800; }
+        .opts { font-size: 12px; font-weight: 700; margin-top: 2px; }
       </style></head><body>
-      <h2>${line.product.name}</h2>
-      ${line.selectedOptions.length > 0 ? `<div class="opts">${line.selectedOptions.map((o) => o.name).join(', ')}</div>` : ''}
-      <table><thead><tr><th>วัตถุดิบ</th><th style="text-align:right">ปริมาณ</th><th style="text-align:right;padding-left:8px">หน่วย</th></tr></thead>
-      <tbody>${rows}</tbody></table>
-      <script>window.onload=function(){window.print();}</script>
-      </body></html>`)
-    win.document.close()
+      <div class="wrap">
+        <div class="name">${escapeHtml(line.product.name)}</div>
+        ${optLabel ? `<div class="opts">${escapeHtml(optLabel)}</div>` : ''}
+        <div class="dash"></div>
+        <table>
+          <thead><tr><th>วัตถุดิบ</th><th class="r">ปริมาณ</th><th class="r">หน่วย</th></tr></thead>
+          <tbody>${rows.join('') || '<tr><td colspan="3">ไม่มีสูตรวัตถุดิบ</td></tr>'}</tbody>
+        </table>
+      </div>
+      <script>setTimeout(function(){ window.print() }, 400)</script>
+      </body></html>`,
+      420,
+      600,
+    )
   }
 
   return (

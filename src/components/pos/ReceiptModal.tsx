@@ -5,6 +5,7 @@
  */
 import { formatBahtSymbol } from '@/lib/money'
 import { useSettings } from '@/hooks/useSettings'
+import { escapeHtml, openPrintWindow } from '@/lib/html'
 import type { CartLine } from '@/types'
 
 interface ReceiptInfo {
@@ -25,9 +26,8 @@ interface ReceiptText {
 /** แสดงตัวเลขโดยตัดทศนิยมที่ไม่จำเป็น: 60.00 → 60, 60.50 → 60.50 */
 const b = (n: number) => (n % 1 === 0 ? String(Math.round(n)) : n.toFixed(2))
 
-/** escape ข้อความจากผู้ใช้ก่อนใส่ลง HTML ที่จะพิมพ์ */
-const esc = (s: string) =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+/** escape ข้อความจากผู้ใช้ก่อนใส่ลง HTML ที่จะพิมพ์ (ใช้ร่วมกับการ์ดสูตรใน CartPanel) */
+const esc = escapeHtml
 
 /** สร้าง HTML ใบเสร็จ + สติกเกอร์สำหรับพิมพ์ผ่าน window.open (80mm thermal) */
 function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
@@ -38,9 +38,9 @@ function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
     .map(
       (l) =>
         `<tr>
-          <td class="item-name">${l.product.name}${
+          <td class="item-name">${esc(l.product.name)}${
             l.selectedOptions.length
-              ? '<br><small>' + l.selectedOptions.map((o) => o.name).join(', ') + '</small>'
+              ? '<br><small>' + esc(l.selectedOptions.map((o) => o.name).join(', ')) + '</small>'
               : ''
           }</td>
           <td class="r">x${l.qty}</td>
@@ -100,7 +100,7 @@ function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
     // วัตถุดิบที่มาจากตัวเลือกล้วน ๆ (ไม่มีในสูตรพื้นฐาน)
     const extraRows = Array.from(optDeltaById.entries()).map(([ingId, qty]) => {
       const optName = l.selectedOptions.find((o) => o.linked_ingredient_id === ingId)?.name ?? 'ตัวเลือก'
-      return `<tr><td>${optName} <small>(ตัวเลือก)</small></td><td class="r">${qty}</td><td class="r unit">-</td></tr>`
+      return `<tr><td>${esc(optName)} <small>(ตัวเลือก)</small></td><td class="r">${qty}</td><td class="r unit">-</td></tr>`
     })
 
     return Array.from({ length: l.qty }, (_, i) => {
@@ -108,9 +108,9 @@ function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
         ...adjusted.map(
           ({ ri, qty, adjusted: isAdj }) =>
             `<tr>
-                  <td>${ri.ingredient.name}${isAdj ? ' <small>(ปรับตามตัวเลือก)</small>' : ''}${ri.note ? `<br><small>${ri.note}</small>` : ''}</td>
+                  <td>${esc(ri.ingredient.name)}${isAdj ? ' <small>(ปรับตามตัวเลือก)</small>' : ''}${ri.note ? `<br><small>${esc(ri.note)}</small>` : ''}</td>
                   <td class="r">${qty}</td>
-                  <td class="r unit">${ri.ingredient.unit}</td>
+                  <td class="r unit">${esc(ri.ingredient.unit)}</td>
                 </tr>`,
         ),
         ...extraRows,
@@ -122,9 +122,9 @@ function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
       return `
         <div class="sticker">
           <div class="shead">
-            <span class="sname">${l.product.name}${l.qty > 1 ? ` (${i + 1}/${l.qty})` : ''}</span>
+            <span class="sname">${esc(l.product.name)}${l.qty > 1 ? ` (${i + 1}/${l.qty})` : ''}</span>
           </div>
-          ${optLabel ? `<div class="sopt">${optLabel}</div>` : ''}
+          ${optLabel ? `<div class="sopt">${esc(optLabel)}</div>` : ''}
           <div class="dash"></div>
           <table class="ing">
             <thead><tr><th>วัตถุดิบ</th><th class="r">ปริมาณ</th><th class="r">หน่วย</th></tr></thead>
@@ -194,12 +194,8 @@ export function ReceiptModal({ order, onClose }: { order: ReceiptInfo; onClose: 
       header: settings?.receipt_header?.trim() || settings?.store_name?.trim() || 'MOOSTTIES',
       footer: settings?.receipt_footer?.trim() || 'ขอบคุณที่ใช้บริการ',
     })
-    const win = window.open('', '_blank', 'width=420,height=700')
-    if (!win) return
-    win.document.write(html)
-    win.document.close()
-    // ปิดจาก parent — reliable กว่าให้ popup ปิดตัวเอง
-    setTimeout(() => { try { win.close() } catch { /* ignore */ } }, 2500)
+    // เปิด + พิมพ์ + ปิดหน้าต่างอัตโนมัติ (ปิดจากหน้าต่างแม่ เพราะ Chrome บล็อกการปิดตัวเอง)
+    openPrintWindow(html, 420, 700)
   }
 
   return (
