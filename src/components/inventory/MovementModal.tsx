@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useRecordStockMovement } from '@/hooks/useInventory'
 import { useSessionStore } from '@/store/session'
 import { formatStockQty } from '@/lib/money'
+import { parseUnsignedNumber, displayNumber } from '@/lib/forms'
 import type { Ingredient, StockMovementType } from '@/types'
 
 interface Props {
@@ -133,7 +134,14 @@ export function MovementModal({ ingredient: preSelected, ingredients = [], onClo
           </div>
           <div>
             <label className="label">จำนวน{ingredient ? ` (${ingredient.unit})` : ''}</label>
-            <input type="number" className="input" value={qty} onChange={(e) => setQty(Number(e.target.value))} />
+            <input
+              type="text"
+              inputMode="decimal"
+              className="input"
+              value={displayNumber(qty)}
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => setQty(parseUnsignedNumber(e.target.value))}
+            />
             <p className="text-xs text-gray-400 mt-1">
               {type === 'receive' ? 'จะเพิ่มเข้าสต็อก' : 'จะตัดออกจากสต็อก'}
             </p>
@@ -147,11 +155,13 @@ export function MovementModal({ ingredient: preSelected, ingredients = [], onClo
                 <span className="ml-1 text-xs font-normal text-gray-400">ใช้คำนวณต้นทุนถัวเฉลี่ย</span>
               </label>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 className="input"
-                value={pricePerUnit || ''}
+                value={displayNumber(pricePerUnit)}
                 placeholder={ingredient ? `ปัจจุบัน ${ingredient.cost_per_unit.toFixed(2)}` : '0.00'}
-                onChange={(e) => setPricePerUnit(Number(e.target.value))}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setPricePerUnit(parseUnsignedNumber(e.target.value))}
               />
             </div>
           )}

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTodaySummary, useSalesByDateRange } from '@/hooks/useReports'
 import { useCloseSession, useOpenCashSession, useOpenSession } from '@/hooks/useCashSession'
 import { formatBahtSymbol } from '@/lib/money'
+import { parseUnsignedNumber, displayNumber } from '@/lib/forms'
 
 /** วันที่ "วันนี้" ตามเวลาเครื่อง — toISOString() ให้วันที่ UTC ซึ่งก่อน 07:00 น. ไทยจะเป็นเมื่อวาน */
 function todayStr() {
@@ -112,7 +113,14 @@ function CashSessionPanel() {
         <div className="flex gap-2 items-end">
           <div className="flex-1">
             <label className="label">เงินทอนตั้งต้น (บาท)</label>
-            <input type="number" className="input" value={openingCash} onChange={(e) => setOpeningCash(Number(e.target.value))} />
+            <input
+              type="text"
+              inputMode="decimal"
+              className="input"
+              value={displayNumber(openingCash)}
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => setOpeningCash(parseUnsignedNumber(e.target.value))}
+            />
           </div>
           <button className="btn-primary" disabled={openSession.isPending} onClick={() => openSession.mutate(openingCash)}>
             เปิดกะ
@@ -132,7 +140,14 @@ function CashSessionPanel() {
       <div className="flex gap-2 items-end">
         <div className="flex-1">
           <label className="label">นับเงินสดได้ (บาท)</label>
-          <input type="number" className="input" value={countedCash} onChange={(e) => setCountedCash(Number(e.target.value))} />
+          <input
+            type="text"
+            inputMode="decimal"
+            className="input"
+            value={displayNumber(countedCash)}
+            onFocus={(e) => e.target.select()}
+            onChange={(e) => setCountedCash(parseUnsignedNumber(e.target.value))}
+          />
         </div>
         <div className="flex-1">
           <label className="label">หมายเหตุ</label>

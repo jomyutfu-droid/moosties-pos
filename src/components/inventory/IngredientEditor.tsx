@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useSaveIngredient } from '@/hooks/useInventory'
 import { round2 } from '@/lib/money'
+import { parseUnsignedNumber, displayNumber } from '@/lib/forms'
 import type { Ingredient } from '@/types'
 
 export function IngredientEditor({
@@ -77,28 +78,34 @@ export function IngredientEditor({
             <div>
               <label className="label">จุดสั่งซื้อซ้ำ</label>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 className="input"
-                value={reorderPoint}
-                onChange={(e) => setReorderPoint(Number(e.target.value))}
+                value={displayNumber(reorderPoint)}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setReorderPoint(parseUnsignedNumber(e.target.value))}
               />
             </div>
             <div>
               <label className="label">ราคาต่อแพ็ก (บาท)</label>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 className="input"
-                value={packPrice}
-                onChange={(e) => setPackPrice(Number(e.target.value))}
+                value={displayNumber(packPrice)}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setPackPrice(parseUnsignedNumber(e.target.value))}
               />
             </div>
             <div>
               <label className="label">ปริมาณต่อแพ็ก</label>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 className="input"
-                value={packQty}
-                onChange={(e) => setPackQty(Number(e.target.value))}
+                value={displayNumber(packQty)}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setPackQty(parseUnsignedNumber(e.target.value))}
               />
             </div>
           </div>

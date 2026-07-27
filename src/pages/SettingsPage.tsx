@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSaveSettings, useSettings } from '@/hooks/useSettings'
+import { parseUnsignedNumber, displayNumber } from '@/lib/forms'
 import type { Settings } from '@/types'
 
 export default function SettingsPage() {
@@ -73,10 +74,12 @@ export default function SettingsPage() {
         <div>
           <label className="label">VAT (%)</label>
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
             className="input"
-            value={form.vat_percent}
-            onChange={(e) => update('vat_percent', Number(e.target.value))}
+            value={displayNumber(form.vat_percent)}
+            onFocus={(e) => e.target.select()}
+            onChange={(e) => update('vat_percent', parseUnsignedNumber(e.target.value))}
           />
         </div>
       </section>
@@ -94,10 +97,12 @@ export default function SettingsPage() {
         <div>
           <label className="label">เป้าหมายกำไรขั้นต้น (%)</label>
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
             className="input"
-            value={form.target_margin_percent}
-            onChange={(e) => update('target_margin_percent', Number(e.target.value))}
+            value={displayNumber(form.target_margin_percent)}
+            onFocus={(e) => e.target.select()}
+            onChange={(e) => update('target_margin_percent', parseUnsignedNumber(e.target.value))}
           />
         </div>
         <div>
@@ -118,10 +123,12 @@ export default function SettingsPage() {
         <div>
           <label className="label">ส่วนลดสูงสุดที่พนักงานให้ได้เอง (บาท)</label>
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
             className="input"
-            value={form.staff_discount_limit}
-            onChange={(e) => update('staff_discount_limit', Number(e.target.value))}
+            value={displayNumber(form.staff_discount_limit)}
+            onFocus={(e) => e.target.select()}
+            onChange={(e) => update('staff_discount_limit', parseUnsignedNumber(e.target.value))}
           />
         </div>
       </section>

@@ -11,6 +11,7 @@ import {
 import { refreshReferenceData } from '@/lib/sync'
 import { baseCost, marginPercent, unitProfit } from '@/domain/cogs'
 import { formatBahtSymbol } from '@/lib/money'
+import { parseUnsignedNumber, parseSignedNumber, displayNumber } from '@/lib/forms'
 import type { ProductOption, RecipeItem } from '@/types'
 
 interface RecipeRow extends Partial<Pick<RecipeItem, 'id'>> {
@@ -242,10 +243,12 @@ export function ProductEditor({
             <div>
               <label className="label">ราคา (บาท)</label>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 className="input"
-                value={price}
-                onChange={(e) => setPrice(Number(e.target.value))}
+                value={displayNumber(price)}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setPrice(parseUnsignedNumber(e.target.value))}
               />
             </div>
             <div>
@@ -310,13 +313,17 @@ export function ProductEditor({
                       ))}
                     </select>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       className="input"
                       style={{ width: '80px', flexShrink: 0 }}
-                      value={row.qty}
+                      value={displayNumber(row.qty)}
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) =>
                         setRecipeRows((rows) =>
-                          rows.map((r) => (r._key === row._key ? { ...r, qty: Number(e.target.value) } : r)),
+                          rows.map((r) =>
+                            r._key === row._key ? { ...r, qty: parseUnsignedNumber(e.target.value) } : r,
+                          ),
                         )
                       }
                     />
@@ -362,14 +369,18 @@ export function ProductEditor({
                     }
                   />
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     className="input"
                     style={{ width: '72px', flexShrink: 0 }}
                     placeholder="+ราคา"
-                    value={row.price_delta}
+                    value={displayNumber(row.price_delta)}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) =>
                       setOptionRows((rows) =>
-                        rows.map((r) => (r._key === row._key ? { ...r, price_delta: Number(e.target.value) } : r)),
+                        rows.map((r) =>
+                          r._key === row._key ? { ...r, price_delta: parseSignedNumber(e.target.value) } : r,
+                        ),
                       )
                     }
                   />
@@ -393,14 +404,18 @@ export function ProductEditor({
                     ))}
                   </select>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     className="input"
                     style={{ width: '72px', flexShrink: 0 }}
                     placeholder="+ปริมาณ"
-                    value={row.qty_delta}
+                    value={displayNumber(row.qty_delta)}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) =>
                       setOptionRows((rows) =>
-                        rows.map((r) => (r._key === row._key ? { ...r, qty_delta: Number(e.target.value) } : r)),
+                        rows.map((r) =>
+                          r._key === row._key ? { ...r, qty_delta: parseSignedNumber(e.target.value) } : r,
+                        ),
                       )
                     }
                   />

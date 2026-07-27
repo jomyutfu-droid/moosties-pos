@@ -3,6 +3,7 @@ import { cartSubtotal, useCartStore } from '@/store/cart'
 import { formatBahtSymbol } from '@/lib/money'
 import { useSettings } from '@/hooks/useSettings'
 import { useSessionStore } from '@/store/session'
+import { parseUnsignedNumber, displayNumber } from '@/lib/forms'
 import type { CartLine } from '@/types'
 
 function RecipeModal({ line, onClose }: { line: CartLine; onClose: () => void }) {
@@ -196,15 +197,15 @@ export function CartPanel({ onCheckout }: { onCheckout: () => void }) {
             )}
           </span>
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
             className="input w-24 text-right"
-            value={discount}
-            min={0}
-            max={discountCap}
+            value={displayNumber(discount)}
             disabled={discountBlocked}
             title={discountBlocked ? 'พนักงานไม่มีสิทธิ์ให้ส่วนลด — ตั้งค่าได้ที่หน้าตั้งค่า' : undefined}
+            onFocus={(e) => e.target.select()}
             onChange={(e) =>
-              setDiscount(Math.min(Math.max(0, Number(e.target.value)), discountCap))
+              setDiscount(Math.min(parseUnsignedNumber(e.target.value), discountCap))
             }
           />
         </div>

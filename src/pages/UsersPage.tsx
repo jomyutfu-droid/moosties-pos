@@ -78,6 +78,11 @@ function UserEditor({ user, onClose }: { user: AppUser | null; onClose: () => vo
       setError('PIN ต้องเป็นเลข 4-6 หลัก')
       return
     }
+    // ผู้ใช้ใหม่ที่ไม่มีทั้งอีเมล (ล็อกอินด้วยรหัสผ่าน) และ PIN (สลับหน้าร้าน) จะเข้าระบบไม่ได้เลย
+    if (!user && !pin && !email) {
+      setError('ต้องตั้ง PIN หรือกรอกอีเมลอย่างน้อยหนึ่งอย่าง ไม่งั้นผู้ใช้นี้จะเข้าระบบไม่ได้')
+      return
+    }
     try {
       const input: UserInput = {
         id: user?.id,
