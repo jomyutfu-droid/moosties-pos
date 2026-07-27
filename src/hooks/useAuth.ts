@@ -12,7 +12,6 @@ import type { AppUser } from '@/types'
 export function useAuthListener() {
   const setAuthUser = useSessionStore((s) => s.setAuthUser)
   const setAuthReady = useSessionStore((s) => s.setAuthReady)
-  const logout = useSessionStore((s) => s.logout)
   const queryClient = useQueryClient()
 
   useEffect(() => {
@@ -21,7 +20,9 @@ export function useAuthListener() {
       if (session?.user) {
         setAuthUser(session.user.id, session.user.email ?? null)
       } else {
-        logout()
+        // ล้างเฉพาะข้อมูล auth — ห้ามล้าง activeStaff
+        // เพราะ token refresh ที่ล้มเหลวตอนออฟไลน์จะเด้งพนักงานไปหน้า PIN กลางกะ
+        setAuthUser(null, null)
       }
       queryClient.invalidateQueries({ queryKey: ['current-app-user'] })
     })
@@ -37,7 +38,7 @@ export function useAuthListener() {
     })
 
     return () => sub.subscription.unsubscribe()
-  }, [setAuthUser, setAuthReady, logout, queryClient])
+  }, [setAuthUser, setAuthReady, queryClient])
 }
 
 /**

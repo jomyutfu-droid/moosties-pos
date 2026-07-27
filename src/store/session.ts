@@ -31,14 +31,20 @@ export const useSessionStore = create<SessionState>()(
       activeStaff: null,
       setAuthUser: (id, email) => set({ authUserId: id, authEmail: email }),
       setAuthReady: (ready) => set({ authReady: ready }),
-      setActiveStaff: (user) => set({ activeStaff: user }),
+      // ตัด pin_hash ทิ้งก่อนเก็บ — session นี้ถูก persist ลง localStorage
+      setActiveStaff: (user) => set({ activeStaff: user ? { ...user, pin_hash: '' } : null }),
       clearActiveStaff: () => set({ activeStaff: null }),
       logout: () => set({ authUserId: null, authEmail: null, activeStaff: null }),
     }),
     {
       name: 'moosties-session',
       // ไม่ persist authReady — รีเซ็ตทุกครั้งที่โหลดหน้า
-      partialize: (s) => ({ authUserId: s.authUserId, authEmail: s.authEmail, activeStaff: s.activeStaff }),
+      // ไม่ persist pin_hash — กันแฮชหลุดใน localStorage (กรณีข้อมูลเก่าที่เคยเก็บไว้แล้วด้วย)
+      partialize: (s) => ({
+        authUserId: s.authUserId,
+        authEmail: s.authEmail,
+        activeStaff: s.activeStaff ? { ...s.activeStaff, pin_hash: '' } : null,
+      }),
     },
   ),
 )

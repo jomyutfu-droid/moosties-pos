@@ -70,18 +70,43 @@ function buildPrintHTML(order: ReceiptInfo): string {
     )
     const optLabel = l.selectedOptions.map((o) => o.name).join(', ')
 
+    // ตัวเลือกที่ปรับปริมาณวัตถุดิบ (เช่น "หวานมาก" = +น้ำเชื่อม) ต้องรวมเข้าสูตร
+    // ไม่งั้นพนักงานจะชั่ง/ตวงตามปริมาณสูตรพื้นฐาน ซึ่งไม่ตรงกับที่ตัดสต็อกจริง
+    const optDeltaById = new Map<string, number>()
+    for (const opt of l.selectedOptions) {
+      if (!opt.linked_ingredient_id || !opt.qty_delta) continue
+      optDeltaById.set(
+        opt.linked_ingredient_id,
+        (optDeltaById.get(opt.linked_ingredient_id) ?? 0) + opt.qty_delta,
+      )
+    }
+
+    const adjusted = recipeItems.map((ri) => {
+      const delta = optDeltaById.get(ri.ingredient_id) ?? 0
+      if (delta) optDeltaById.delete(ri.ingredient_id) // ใช้แล้ว ไม่ต้องแสดงเป็นแถวแยก
+      return { ri, qty: Math.round((ri.qty + delta) * 1000) / 1000, adjusted: delta !== 0 }
+    })
+
+    // วัตถุดิบที่มาจากตัวเลือกล้วน ๆ (ไม่มีในสูตรพื้นฐาน)
+    const extraRows = Array.from(optDeltaById.entries()).map(([ingId, qty]) => {
+      const optName = l.selectedOptions.find((o) => o.linked_ingredient_id === ingId)?.name ?? 'ตัวเลือก'
+      return `<tr><td>${optName} <small>(ตัวเลือก)</small></td><td class="r">${qty}</td><td class="r unit">-</td></tr>`
+    })
+
     return Array.from({ length: l.qty }, (_, i) => {
-      const ingRows = recipeItems.length
-        ? recipeItems
-            .map(
-              (ri) =>
-                `<tr>
-                  <td>${ri.ingredient.name}${ri.note ? `<br><small>${ri.note}</small>` : ''}</td>
-                  <td class="r">${ri.qty}</td>
+      const rows = [
+        ...adjusted.map(
+          ({ ri, qty, adjusted: isAdj }) =>
+            `<tr>
+                  <td>${ri.ingredient.name}${isAdj ? ' <small>(ปรับตามตัวเลือก)</small>' : ''}${ri.note ? `<br><small>${ri.note}</small>` : ''}</td>
+                  <td class="r">${qty}</td>
                   <td class="r unit">${ri.ingredient.unit}</td>
                 </tr>`,
-            )
-            .join('')
+        ),
+        ...extraRows,
+      ]
+      const ingRows = rows.length
+        ? rows.join('')
         : `<tr><td colspan="3" class="muted">ไม่มีสูตรวัตถุดิบ</td></tr>`
 
       return `

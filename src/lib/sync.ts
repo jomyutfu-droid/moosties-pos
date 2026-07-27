@@ -67,8 +67,27 @@ export interface SyncResult {
   failed: number
 }
 
+/** กัน syncOutbox ทำงานซ้อนกัน (auto-sync ทุก 30 วิ + เรียกหลังปิดการขาย) */
+let syncInFlight: Promise<SyncResult> | null = null
+
 /** ส่งออเดอร์ที่ค้างอยู่ใน outbox ทั้งหมด (เรียกตอนกลับมาออนไลน์ / เป็นระยะ) */
 export async function syncOutbox(): Promise<SyncResult> {
+  // ถ้ากำลัง sync อยู่ ให้รอรอบเดิมแทนที่จะยิงซ้ำ
+  if (syncInFlight) return syncInFlight
+  syncInFlight = runSync().finally(() => {
+    syncInFlight = null
+  })
+  return syncInFlight
+}
+
+async function runSync(): Promise<SyncResult> {
+  // กู้ออเดอร์ที่ค้างสถานะ 'syncing' (แอปปิด/รีเฟรชกลางคัน) กลับเป็น pending
+  // ไม่งั้นออเดอร์เหล่านี้จะไม่ถูกหยิบมาส่งอีกเลย — RPC เป็น idempotent จึงส่งซ้ำได้ปลอดภัย
+  const stale = await db.outbox_orders.where('status').equals('syncing').toArray()
+  for (const order of stale) {
+    await db.outbox_orders.update(order.client_uuid, { status: 'pending' })
+  }
+
   const pending = await db.outbox_orders.where('status').anyOf(['pending', 'error']).toArray()
   let synced = 0
   let failed = 0

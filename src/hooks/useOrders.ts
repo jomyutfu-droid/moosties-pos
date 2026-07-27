@@ -33,11 +33,13 @@ export function useQueueOrders() {
     queryKey: ['queue-orders'],
     queryFn: async (): Promise<QueueOrder[]> => {
       const since = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString() // 4 ชั่วโมงย้อนหลัง
+      // ดึงทุกออเดอร์ที่จ่ายแล้วในช่วง 4 ชม. รวม 'served' ด้วย
+      // — QueuePage แยกเป็น 3 คอลัมน์เอง ถ้ากรอง served ออกที่นี่ คอลัมน์ "เสิร์ฟแล้ว" จะว่างตลอด
+      // — และ .neq() จะตัดแถวที่ prep_status เป็น NULL ทิ้ง (NULL <> 'served' = NULL ไม่ใช่ TRUE)
       const { data, error } = await supabase
         .from('orders')
         .select('id, order_no, client_uuid, status, prep_status, total, note, created_at, order_items(*)')
         .eq('status', 'paid')
-        .neq('prep_status', 'served')
         .gt('created_at', since)
         .order('created_at', { ascending: true })
       if (error) throw error

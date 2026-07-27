@@ -11,7 +11,10 @@ export function PaymentModal({
   onClose,
 }: {
   total: number
-  onConfirm: (payments: { method: PaymentMethod; amount: number; ref: string | null }[]) => void
+  onConfirm: (
+    payments: { method: PaymentMethod; amount: number; ref: string | null }[],
+    meta: { cashReceived: number },
+  ) => void
   onClose: () => void
 }) {
   const { data: settings } = useSettings()
@@ -31,12 +34,15 @@ export function PaymentModal({
   }, [settings?.promptpay_id, total])
 
   async function handleConfirm() {
+    if (submitting) return // กันกดซ้ำ → ออเดอร์ซ้ำ
     setSubmitting(true)
     try {
+      // amount = ยอดที่ต้องชำระเสมอ (ไม่ใช่เงินที่รับมา) เพื่อให้ยอดขายในรายงานถูกต้อง
+      // cashReceived ส่งแยกไว้สำหรับคำนวณเงินทอนบนใบเสร็จ
       if (method === 'cash') {
-        onConfirm([{ method: 'cash', amount: total, ref: null }])
+        onConfirm([{ method: 'cash', amount: total, ref: null }], { cashReceived })
       } else {
-        onConfirm([{ method: 'promptpay', amount: total, ref: null }])
+        onConfirm([{ method: 'promptpay', amount: total, ref: null }], { cashReceived: total })
       }
     } finally {
       setSubmitting(false)

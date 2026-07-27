@@ -25,7 +25,7 @@ export function AppLayout() {
 
   const pendingCount =
     useLiveQuery(
-      () => db.outbox_orders.where('status').anyOf(['pending', 'error']).count(),
+      () => db.outbox_orders.where('status').anyOf(['pending', 'error', 'syncing']).count(),
       [],
       0,
     ) ?? 0

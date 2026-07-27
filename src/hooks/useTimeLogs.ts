@@ -41,12 +41,10 @@ export function useActiveTimeLogs() {
   return useQuery({
     queryKey: ['time-logs-active'],
     queryFn: async (): Promise<(TimeLog & { user_name: string })[]> => {
-      const start = new Date()
-      start.setHours(0, 0, 0, 0)
+      // ไม่กรองด้วยวันที่ — พนักงานกะดึกที่ข้ามเที่ยงคืนต้องยังนับว่ากำลังทำงานอยู่
       const { data, error } = await supabase
         .from('time_logs')
         .select('*, user:users(name)')
-        .gt('clock_in', start.toISOString())
         .is('clock_out', null)
         .order('clock_in')
       if (error) throw error
@@ -56,21 +54,32 @@ export function useActiveTimeLogs() {
   })
 }
 
+/**
+ * หารายการ clock-in ที่ยังเปิดอยู่ล่าสุดของพนักงาน — ไม่จำกัดเฉพาะวันนี้
+ * เพราะกะที่ข้ามเที่ยงคืน (เช่น เข้า 22:00 ออก 01:00) จะหาไม่เจอถ้ากรองด้วยวันที่
+ */
+async function findOpenLog(userId: string): Promise<{ id: string } | null> {
+  const { data, error } = await supabase
+    .from('time_logs')
+    .select('id')
+    .eq('user_id', userId)
+    .is('clock_out', null)
+    .order('clock_in', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw error
+  return data as { id: string } | null
+}
+
 /** Clock-in */
 export function useClockIn() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ userId, note }: { userId: string; note?: string }) => {
-      // ห้าม clock-in ซ้ำถ้ายังไม่ clock-out
-      const start = new Date(); start.setHours(0, 0, 0, 0)
-      const { data: existing } = await supabase
-        .from('time_logs')
-        .select('id')
-        .eq('user_id', userId)
-        .gt('clock_in', start.toISOString())
-        .is('clock_out', null)
-        .maybeSingle()
-      if (existing) throw new Error('พนักงานยังไม่ได้ clock-out จากรอบก่อน')
+      // ห้าม clock-in ซ้ำถ้ายังไม่ clock-out (รวมกะที่ข้ามคืนมา)
+      if (await findOpenLog(userId)) {
+        throw new Error('พนักงานยังไม่ได้ clock-out จากรอบก่อน')
+      }
 
       const { error } = await supabase
         .from('time_logs')
@@ -89,21 +98,13 @@ export function useClockOut() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ userId }: { userId: string }) => {
-      const start = new Date(); start.setHours(0, 0, 0, 0)
-      const { data, error: fetchErr } = await supabase
-        .from('time_logs')
-        .select('id')
-        .eq('user_id', userId)
-        .gt('clock_in', start.toISOString())
-        .is('clock_out', null)
-        .maybeSingle()
-      if (fetchErr) throw fetchErr
-      if (!data) throw new Error('ไม่พบรายการ clock-in ของวันนี้')
+      const open = await findOpenLog(userId)
+      if (!open) throw new Error('ไม่พบรายการ clock-in ที่ยังเปิดอยู่')
 
       const { error } = await supabase
         .from('time_logs')
         .update({ clock_out: new Date().toISOString() })
-        .eq('id', data.id)
+        .eq('id', open.id)
       if (error) throw error
     },
     onSuccess: () => {

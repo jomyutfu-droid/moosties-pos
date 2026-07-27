@@ -20,6 +20,12 @@ function nextUid() {
   return `line-${Date.now()}-${uidCounter}`
 }
 
+/** ส่วนลดต้องอยู่ระหว่าง 0 ถึงยอดรวม — กันยอดสุทธิติดลบและ discount ที่บันทึกเกินจริง */
+function clampDiscount(value: number, lines: CartLine[]): number {
+  if (!Number.isFinite(value) || value <= 0) return 0
+  return Math.min(value, cartSubtotal(lines))
+}
+
 export const useCartStore = create<CartState>((set) => ({
   lines: [],
   discount: 0,
@@ -49,13 +55,19 @@ export const useCartStore = create<CartState>((set) => ({
       return { lines: [...state.lines, line] }
     }),
   incrementLine: (uid, delta) =>
-    set((state) => ({
-      lines: state.lines
+    set((state) => {
+      const lines = state.lines
         .map((l) => (l.uid === uid ? { ...l, qty: l.qty + delta } : l))
-        .filter((l) => l.qty > 0),
-    })),
-  removeLine: (uid) => set((state) => ({ lines: state.lines.filter((l) => l.uid !== uid) })),
-  setDiscount: (value) => set({ discount: value }),
+        .filter((l) => l.qty > 0)
+      // ลดจำนวนแล้วส่วนลดอาจเกินยอดใหม่ — ปรับให้ไม่เกินเสมอ
+      return { lines, discount: clampDiscount(state.discount, lines) }
+    }),
+  removeLine: (uid) =>
+    set((state) => {
+      const lines = state.lines.filter((l) => l.uid !== uid)
+      return { lines, discount: clampDiscount(state.discount, lines) }
+    }),
+  setDiscount: (value) => set((state) => ({ discount: clampDiscount(value, state.lines) })),
   setNote: (value) => set({ note: value }),
   clear: () => set({ lines: [], discount: 0, note: '' }),
 }))

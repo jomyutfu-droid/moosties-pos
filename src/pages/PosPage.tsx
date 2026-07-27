@@ -49,10 +49,16 @@ export default function PosPage() {
     setPickerProduct(null)
   }
 
-  async function handleConfirmPayment(payments: { method: PaymentMethod; amount: number; ref: string | null }[]) {
+  async function handleConfirmPayment(
+    payments: { method: PaymentMethod; amount: number; ref: string | null }[],
+    meta: { cashReceived: number },
+  ) {
+    if (lines.length === 0) return // กันบันทึกออเดอร์ว่าง
     const subtotal = cartSubtotal(lines)
     const cogsTotal = cartCogsTotal(lines)
-    const total = Math.max(0, round2(subtotal - discount))
+    // ส่วนลดต้องไม่เกินยอดรวม มิฉะนั้น discount ที่บันทึกจะไม่ตรงกับ total
+    const effectiveDiscount = round2(Math.min(Math.max(0, discount), subtotal))
+    const total = round2(subtotal - effectiveDiscount)
     const clientUuid = crypto.randomUUID()
 
     const items: OutboxOrderItemInput[] = lines.map((l) => ({
@@ -77,7 +83,7 @@ export default function PosPage() {
       user_id: activeStaff?.id ?? null,
       channel: 'dine_in',
       subtotal: round2(subtotal),
-      discount: round2(discount),
+      discount: effectiveDiscount,
       total,
       cogs_total: round2(cogsTotal),
       note: note || null,
@@ -100,18 +106,20 @@ export default function PosPage() {
       }
     }
 
-    const cashPayment = payments.find((p) => p.method === 'cash')
-    const paidAmount = payments.reduce((s, p) => s + p.amount, 0)
+    // เงินสด: ใช้ยอดเงินที่รับมาจริงเพื่อคำนวณเงินทอน
+    // ช่องทางอื่น (PromptPay): รับเท่ายอดสุทธิ ไม่มีเงินทอน
+    const isCash = payments.some((p) => p.method === 'cash')
+    const received = isCash ? round2(Math.max(meta.cashReceived, total)) : total
 
     // Feature 2: ส่ง lines และ discount ไปให้ ReceiptModal เพื่อพิมพ์ใบเสร็จ + สติกเกอร์
     setReceiptOrder({
       orderNo: clientUuid.slice(0, 8),
       total,
-      paid: paidAmount,
-      change: cashPayment ? round2(cashPayment.amount - total) : 0,
+      paid: received,
+      change: round2(received - total),
       createdAt: outboxOrder.created_at,
       lines: [...lines], // snapshot ก่อน clear
-      discount,
+      discount: effectiveDiscount,
     })
 
     clear()
