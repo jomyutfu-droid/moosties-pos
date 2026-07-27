@@ -43,6 +43,16 @@ export function useOpenSession() {
   })
 }
 
+/** ยอดขายเงินสดตั้งแต่เปิดกะ — ใช้แสดงยอดคาดหวังแบบสด ๆ ก่อนกดปิดกะ */
+export function useCashSalesSince(openedAt: string | null) {
+  return useQuery({
+    queryKey: ['cash-sales-since', openedAt],
+    queryFn: () => (openedAt ? getCashSalesSince(openedAt) : 0),
+    enabled: !!openedAt,
+    refetchInterval: 60_000,
+  })
+}
+
 /** เงินสดที่ขายได้ตั้งแต่เปิดกะ (สำหรับคำนวณยอดคาดหวัง) */
 export async function getCashSalesSince(openedAt: string): Promise<number> {
   const { data, error } = await supabase
