@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { db } from '@/lib/db'
+import { explainSupabaseError } from '@/lib/errors'
 import type { Settings } from '@/types'
 
 const DEFAULTS: Settings = {
@@ -32,7 +33,11 @@ export function useSettings() {
         }
         await db.settings.put({ ...merged, id: 'singleton' })
         return merged
-      } catch {
+      } catch (err) {
+        // ตกไปใช้แคช/ค่า default ไว้ก่อนเพื่อให้แอปทำงานต่อได้แบบออฟไลน์ — แต่ต้อง log ไว้
+        // ก่อนหน้านี้ catch เฉย ๆ ไม่มี log เลย ทำให้ปัญหา เช่น RLS ปฏิเสธการอ่าน settings
+        // มองไม่เห็นแม้แต่ใน console จนกว่าจะมีคนสังเกตว่าค่าที่ตั้งไว้ไม่เคยถูกใช้จริง
+        console.warn('[settings] โหลดจาก Supabase ไม่สำเร็จ ใช้แคช/ค่า default แทน:', explainSupabaseError(err))
         const cached = await db.settings.get('singleton')
         return cached ?? DEFAULTS
       }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSaveSettings, useSettings } from '@/hooks/useSettings'
 import { parseUnsignedNumber, displayNumber } from '@/lib/forms'
+import { explainSupabaseError } from '@/lib/errors'
 import type { Settings } from '@/types'
 
 export default function SettingsPage() {
@@ -8,6 +9,7 @@ export default function SettingsPage() {
   const save = useSaveSettings()
   const [form, setForm] = useState<Settings | null>(null)
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (settings && !form) setForm(settings)
@@ -24,12 +26,20 @@ export default function SettingsPage() {
   function update<K extends keyof Settings>(key: K, value: Settings[K]) {
     setForm((f) => (f ? { ...f, [key]: value } : f))
     setSaved(false)
+    setError(null)
   }
 
   async function handleSave() {
     if (!form) return
-    await save.mutateAsync(form)
-    setSaved(true)
+    setError(null)
+    // ต้องจับ error เอง — mutateAsync ที่ล้มเหลวจะ throw แล้วเงียบไปเฉย ๆ ถ้าไม่ครอบ try/catch
+    // ก่อนหน้านี้ไม่มีการจับเลย ปุ่ม "บันทึก" จึงดูเหมือนไม่ทำอะไรตอนบันทึกไม่สำเร็จ (เช่น RLS ปฏิเสธ)
+    try {
+      await save.mutateAsync(form)
+      setSaved(true)
+    } catch (err) {
+      setError(explainSupabaseError(err, 'บันทึกไม่สำเร็จ'))
+    }
   }
 
   return (
@@ -132,6 +142,10 @@ export default function SettingsPage() {
           />
         </div>
       </section>
+
+      {error && (
+        <p className="text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2 whitespace-pre-line">{error}</p>
+      )}
 
       <div className="flex items-center gap-3">
         <button className="btn-primary" disabled={save.isPending} onClick={handleSave}>

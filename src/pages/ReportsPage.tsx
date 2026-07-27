@@ -104,7 +104,11 @@ function Stat({ label, value, highlight }: { label: string; value: string; highl
 
 function CashSessionPanel() {
   const { data: session, isLoading } = useOpenCashSession()
-  const { data: cashSales = 0 } = useCashSalesSince(session?.opened_at ?? null)
+  const {
+    data: cashSales = 0,
+    isError: cashSalesError,
+    isLoading: cashSalesLoading,
+  } = useCashSalesSince(session?.opened_at ?? null)
   const openSession = useOpenSession()
   const closeSession = useCloseSession()
   const activeStaff = useSessionStore((s) => s.activeStaff)
@@ -236,13 +240,20 @@ function CashSessionPanel() {
         </div>
         <div className="flex justify-between">
           <span>+ ขายเงินสดตั้งแต่เปิดกะ</span>
-          <span>{formatBahtSymbol(cashSales)}</span>
+          <span>{cashSalesLoading ? 'กำลังโหลด…' : formatBahtSymbol(cashSales)}</span>
         </div>
         <div className="flex justify-between font-bold border-t border-gray-200 pt-1 mt-1">
           <span>= ควรมีในลิ้นชัก</span>
           <span>{formatBahtSymbol(expected)}</span>
         </div>
       </div>
+
+      {/* ถ้าดึงยอดขายเงินสดไม่ได้ ตัวเลข "ควรมี" ข้างบนจะต่ำกว่าความจริง — ห้ามปิดกะด้วยเลขที่ผิด */}
+      {cashSalesError && (
+        <p className="text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2 mb-3">
+          ⚠️ คำนวณยอดขายเงินสดไม่สำเร็จ — ตัวเลข "ควรมีในลิ้นชัก" ด้านบนอาจไม่ถูกต้อง กรุณาลองใหม่ก่อนปิดกะ
+        </p>
+      )}
 
       <div className="flex flex-wrap gap-2 items-end">
         <div className="flex-1 min-w-[140px]">
@@ -292,7 +303,12 @@ function CashSessionPanel() {
             </button>
           </>
         ) : (
-          <button className="btn-primary" onClick={() => { setError(null); setConfirming(true) }}>
+          <button
+            className="btn-primary"
+            disabled={cashSalesError}
+            title={cashSalesError ? 'คำนวณยอดขายไม่สำเร็จ — รอลองใหม่ก่อนปิดกะ' : undefined}
+            onClick={() => { setError(null); setConfirming(true) }}
+          >
             ปิดกะ
           </button>
         )}
