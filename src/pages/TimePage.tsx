@@ -33,7 +33,26 @@ export default function TimePage() {
 
   // เช็คจากรายการที่ยังไม่ clock-out (ไม่ผูกกับวันที่)
   // ถ้าใช้ logs ของวันนี้ พนักงานกะดึกที่ข้ามเที่ยงคืนจะกดปุ่มออกงานไม่ได้
-  const isClockdIn = (openLogs ?? []).some((l) => l.user_id === selectedUserId)
+  const openLog = (openLogs ?? []).find((l) => l.user_id === selectedUserId)
+  const isClockdIn = !!openLog
+
+  // กะที่เปิดค้างข้ามวันมาแล้ว — เกือบแน่นอนว่าลืมกด clock-out
+  const staleHours = openLog
+    ? (Date.now() - new Date(openLog.clock_in).getTime()) / 3_600_000
+    : 0
+  const isStale = staleHours > 16
+
+  async function handleForceClockIn() {
+    if (!selectedUserId) return
+    setMsg(null)
+    try {
+      await clockIn.mutateAsync({ userId: selectedUserId, note: note || undefined, force: true })
+      setMsg({ type: 'ok', text: 'ปิดกะค้างและเข้างานใหม่เรียบร้อย' })
+      setNote('')
+    } catch (err) {
+      setMsg({ type: 'err', text: err instanceof Error ? err.message : 'เกิดข้อผิดพลาด' })
+    }
+  }
 
   async function handleClockIn() {
     if (!selectedUserId) return
@@ -84,6 +103,28 @@ export default function TimePage() {
           <div>
             <label className="label">หมายเหตุ (ถ้ามี)</label>
             <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="เช่น กะเช้า" />
+          </div>
+        )}
+
+        {/* กะค้างข้ามวัน — ลืมกด clock-out */}
+        {openLog && isStale && (
+          <div className="rounded-lg px-3 py-2.5 text-sm bg-amber-50 border border-amber-200 text-amber-800 space-y-2">
+            <p>
+              ⚠️ มีกะค้างตั้งแต่{' '}
+              <strong>
+                {new Date(openLog.clock_in).toLocaleString('th-TH', {
+                  day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+                })}
+              </strong>{' '}
+              ({Math.floor(staleHours)} ชม.ที่แล้ว) — น่าจะลืมกดออกงาน
+            </p>
+            <button
+              className="btn-secondary text-xs"
+              disabled={clockIn.isPending}
+              onClick={handleForceClockIn}
+            >
+              ปิดกะค้าง &amp; เข้างานใหม่
+            </button>
           </div>
         )}
 

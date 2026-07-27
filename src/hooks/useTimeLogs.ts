@@ -58,27 +58,55 @@ export function useActiveTimeLogs() {
  * หารายการ clock-in ที่ยังเปิดอยู่ล่าสุดของพนักงาน — ไม่จำกัดเฉพาะวันนี้
  * เพราะกะที่ข้ามเที่ยงคืน (เช่น เข้า 22:00 ออก 01:00) จะหาไม่เจอถ้ากรองด้วยวันที่
  */
-async function findOpenLog(userId: string): Promise<{ id: string } | null> {
+async function findOpenLog(userId: string): Promise<{ id: string; clock_in: string } | null> {
   const { data, error } = await supabase
     .from('time_logs')
-    .select('id')
+    .select('id, clock_in')
     .eq('user_id', userId)
     .is('clock_out', null)
     .order('clock_in', { ascending: false })
     .limit(1)
     .maybeSingle()
   if (error) throw error
-  return data as { id: string } | null
+  return data as { id: string; clock_in: string } | null
 }
 
-/** Clock-in */
+/** ปิดรายการที่ค้างอยู่ทันที ณ เวลาที่ระบุ (ค่าเริ่มต้น = ตอนนี้) */
+async function closeLog(logId: string, at: Date = new Date()): Promise<void> {
+  const { error } = await supabase
+    .from('time_logs')
+    .update({ clock_out: at.toISOString() })
+    .eq('id', logId)
+  if (error) throw error
+}
+
+/** Clock-in — force = ปิดกะที่ค้างอยู่ให้อัตโนมัติแล้วเข้างานใหม่ */
 export function useClockIn() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ userId, note }: { userId: string; note?: string }) => {
+    mutationFn: async ({
+      userId,
+      note,
+      force = false,
+    }: {
+      userId: string
+      note?: string
+      force?: boolean
+    }) => {
       // ห้าม clock-in ซ้ำถ้ายังไม่ clock-out (รวมกะที่ข้ามคืนมา)
-      if (await findOpenLog(userId)) {
-        throw new Error('พนักงานยังไม่ได้ clock-out จากรอบก่อน')
+      const open = await findOpenLog(userId)
+      if (open) {
+        if (!force) {
+          const since = new Date(open.clock_in).toLocaleString('th-TH', {
+            day: 'numeric',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+          throw new Error(`ยังมีกะค้างอยู่ตั้งแต่ ${since} — กด "ปิดกะค้าง & เข้างานใหม่" เพื่อดำเนินการต่อ`)
+        }
+        // ปิดกะค้างให้ก่อน แล้วค่อยเปิดกะใหม่
+        await closeLog(open.id)
       }
 
       const { error } = await supabase
