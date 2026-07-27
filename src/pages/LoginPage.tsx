@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { signInWithPassword } from '@/hooks/useAuth'
+import { explainSupabaseError } from '@/lib/errors'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -17,7 +18,7 @@ export default function LoginPage() {
       await signInWithPassword(email, password)
       navigate('/pin', { replace: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'เข้าสู่ระบบไม่สำเร็จ')
+      setError(explainSupabaseError(err, 'เข้าสู่ระบบไม่สำเร็จ'))
     } finally {
       setLoading(false)
     }

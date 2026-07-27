@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { db, type OutboxOrder } from '@/lib/db'
+import { errorMessage } from '@/lib/errors'
 import type { Category, Ingredient, Product, ProductOption, RecipeItem } from '@/types'
 
 /**
@@ -105,7 +106,7 @@ async function runSync(): Promise<SyncResult> {
     } catch (err) {
       await db.outbox_orders.update(order.client_uuid, {
         status: 'error',
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMessage(err, 'ส่งออเดอร์ไม่สำเร็จ'),
       })
       failed += 1
     }

@@ -12,6 +12,7 @@ import { refreshReferenceData } from '@/lib/sync'
 import { baseCost, marginPercent, unitProfit } from '@/domain/cogs'
 import { formatBahtSymbol } from '@/lib/money'
 import { parseUnsignedNumber, parseSignedNumber, displayNumber } from '@/lib/forms'
+import { explainSupabaseError } from '@/lib/errors'
 import type { ProductOption, RecipeItem } from '@/types'
 
 interface RecipeRow extends Partial<Pick<RecipeItem, 'id'>> {
@@ -176,7 +177,7 @@ export function ProductEditor({
       await refreshReferenceData().catch(() => undefined)
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'บันทึกไม่สำเร็จ')
+      setError(explainSupabaseError(err, 'บันทึกไม่สำเร็จ'))
     } finally {
       setSaving(false)
     }

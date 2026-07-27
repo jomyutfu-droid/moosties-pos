@@ -7,6 +7,8 @@ import {
   useCashSalesSince,
 } from '@/hooks/useCashSession'
 import { formatBahtSymbol, round2 } from '@/lib/money'
+import { explainSupabaseError } from '@/lib/errors'
+import { useSessionStore } from '@/store/session'
 import { parseUnsignedNumber, displayNumber } from '@/lib/forms'
 
 /** วันที่ "วันนี้" ตามเวลาเครื่อง — toISOString() ให้วันที่ UTC ซึ่งก่อน 07:00 น. ไทยจะเป็นเมื่อวาน */
@@ -105,6 +107,7 @@ function CashSessionPanel() {
   const { data: cashSales = 0 } = useCashSalesSince(session?.opened_at ?? null)
   const openSession = useOpenSession()
   const closeSession = useCloseSession()
+  const activeStaff = useSessionStore((s) => s.activeStaff)
 
   const [openingCash, setOpeningCash] = useState(0)
   const [countedCash, setCountedCash] = useState(0)
@@ -119,12 +122,16 @@ function CashSessionPanel() {
 
   async function handleOpen() {
     setError(null)
+    if (!activeStaff) {
+      setError('ยังไม่ได้เลือกพนักงาน — กด "สลับพนักงาน" แล้วใส่ PIN ก่อนเปิดกะ')
+      return
+    }
     try {
       await openSession.mutateAsync(openingCash)
       setResult(null)
       setOpeningCash(0)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'เปิดกะไม่สำเร็จ')
+      setError(explainSupabaseError(err, 'เปิดกะไม่สำเร็จ'))
     }
   }
 
@@ -138,7 +145,7 @@ function CashSessionPanel() {
       setCountedCash(0)
       setNote('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'ปิดกะไม่สำเร็จ')
+      setError(explainSupabaseError(err, 'ปิดกะไม่สำเร็จ'))
       setConfirming(false)
     }
   }

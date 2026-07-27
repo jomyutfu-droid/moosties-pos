@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { useSessionStore } from '@/store/session'
 import { useStaffList } from '@/hooks/useAuth'
 import { useTodayTimeLogs, useActiveTimeLogs, useClockIn, useClockOut } from '@/hooks/useTimeLogs'
+import { explainSupabaseError } from '@/lib/errors'
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
@@ -50,7 +51,7 @@ export default function TimePage() {
       setMsg({ type: 'ok', text: 'ปิดกะค้างและเข้างานใหม่เรียบร้อย' })
       setNote('')
     } catch (err) {
-      setMsg({ type: 'err', text: err instanceof Error ? err.message : 'เกิดข้อผิดพลาด' })
+      setMsg({ type: 'err', text: explainSupabaseError(err) })
     }
   }
 
@@ -62,7 +63,7 @@ export default function TimePage() {
       setMsg({ type: 'ok', text: 'Clock-in สำเร็จ' })
       setNote('')
     } catch (err) {
-      setMsg({ type: 'err', text: err instanceof Error ? err.message : 'เกิดข้อผิดพลาด' })
+      setMsg({ type: 'err', text: explainSupabaseError(err) })
     }
   }
 
@@ -73,7 +74,7 @@ export default function TimePage() {
       await clockOut.mutateAsync({ userId: selectedUserId })
       setMsg({ type: 'ok', text: 'Clock-out สำเร็จ' })
     } catch (err) {
-      setMsg({ type: 'err', text: err instanceof Error ? err.message : 'เกิดข้อผิดพลาด' })
+      setMsg({ type: 'err', text: explainSupabaseError(err) })
     }
   }
 

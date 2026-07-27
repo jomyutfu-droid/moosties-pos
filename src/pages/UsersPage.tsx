@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useDeactivateUser, useSaveUser, useUsers, ROLE_LABELS, type UserInput } from '@/hooks/useUsers'
+import { explainSupabaseError } from '@/lib/errors'
 import type { AppUser, Role } from '@/types'
 
 export default function UsersPage() {
@@ -96,7 +97,7 @@ function UserEditor({ user, onClose }: { user: AppUser | null; onClose: () => vo
       await save.mutateAsync(input)
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'บันทึกไม่สำเร็จ')
+      setError(explainSupabaseError(err, 'บันทึกไม่สำเร็จ'))
     }
   }
 

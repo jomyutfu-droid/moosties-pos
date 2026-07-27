@@ -3,6 +3,7 @@ import { useRecordStockMovement } from '@/hooks/useInventory'
 import { useSessionStore } from '@/store/session'
 import { formatStockQty } from '@/lib/money'
 import { parseUnsignedNumber, displayNumber } from '@/lib/forms'
+import { explainSupabaseError } from '@/lib/errors'
 import type { Ingredient, StockMovementType } from '@/types'
 
 interface Props {
@@ -57,7 +58,7 @@ export function MovementModal({ ingredient: preSelected, ingredients = [], onClo
       })
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'บันทึกไม่สำเร็จ')
+      setError(explainSupabaseError(err, 'บันทึกไม่สำเร็จ'))
     }
   }
 

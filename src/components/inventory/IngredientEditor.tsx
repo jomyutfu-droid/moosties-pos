@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useSaveIngredient } from '@/hooks/useInventory'
 import { round2 } from '@/lib/money'
 import { parseUnsignedNumber, displayNumber } from '@/lib/forms'
+import { explainSupabaseError } from '@/lib/errors'
 import type { Ingredient } from '@/types'
 
 export function IngredientEditor({
@@ -40,7 +41,7 @@ export function IngredientEditor({
       })
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'บันทึกไม่สำเร็จ')
+      setError(explainSupabaseError(err, 'บันทึกไม่สำเร็จ'))
     }
   }
 
