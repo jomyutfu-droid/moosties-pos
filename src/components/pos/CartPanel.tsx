@@ -8,38 +8,57 @@ import { escapeHtml, openPrintWindow, THERMAL_BASE_CSS } from '@/lib/html'
 import { NumberField } from '@/components/NumberField'
 import type { CartLine } from '@/types'
 
-function RecipeModal({ line, onClose }: { line: CartLine; onClose: () => void }) {
-  const handlePrint = () => {
-    // ใช้ตรรกะเดียวกับสติกเกอร์: ตัดบรรจุภัณฑ์ออก และรวมปริมาณที่ตัวเลือกปรับเข้าไปด้วย
-    // ไม่งั้นการ์ดสูตรจะบอกปริมาณไม่ตรงกับสติกเกอร์และกับที่ตัดสต็อกจริง
-    const recipeItems = line.product.recipe_items.filter(
-      (r) => r.ingredient?.category?.trim() !== 'บรรจุภัณฑ์',
+/**
+ * คำนวณปริมาณวัตถุดิบจริงหลังรวมผลของตัวเลือก (เช่น "หวานน้อย" ลดน้ำเชื่อม)
+ * ใช้ร่วมกันทั้งตารางพรีวิวบนหน้าจอ และ HTML ที่พิมพ์ออกมา
+ * เดิมพรีวิวบนหน้าจอใช้ line.product.recipe_items ตรง ๆ โดยไม่ปรับตามตัวเลือกเลย
+ * ทำให้ผู้ใช้เปิดดู "สูตร" แล้วเห็นปริมาณน้ำเชื่อมไม่ลดตามที่ตั้งค่าไว้ (แม้ใบพิมพ์จริงจะถูกต้อง)
+ */
+function computeAdjustedRecipe(line: CartLine) {
+  const recipeItems = line.product.recipe_items.filter(
+    (r) => r.ingredient?.category?.trim() !== 'บรรจุภัณฑ์',
+  )
+  const optDeltaById = new Map<string, number>()
+  for (const opt of line.selectedOptions) {
+    if (!opt.linked_ingredient_id || !opt.qty_delta) continue
+    optDeltaById.set(
+      opt.linked_ingredient_id,
+      (optDeltaById.get(opt.linked_ingredient_id) ?? 0) + opt.qty_delta,
     )
-    const optDeltaById = new Map<string, number>()
-    for (const opt of line.selectedOptions) {
-      if (!opt.linked_ingredient_id || !opt.qty_delta) continue
-      optDeltaById.set(
-        opt.linked_ingredient_id,
-        (optDeltaById.get(opt.linked_ingredient_id) ?? 0) + opt.qty_delta,
-      )
-    }
+  }
 
-    const rows = recipeItems.map((r) => {
-      const delta = optDeltaById.get(r.ingredient_id) ?? 0
-      if (delta) optDeltaById.delete(r.ingredient_id)
-      const qty = Math.round((r.qty + delta) * 1000) / 1000
-      return `<tr>
-          <td>${escapeHtml(r.ingredient.name)}${delta ? ' <small>(ปรับตามตัวเลือก)</small>' : ''}${
+  const adjusted = recipeItems.map((r) => {
+    const delta = optDeltaById.get(r.ingredient_id) ?? 0
+    if (delta) optDeltaById.delete(r.ingredient_id)
+    return { r, qty: Math.round((r.qty + delta) * 1000) / 1000, isAdjusted: delta !== 0 }
+  })
+
+  const extra = Array.from(optDeltaById.entries()).map(([ingId, qty]) => ({
+    name: line.selectedOptions.find((o) => o.linked_ingredient_id === ingId)?.name ?? 'ตัวเลือก',
+    qty,
+  }))
+
+  return { adjusted, extra }
+}
+
+function RecipeModal({ line, onClose }: { line: CartLine; onClose: () => void }) {
+  const { adjusted, extra } = computeAdjustedRecipe(line)
+
+  const handlePrint = () => {
+    // ใช้ตรรกะเดียวกับสติกเกอร์และตารางพรีวิว: ตัดบรรจุภัณฑ์ออก และรวมปริมาณที่ตัวเลือกปรับเข้าไปด้วย
+    // ไม่งั้นการ์ดสูตรจะบอกปริมาณไม่ตรงกับสติกเกอร์และกับที่ตัดสต็อกจริง
+    const rows = adjusted.map(
+      ({ r, qty, isAdjusted }) => `<tr>
+          <td>${escapeHtml(r.ingredient.name)}${isAdjusted ? ' <small>(ปรับตามตัวเลือก)</small>' : ''}${
             r.note ? `<br><small>${escapeHtml(r.note)}</small>` : ''
           }</td>
           <td class="r">${qty}</td>
           <td class="r">${escapeHtml(r.ingredient.unit)}</td>
-        </tr>`
-    })
+        </tr>`,
+    )
 
     // วัตถุดิบที่มาจากตัวเลือกล้วน ๆ
-    for (const [ingId, qty] of optDeltaById.entries()) {
-      const name = line.selectedOptions.find((o) => o.linked_ingredient_id === ingId)?.name ?? 'ตัวเลือก'
+    for (const { name, qty } of extra) {
       rows.push(
         `<tr><td>${escapeHtml(name)} <small>(ตัวเลือก)</small></td><td class="r">${qty}</td><td class="r">-</td></tr>`,
       )
@@ -95,7 +114,7 @@ function RecipeModal({ line, onClose }: { line: CartLine; onClose: () => void })
           <button className="text-gray-400 hover:text-gray-600 text-xl leading-none ml-3" onClick={onClose}>✕</button>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {line.product.recipe_items.length === 0 ? (
+          {adjusted.length === 0 && extra.length === 0 ? (
             <p className="text-sm py-6 text-center" style={{ color: '#5c7466' }}>ไม่มีสูตรวัตถุดิบ</p>
           ) : (
             <table className="w-full text-sm">
@@ -107,14 +126,31 @@ function RecipeModal({ line, onClose }: { line: CartLine; onClose: () => void })
                 </tr>
               </thead>
               <tbody>
-                {line.product.recipe_items.map((r) => (
+                {adjusted.map(({ r, qty, isAdjusted }) => (
                   <tr key={r.id} style={{ borderBottom: '1px solid rgba(0,0,0,.06)' }}>
                     <td className="py-1.5 pr-2">
-                      <div style={{ color: '#123524' }}>{r.ingredient.name}</div>
+                      <div style={{ color: '#123524' }}>
+                        {r.ingredient.name}
+                        {isAdjusted && (
+                          <span className="text-xs ml-1" style={{ color: '#16a34a' }}>(ปรับตามตัวเลือก)</span>
+                        )}
+                      </div>
                       {r.note && <div className="text-xs" style={{ color: '#5c7466' }}>{r.note}</div>}
                     </td>
-                    <td className="text-right py-1.5 tabular-nums" style={{ color: '#5c7466' }}>{r.qty}</td>
+                    <td className="text-right py-1.5 tabular-nums" style={{ color: '#5c7466' }}>{qty}</td>
                     <td className="text-right py-1.5 pl-2 text-xs" style={{ color: '#5c7466' }}>{r.ingredient.unit}</td>
+                  </tr>
+                ))}
+                {extra.map(({ name, qty }, i) => (
+                  <tr key={`extra-${i}`} style={{ borderBottom: '1px solid rgba(0,0,0,.06)' }}>
+                    <td className="py-1.5 pr-2">
+                      <div style={{ color: '#123524' }}>
+                        {name}
+                        <span className="text-xs ml-1" style={{ color: '#5c7466' }}>(ตัวเลือก)</span>
+                      </div>
+                    </td>
+                    <td className="text-right py-1.5 tabular-nums" style={{ color: '#5c7466' }}>{qty}</td>
+                    <td className="text-right py-1.5 pl-2 text-xs" style={{ color: '#5c7466' }}>-</td>
                   </tr>
                 ))}
               </tbody>
