@@ -2,8 +2,9 @@ import { useRef, useState } from 'react'
 import { useRecordStockMovement } from '@/hooks/useInventory'
 import { useSessionStore } from '@/store/session'
 import { formatStockQty } from '@/lib/money'
-import { parseUnsignedNumber, displayNumber } from '@/lib/forms'
+import { parseUnsignedNumber } from '@/lib/forms'
 import { explainSupabaseError } from '@/lib/errors'
+import { NumberField } from '@/components/NumberField'
 import type { Ingredient, StockMovementType } from '@/types'
 
 interface Props {
@@ -135,14 +136,7 @@ export function MovementModal({ ingredient: preSelected, ingredients = [], onClo
           </div>
           <div>
             <label className="label">จำนวน{ingredient ? ` (${ingredient.unit})` : ''}</label>
-            <input
-              type="text"
-              inputMode="decimal"
-              className="input"
-              value={displayNumber(qty)}
-              onFocus={(e) => e.target.select()}
-              onChange={(e) => setQty(parseUnsignedNumber(e.target.value))}
-            />
+            <NumberField className="input" value={qty} parse={parseUnsignedNumber} onChange={setQty} />
             <p className="text-xs text-gray-400 mt-1">
               {type === 'receive' ? 'จะเพิ่มเข้าสต็อก' : 'จะตัดออกจากสต็อก'}
             </p>
@@ -155,14 +149,12 @@ export function MovementModal({ ingredient: preSelected, ingredients = [], onClo
                 ราคาซื้อต่อหน่วย (฿)
                 <span className="ml-1 text-xs font-normal text-gray-400">ใช้คำนวณต้นทุนถัวเฉลี่ย</span>
               </label>
-              <input
-                type="text"
-                inputMode="decimal"
+              <NumberField
                 className="input"
-                value={displayNumber(pricePerUnit)}
+                value={pricePerUnit}
+                parse={parseUnsignedNumber}
+                onChange={setPricePerUnit}
                 placeholder={ingredient ? `ปัจจุบัน ${ingredient.cost_per_unit.toFixed(2)}` : '0.00'}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => setPricePerUnit(parseUnsignedNumber(e.target.value))}
               />
             </div>
           )}

@@ -9,7 +9,8 @@ import {
 import { formatBahtSymbol, round2 } from '@/lib/money'
 import { explainSupabaseError } from '@/lib/errors'
 import { useSessionStore } from '@/store/session'
-import { parseUnsignedNumber, displayNumber } from '@/lib/forms'
+import { parseUnsignedNumber } from '@/lib/forms'
+import { NumberField } from '@/components/NumberField'
 
 /** วันที่ "วันนี้" ตามเวลาเครื่อง — toISOString() ให้วันที่ UTC ซึ่งก่อน 07:00 น. ไทยจะเป็นเมื่อวาน */
 function todayStr() {
@@ -206,14 +207,7 @@ function CashSessionPanel() {
         <div className="flex gap-2 items-end">
           <div className="flex-1">
             <label className="label">เงินทอนตั้งต้น (บาท)</label>
-            <input
-              type="text"
-              inputMode="decimal"
-              className="input"
-              value={displayNumber(openingCash)}
-              onFocus={(e) => e.target.select()}
-              onChange={(e) => setOpeningCash(parseUnsignedNumber(e.target.value))}
-            />
+            <NumberField className="input" value={openingCash} parse={parseUnsignedNumber} onChange={setOpeningCash} />
           </div>
           <button className="btn-primary" disabled={openSession.isPending} onClick={handleOpen}>
             {openSession.isPending ? 'กำลังเปิด…' : 'เปิดกะ'}
@@ -258,13 +252,11 @@ function CashSessionPanel() {
       <div className="flex flex-wrap gap-2 items-end">
         <div className="flex-1 min-w-[140px]">
           <label className="label">นับเงินสดได้จริง (บาท)</label>
-          <input
-            type="text"
-            inputMode="decimal"
+          <NumberField
             className="input"
-            value={displayNumber(countedCash)}
-            onFocus={(e) => e.target.select()}
-            onChange={(e) => { setCountedCash(parseUnsignedNumber(e.target.value)); setConfirming(false) }}
+            value={countedCash}
+            parse={parseUnsignedNumber}
+            onChange={(n) => { setCountedCash(n); setConfirming(false) }}
           />
         </div>
         <div className="flex-1 min-w-[140px]">

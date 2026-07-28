@@ -11,8 +11,9 @@ import {
 import { refreshReferenceData } from '@/lib/sync'
 import { baseCost, marginPercent, unitProfit } from '@/domain/cogs'
 import { formatBahtSymbol } from '@/lib/money'
-import { parseUnsignedNumber, parseSignedNumber, displayNumber } from '@/lib/forms'
+import { parseUnsignedNumber, parseSignedNumber } from '@/lib/forms'
 import { explainSupabaseError } from '@/lib/errors'
+import { NumberField } from '@/components/NumberField'
 import type { ProductOption, RecipeItem } from '@/types'
 
 interface RecipeRow extends Partial<Pick<RecipeItem, 'id'>> {
@@ -243,14 +244,7 @@ export function ProductEditor({
             </div>
             <div>
               <label className="label">ราคา (บาท)</label>
-              <input
-                type="text"
-                inputMode="decimal"
-                className="input"
-                value={displayNumber(price)}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => setPrice(parseUnsignedNumber(e.target.value))}
-              />
+              <NumberField className="input" value={price} parse={parseUnsignedNumber} onChange={setPrice} />
             </div>
             <div>
               <label className="label">หมวด</label>
@@ -313,18 +307,14 @@ export function ProductEditor({
                         </option>
                       ))}
                     </select>
-                    <input
-                      type="text"
-                      inputMode="decimal"
+                    <NumberField
                       className="input"
                       style={{ width: '80px', flexShrink: 0 }}
-                      value={displayNumber(row.qty)}
-                      onFocus={(e) => e.target.select()}
-                      onChange={(e) =>
+                      value={row.qty}
+                      parse={parseUnsignedNumber}
+                      onChange={(n) =>
                         setRecipeRows((rows) =>
-                          rows.map((r) =>
-                            r._key === row._key ? { ...r, qty: parseUnsignedNumber(e.target.value) } : r,
-                          ),
+                          rows.map((r) => (r._key === row._key ? { ...r, qty: n } : r)),
                         )
                       }
                     />
@@ -369,19 +359,15 @@ export function ProductEditor({
                       setOptionRows((rows) => rows.map((r) => (r._key === row._key ? { ...r, name: e.target.value } : r)))
                     }
                   />
-                  <input
-                    type="text"
-                    inputMode="decimal"
+                  <NumberField
                     className="input"
                     style={{ width: '72px', flexShrink: 0 }}
                     placeholder="+ราคา"
-                    value={displayNumber(row.price_delta)}
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) =>
+                    value={row.price_delta}
+                    parse={parseSignedNumber}
+                    onChange={(n) =>
                       setOptionRows((rows) =>
-                        rows.map((r) =>
-                          r._key === row._key ? { ...r, price_delta: parseSignedNumber(e.target.value) } : r,
-                        ),
+                        rows.map((r) => (r._key === row._key ? { ...r, price_delta: n } : r)),
                       )
                     }
                   />
@@ -404,19 +390,15 @@ export function ProductEditor({
                       </option>
                     ))}
                   </select>
-                  <input
-                    type="text"
-                    inputMode="decimal"
+                  <NumberField
                     className="input"
                     style={{ width: '72px', flexShrink: 0 }}
                     placeholder="+ปริมาณ"
-                    value={displayNumber(row.qty_delta)}
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) =>
+                    value={row.qty_delta}
+                    parse={parseSignedNumber}
+                    onChange={(n) =>
                       setOptionRows((rows) =>
-                        rows.map((r) =>
-                          r._key === row._key ? { ...r, qty_delta: parseSignedNumber(e.target.value) } : r,
-                        ),
+                        rows.map((r) => (r._key === row._key ? { ...r, qty_delta: n } : r)),
                       )
                     }
                   />

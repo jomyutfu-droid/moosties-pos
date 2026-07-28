@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useSaveIngredient } from '@/hooks/useInventory'
 import { round2 } from '@/lib/money'
-import { parseUnsignedNumber, displayNumber } from '@/lib/forms'
+import { parseUnsignedNumber } from '@/lib/forms'
 import { explainSupabaseError } from '@/lib/errors'
+import { NumberField } from '@/components/NumberField'
 import type { Ingredient } from '@/types'
 
 export function IngredientEditor({
@@ -78,36 +79,15 @@ export function IngredientEditor({
             </div>
             <div>
               <label className="label">จุดสั่งซื้อซ้ำ</label>
-              <input
-                type="text"
-                inputMode="decimal"
-                className="input"
-                value={displayNumber(reorderPoint)}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => setReorderPoint(parseUnsignedNumber(e.target.value))}
-              />
+              <NumberField className="input" value={reorderPoint} parse={parseUnsignedNumber} onChange={setReorderPoint} />
             </div>
             <div>
               <label className="label">ราคาต่อแพ็ก (บาท)</label>
-              <input
-                type="text"
-                inputMode="decimal"
-                className="input"
-                value={displayNumber(packPrice)}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => setPackPrice(parseUnsignedNumber(e.target.value))}
-              />
+              <NumberField className="input" value={packPrice} parse={parseUnsignedNumber} onChange={setPackPrice} />
             </div>
             <div>
               <label className="label">ปริมาณต่อแพ็ก</label>
-              <input
-                type="text"
-                inputMode="decimal"
-                className="input"
-                value={displayNumber(packQty)}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => setPackQty(parseUnsignedNumber(e.target.value))}
-              />
+              <NumberField className="input" value={packQty} parse={parseUnsignedNumber} onChange={setPackQty} />
             </div>
           </div>
           <p className="text-sm text-gray-500">

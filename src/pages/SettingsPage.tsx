@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useSaveSettings, useSettings } from '@/hooks/useSettings'
-import { parseUnsignedNumber, displayNumber } from '@/lib/forms'
+import { parseUnsignedNumber } from '@/lib/forms'
 import { explainSupabaseError } from '@/lib/errors'
+import { NumberField } from '@/components/NumberField'
 import type { Settings } from '@/types'
 
 export default function SettingsPage() {
@@ -83,13 +84,11 @@ export default function SettingsPage() {
         </div>
         <div>
           <label className="label">VAT (%)</label>
-          <input
-            type="text"
-            inputMode="decimal"
+          <NumberField
             className="input"
-            value={displayNumber(form.vat_percent)}
-            onFocus={(e) => e.target.select()}
-            onChange={(e) => update('vat_percent', parseUnsignedNumber(e.target.value))}
+            value={form.vat_percent}
+            parse={parseUnsignedNumber}
+            onChange={(n) => update('vat_percent', n)}
           />
         </div>
       </section>
@@ -106,13 +105,11 @@ export default function SettingsPage() {
         </label>
         <div>
           <label className="label">เป้าหมายกำไรขั้นต้น (%)</label>
-          <input
-            type="text"
-            inputMode="decimal"
+          <NumberField
             className="input"
-            value={displayNumber(form.target_margin_percent)}
-            onFocus={(e) => e.target.select()}
-            onChange={(e) => update('target_margin_percent', parseUnsignedNumber(e.target.value))}
+            value={form.target_margin_percent}
+            parse={parseUnsignedNumber}
+            onChange={(n) => update('target_margin_percent', n)}
           />
         </div>
         <div>
@@ -132,13 +129,11 @@ export default function SettingsPage() {
         <h2 className="font-semibold">สิทธิ์พนักงาน</h2>
         <div>
           <label className="label">ส่วนลดสูงสุดที่พนักงานให้ได้เอง (บาท)</label>
-          <input
-            type="text"
-            inputMode="decimal"
+          <NumberField
             className="input"
-            value={displayNumber(form.staff_discount_limit)}
-            onFocus={(e) => e.target.select()}
-            onChange={(e) => update('staff_discount_limit', parseUnsignedNumber(e.target.value))}
+            value={form.staff_discount_limit}
+            parse={parseUnsignedNumber}
+            onChange={(n) => update('staff_discount_limit', n)}
           />
         </div>
       </section>
