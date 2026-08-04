@@ -166,7 +166,10 @@ function RecipeModal({ line, onClose }: { line: CartLine; onClose: () => void })
 export function CartPanel({ onCheckout }: { onCheckout: () => void }) {
   const lines = useCartStore((s) => s.lines)
   const discount = useCartStore((s) => s.discount)
-  const setDiscount = useCartStore((s) => s.setDiscount)
+  const discountMode = useCartStore((s) => s.discountMode)
+  const discountValue = useCartStore((s) => s.discountValue)
+  const setDiscountMode = useCartStore((s) => s.setDiscountMode)
+  const setDiscountValue = useCartStore((s) => s.setDiscountValue)
   const incrementLine = useCartStore((s) => s.incrementLine)
   const removeLine = useCartStore((s) => s.removeLine)
   const clear = useCartStore((s) => s.clear)
@@ -181,6 +184,7 @@ export function CartPanel({ onCheckout }: { onCheckout: () => void }) {
   const isManagerUp = role === 'owner' || role === 'manager'
   const discountCap = isManagerUp ? subtotal : Math.min(settings?.staff_discount_limit ?? 0, subtotal)
   const discountBlocked = !isManagerUp && discountCap <= 0
+  const maxDiscountValue = discountMode === 'percent' && subtotal > 0 ? (discountCap / subtotal) * 100 : discountCap
 
   return (
     <aside
@@ -257,7 +261,7 @@ export function CartPanel({ onCheckout }: { onCheckout: () => void }) {
           <span>ยอดรวม</span>
           <span>{formatBahtSymbol(subtotal)}</span>
         </div>
-        <div className="flex justify-between text-sm items-center">
+        <div className="flex justify-between text-sm items-center gap-2">
           <span style={{ color: '#5c7466' }}>
             ส่วนลด
             {!isManagerUp && discountCap > 0 && (
@@ -266,14 +270,26 @@ export function CartPanel({ onCheckout }: { onCheckout: () => void }) {
               </span>
             )}
           </span>
-          <NumberField
-            className="input w-24 text-right"
-            value={discount}
+          <div className="flex items-center gap-1">
+            <select
+              className="input w-[76px] px-2"
+              value={discountMode}
+              disabled={discountBlocked}
+              onChange={(e) => setDiscountMode(e.target.value as 'amount' | 'percent')}
+              aria-label="ประเภทส่วนลด"
+            >
+              <option value="amount">บาท</option>
+              <option value="percent">%</option>
+            </select>
+            <NumberField
+            className="input w-20 text-right"
+            value={discountValue}
             parse={parseUnsignedNumber}
             disabled={discountBlocked}
             title={discountBlocked ? 'พนักงานไม่มีสิทธิ์ให้ส่วนลด — ตั้งค่าได้ที่หน้าตั้งค่า' : undefined}
-            onChange={(n) => setDiscount(Math.min(n, discountCap))}
-          />
+            onChange={(n) => setDiscountValue(Math.min(n, maxDiscountValue))}
+            />
+          </div>
         </div>
         <div className="flex justify-between font-extrabold text-lg">
           <span style={{ color: '#5c7466' }}>ยอดสุทธิ</span>
