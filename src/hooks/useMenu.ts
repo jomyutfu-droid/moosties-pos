@@ -168,6 +168,35 @@ export function useSaveCategory() {
   })
 }
 
+export function useDeleteEmptyCategory() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data: linkedProduct, error: checkError } = await supabase
+        .from('products')
+        .select('id')
+        .eq('category_id', id)
+        .limit(1)
+        .maybeSingle()
+      if (checkError) throw checkError
+      if (linkedProduct) throw new Error('หมวดนี้ยังมีเมนูอยู่ กรุณาย้ายเมนูไปหมวดอื่นก่อน')
+
+      const { data: deletedCategory, error } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', id)
+        .select('id')
+        .maybeSingle()
+      if (error) throw error
+      if (!deletedCategory) throw new Error('ลบหมวดไม่สำเร็จ กรุณาตรวจสอบสิทธิ์แล้วลองอีกครั้ง')
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['categories'] })
+      syncCatalogCache()
+    },
+  })
+}
+
 /** บันทึกรายการสูตร (เพิ่ม/แก้/ลบ) แล้วคำนวณ cost_cached ของสินค้าใหม่ */
 export function useSaveRecipeItems(productId: string) {
   const qc = useQueryClient()
