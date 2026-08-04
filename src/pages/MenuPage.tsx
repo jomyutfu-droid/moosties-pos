@@ -99,7 +99,12 @@ export default function MenuPage() {
                 onRename={async (name) => {
                   setCategoryError('')
                   try {
-                    await saveCategory.mutateAsync({ ...category, name })
+                    await saveCategory.mutateAsync({
+                      id: category.id,
+                      name,
+                      sort_order: category.sort_order,
+                      is_active: category.is_active,
+                    })
                   } catch (error) {
                     setCategoryError(error instanceof Error ? error.message : 'เปลี่ยนชื่อหมวดไม่สำเร็จ')
                   }
@@ -107,7 +112,12 @@ export default function MenuPage() {
                 onToggle={async () => {
                   setCategoryError('')
                   try {
-                    await saveCategory.mutateAsync({ ...category, is_active: !category.is_active })
+                    await saveCategory.mutateAsync({
+                      id: category.id,
+                      name: category.name,
+                      sort_order: category.sort_order,
+                      is_active: !category.is_active,
+                    })
                   } catch (error) {
                     setCategoryError(error instanceof Error ? error.message : 'เปลี่ยนสถานะหมวดไม่สำเร็จ')
                   }
