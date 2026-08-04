@@ -36,8 +36,9 @@ export function usePosCatalog(): {
       recipeByProduct.set(r.product_id, list)
     }
 
+    const activeCategoryIds = new Set(categories.filter((c) => c.is_active).map((c) => c.id))
     const productsWithRecipe: ProductWithRecipe[] = products
-      .filter((p) => p.is_active)
+      .filter((p) => p.is_active && (p.category_id === null || activeCategoryIds.has(p.category_id)))
       .sort((a, b) => a.sort_order - b.sort_order)
       .map((p) => ({
         ...p,
