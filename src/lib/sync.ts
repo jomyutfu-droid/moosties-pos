@@ -71,6 +71,18 @@ async function pushOrder(order: OutboxOrder): Promise<void> {
     .select('id')
     .single()
   if (timestampError) throw timestampError
+
+  // เลขออเดอร์อ่านง่ายตามตัวอย่างที่กำหนด: YYYYMMHHmm (เช่น 2026071730)
+  const date = new Date(order.created_at)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const orderNo = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getHours())}${pad(date.getMinutes())}`
+  const { error: orderNoError } = await supabase
+    .from('orders')
+    .update({ order_no: orderNo })
+    .eq('client_uuid', order.client_uuid)
+    .select('id')
+    .single()
+  if (orderNoError) throw orderNoError
 }
 
 export interface SyncResult {

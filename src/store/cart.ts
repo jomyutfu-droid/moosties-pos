@@ -5,11 +5,14 @@ import type { CartLine, Ingredient, ProductWithRecipe, SelectedOption } from '@/
 interface CartState {
   lines: CartLine[]
   discount: number
+  discountMode: 'amount' | 'percent'
+  discountValue: number
   note: string
   addLine: (product: ProductWithRecipe, options: SelectedOption[], ingredientsById: Map<string, Ingredient>) => void
   incrementLine: (uid: string, delta: number) => void
   removeLine: (uid: string) => void
-  setDiscount: (value: number) => void
+  setDiscountMode: (mode: 'amount' | 'percent') => void
+  setDiscountValue: (value: number) => void
   setNote: (value: string) => void
   clear: () => void
 }
@@ -20,15 +23,17 @@ function nextUid() {
   return `line-${Date.now()}-${uidCounter}`
 }
 
-/** ส่วนลดต้องอยู่ระหว่าง 0 ถึงยอดรวม — กันยอดสุทธิติดลบและ discount ที่บันทึกเกินจริง */
-function clampDiscount(value: number, lines: CartLine[]): number {
-  if (!Number.isFinite(value) || value <= 0) return 0
-  return Math.min(value, cartSubtotal(lines))
+function calculateDiscount(mode: 'amount' | 'percent', value: number, lines: CartLine[]): number {
+  const subtotal = cartSubtotal(lines)
+  if (!Number.isFinite(value) || value <= 0 || subtotal <= 0) return 0
+  return Math.min(mode === 'percent' ? subtotal * value / 100 : value, subtotal)
 }
 
 export const useCartStore = create<CartState>((set) => ({
   lines: [],
   discount: 0,
+  discountMode: 'amount',
+  discountValue: 0,
   note: '',
   addLine: (product, options, ingredientsById) =>
     set((state) => {
@@ -60,16 +65,22 @@ export const useCartStore = create<CartState>((set) => ({
         .map((l) => (l.uid === uid ? { ...l, qty: l.qty + delta } : l))
         .filter((l) => l.qty > 0)
       // ลดจำนวนแล้วส่วนลดอาจเกินยอดใหม่ — ปรับให้ไม่เกินเสมอ
-      return { lines, discount: clampDiscount(state.discount, lines) }
+      return { lines, discount: calculateDiscount(state.discountMode, state.discountValue, lines) }
     }),
   removeLine: (uid) =>
     set((state) => {
       const lines = state.lines.filter((l) => l.uid !== uid)
-      return { lines, discount: clampDiscount(state.discount, lines) }
-    }),
-  setDiscount: (value) => set((state) => ({ discount: clampDiscount(value, state.lines) })),
+      return { lines, discount: calculateDiscount(state.discountMode, state.discountValue, lines) }
+  }),
+  setDiscountMode: (mode) => set((state) => {
+    const current = state.discount
+    const subtotal = cartSubtotal(state.lines)
+    const value = mode === 'percent' && subtotal > 0 ? (current / subtotal) * 100 : current
+    return { discountMode: mode, discountValue: value, discount: calculateDiscount(mode, value, state.lines) }
+  }),
+  setDiscountValue: (value) => set((state) => ({ discountValue: value, discount: calculateDiscount(state.discountMode, value, state.lines) })),
   setNote: (value) => set({ note: value }),
-  clear: () => set({ lines: [], discount: 0, note: '' }),
+  clear: () => set({ lines: [], discount: 0, discountValue: 0, note: '' }),
 }))
 
 export function cartSubtotal(lines: CartLine[]): number {

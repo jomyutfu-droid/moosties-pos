@@ -13,6 +13,12 @@ import { useSessionStore } from '@/store/session'
 import { round2 } from '@/lib/money'
 import type { PaymentMethod, ProductWithRecipe, SelectedOption } from '@/types'
 
+function makeOrderNo(isoDate: string): string {
+  const date = new Date(isoDate)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getHours())}${pad(date.getMinutes())}`
+}
+
 export default function PosPage() {
   const { categories, products, ingredientsById, loading } = usePosCatalog()
   const lines = useCartStore((s) => s.lines)
@@ -60,6 +66,8 @@ export default function PosPage() {
     const effectiveDiscount = round2(Math.min(Math.max(0, discount), subtotal))
     const total = round2(subtotal - effectiveDiscount)
     const clientUuid = crypto.randomUUID()
+    const createdAt = new Date().toISOString()
+    const orderNo = makeOrderNo(createdAt)
 
     const items: OutboxOrderItemInput[] = lines.map((l) => ({
       product_id: l.product.id,
@@ -92,7 +100,7 @@ export default function PosPage() {
       stock_movements: stockMovements,
       status: 'pending',
       error: null,
-      created_at: new Date().toISOString(),
+      created_at: createdAt,
       synced_at: null,
     }
 
@@ -113,7 +121,7 @@ export default function PosPage() {
 
     // Feature 2: ส่ง lines และ discount ไปให้ ReceiptModal เพื่อพิมพ์ใบเสร็จ + สติกเกอร์
     setReceiptOrder({
-      orderNo: clientUuid.slice(0, 8),
+      orderNo,
       total,
       paid: received,
       change: round2(received - total),
