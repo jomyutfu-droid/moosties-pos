@@ -181,8 +181,14 @@ export function useDeleteEmptyCategory() {
       if (checkError) throw checkError
       if (linkedProduct) throw new Error('หมวดนี้ยังมีเมนูอยู่ กรุณาย้ายเมนูไปหมวดอื่นก่อน')
 
-      const { error } = await supabase.from('categories').delete().eq('id', id)
+      const { data: deletedCategory, error } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', id)
+        .select('id')
+        .maybeSingle()
       if (error) throw error
+      if (!deletedCategory) throw new Error('ลบหมวดไม่สำเร็จ กรุณาตรวจสอบสิทธิ์แล้วลองอีกครั้ง')
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['categories'] })
