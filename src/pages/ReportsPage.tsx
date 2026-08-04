@@ -11,6 +11,7 @@ import { explainSupabaseError } from '@/lib/errors'
 import { useSessionStore } from '@/store/session'
 import { parseUnsignedNumber } from '@/lib/forms'
 import { NumberField } from '@/components/NumberField'
+import { useTimeLogsByRange } from '@/hooks/useTimeLogs'
 
 /** วันที่ "วันนี้" ตามเวลาเครื่อง — toISOString() ให้วันที่ UTC ซึ่งก่อน 07:00 น. ไทยจะเป็นเมื่อวาน */
 function todayStr() {
@@ -67,6 +68,8 @@ export default function ReportsPage() {
         )}
       </section>
 
+      <StaffTimeReport />
+
       <CashSessionPanel />
 
       <section className="card p-4">
@@ -91,6 +94,86 @@ export default function ReportsPage() {
         )}
       </section>
     </div>
+  )
+}
+
+function localDateString(date: Date) {
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${m}-${d}`
+}
+
+function StaffTimeReport() {
+  const now = new Date()
+  const [period, setPeriod] = useState<'week' | 'month' | 'custom'>('month')
+  const [from, setFrom] = useState(() => localDateString(new Date(now.getFullYear(), now.getMonth(), 1)))
+  const [to, setTo] = useState(() => localDateString(now))
+  const { data: logs = [], isLoading, isError } = useTimeLogsByRange(from, to)
+
+  function choosePeriod(next: 'week' | 'month') {
+    const today = new Date()
+    const start = next === 'week'
+      ? new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6)
+      : new Date(today.getFullYear(), today.getMonth(), 1)
+    setPeriod(next)
+    setFrom(localDateString(start))
+    setTo(localDateString(today))
+  }
+
+  const summary = new Map<string, { name: string; wage: number; minutes: number; shifts: number }>()
+  for (const log of logs) {
+    const end = log.clock_out ? new Date(log.clock_out) : new Date()
+    const minutes = Math.max(0, Math.floor((end.getTime() - new Date(log.clock_in).getTime()) / 60_000))
+    const row = summary.get(log.user_id) ?? { name: log.user_name, wage: log.hourly_wage, minutes: 0, shifts: 0 }
+    row.minutes += minutes
+    row.shifts += 1
+    summary.set(log.user_id, row)
+  }
+  const rows = Array.from(summary.values())
+  const totalMinutes = rows.reduce((sum, row) => sum + row.minutes, 0)
+  const totalPay = rows.reduce((sum, row) => sum + (row.minutes / 60) * row.wage, 0)
+
+  return (
+    <section className="card p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <div>
+          <h2 className="font-semibold">รายงานเวลาเข้างานและค่าแรง</h2>
+          <p className="text-xs text-gray-500 mt-1">คำนวณจากเวลาเข้า–ออกงาน × ค่าแรงรายชั่วโมงของพนักงาน</p>
+        </div>
+        <div className="flex gap-2">
+          <button className={`btn text-sm ${period === 'week' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => choosePeriod('week')}>7 วันล่าสุด</button>
+          <button className={`btn text-sm ${period === 'month' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => choosePeriod('month')}>เดือนนี้</button>
+          <button className={`btn text-sm ${period === 'custom' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setPeriod('custom')}>กำหนดเอง</button>
+        </div>
+      </div>
+      {period === 'custom' && (
+        <div className="flex flex-wrap gap-3 items-end mb-3">
+          <div><label className="label">จากวันที่</label><input type="date" className="input" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
+          <div><label className="label">ถึงวันที่</label><input type="date" className="input" value={to} onChange={(e) => setTo(e.target.value)} /></div>
+        </div>
+      )}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center mb-4">
+        <Stat label="จำนวนกะ" value={logs.length.toString()} />
+        <Stat label="ชั่วโมงรวม" value={`${Math.floor(totalMinutes / 60)} ชม. ${totalMinutes % 60} นาที`} />
+        <Stat label="พนักงาน" value={rows.length.toString()} />
+        <Stat label="ค่าแรงรวมโดยประมาณ" value={formatBahtSymbol(totalPay)} highlight />
+      </div>
+      {isLoading && <p className="text-sm text-gray-500">กำลังโหลดข้อมูลเวลา…</p>}
+      {isError && <p className="text-sm text-red-600">โหลดรายงานเวลาไม่สำเร็จ กรุณาลองใหม่</p>}
+      {!isLoading && !isError && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr className="text-left border-b border-gray-200"><th className="py-2">พนักงาน</th><th className="py-2 text-right">จำนวนกะ</th><th className="py-2 text-right">ชั่วโมงรวม</th><th className="py-2 text-right">ค่าแรง/ชม.</th><th className="py-2 text-right">ค่าแรงรวม</th></tr></thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.name} className="border-b border-gray-100"><td className="py-2">{row.name}</td><td className="py-2 text-right">{row.shifts}</td><td className="py-2 text-right">{Math.floor(row.minutes / 60)} ชม. {row.minutes % 60} นาที</td><td className="py-2 text-right">{formatBahtSymbol(row.wage)}</td><td className="py-2 text-right font-semibold">{formatBahtSymbol((row.minutes / 60) * row.wage)}</td></tr>
+              ))}
+              {rows.length === 0 && <tr><td colSpan={5} className="py-6 text-center text-gray-400">ยังไม่มีข้อมูลการเข้างานในช่วงนี้</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   )
 }
 

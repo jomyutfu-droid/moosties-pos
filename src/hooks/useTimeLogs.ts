@@ -14,6 +14,35 @@ export interface TimeLog {
   created_at: string
 }
 
+export interface TimeLogReport extends TimeLog {
+  user_name: string
+  hourly_wage: number
+}
+
+/** รายการเข้า–ออกงานตามช่วงวันที่ ใช้สำหรับคำนวณชั่วโมงและค่าแรง */
+export function useTimeLogsByRange(from: string, to: string) {
+  return useQuery({
+    queryKey: ['time-logs-range', from, to],
+    queryFn: async (): Promise<TimeLogReport[]> => {
+      const start = new Date(`${from}T00:00:00`)
+      const end = new Date(`${to}T23:59:59.999`)
+      const { data, error } = await supabase
+        .from('time_logs')
+        .select('*, user:users(name, hourly_wage)')
+        .gte('clock_in', start.toISOString())
+        .lte('clock_in', end.toISOString())
+        .order('clock_in', { ascending: true })
+      if (error) throw error
+      return (data ?? []).map((r: any) => ({
+        ...r,
+        user_name: r.user?.name ?? r.user_id,
+        hourly_wage: Number(r.user?.hourly_wage ?? 0),
+      }))
+    },
+    enabled: Boolean(from && to),
+  })
+}
+
 /** รายการ time_logs ของวันนี้ */
 export function useTodayTimeLogs() {
   return useQuery({
@@ -141,3 +170,4 @@ export function useClockOut() {
     },
   })
 }
+
