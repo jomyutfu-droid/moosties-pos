@@ -12,9 +12,17 @@ export function ProductGrid({
   onSelect: (product: ProductWithRecipe) => void
 }) {
   const [activeCategory, setActiveCategory] = useState<string | 'all'>('all')
+  const [search, setSearch] = useState('')
 
-  const visible =
-    activeCategory === 'all' ? products : products.filter((p) => p.category_id === activeCategory)
+  const query = search.trim().toLocaleLowerCase('th-TH')
+  const visible = products.filter((product) => {
+    const matchesCategory = activeCategory === 'all' || product.category_id === activeCategory
+    const matchesSearch =
+      query === '' ||
+      product.name.toLocaleLowerCase('th-TH').includes(query) ||
+      product.sku?.toLocaleLowerCase('th-TH').includes(query)
+    return matchesCategory && Boolean(matchesSearch)
+  })
 
   return (
     <div className="flex-1 min-w-0 p-4 flex flex-col gap-3">
@@ -38,7 +46,12 @@ export function ProductGrid({
       </div>
 
       {/* Search bar */}
-      <div
+      <input
+        aria-label="ค้นหาเมนู"
+        type="search"
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder="ค้นหาเมนู…"
         className="flex items-center px-4 h-11 text-sm"
         style={{
           background: 'rgba(255,255,255,.55)',
@@ -47,9 +60,7 @@ export function ProductGrid({
           borderRadius: '14px',
           color: '#5c7466',
         }}
-      >
-        ค้นหาเมนู…
-      </div>
+      />
 
       {/* Product grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 overflow-y-auto">
@@ -72,7 +83,7 @@ export function ProductGrid({
         ))}
         {visible.length === 0 && (
           <p className="col-span-full text-center py-10 text-sm" style={{ color: '#5c7466' }}>
-            ไม่มีเมนูในหมวดนี้
+            {query ? 'ไม่พบเมนูที่ค้นหา' : 'ไม่มีเมนูในหมวดนี้'}
           </p>
         )}
       </div>
