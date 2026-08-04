@@ -19,7 +19,7 @@ export function PaymentModal({
 }) {
   const { data: settings } = useSettings()
   const [method, setMethod] = useState<PaymentMethod>('cash')
-  const [cashReceived, setCashReceived] = useState<number>(total)
+  const [cashReceived, setCashReceived] = useState<number>(0)
   const [submitting, setSubmitting] = useState(false)
   const submitLockRef = useRef(false)
 
@@ -95,13 +95,16 @@ export function PaymentModal({
                 <span>เงินทอน</span>
                 <span className={change < 0 ? 'text-red-600' : 'text-gray-800'}>{formatBahtSymbol(change)}</span>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                {[100, 500, 1000].map((v) => (
-                  <button key={v} className="btn-secondary" onClick={() => setCashReceived(v)}>
-                    {v}
+              <div className="grid grid-cols-4 gap-2">
+                {[1, 5, 10, 20, 50, 100, 500, 1000].map((v) => (
+                  <button key={v} type="button" className="btn-secondary min-h-12 text-sm" onClick={() => setCashReceived((current) => current + v)}>
+                    {v >= 20 ? `฿${v}` : `เหรียญ ${v}`}
                   </button>
                 ))}
               </div>
+              <button type="button" className="btn-ghost w-full text-sm" onClick={() => setCashReceived(total)}>
+                เงินพอดี {formatBahtSymbol(total)}
+              </button>
             </div>
           )}
 
