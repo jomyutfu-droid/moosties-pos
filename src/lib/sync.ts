@@ -61,6 +61,16 @@ async function pushOrder(order: OutboxOrder): Promise<void> {
     p_stock_movements: order.stock_movements,
   })
   if (error) throw error
+
+  // RPC อาจทำงานหลังกลับมาออนไลน์หลายชั่วโมง/วัน จึงต้องคืนเวลาขายจริงจาก outbox
+  // ใช้ client_uuid ซึ่งเป็น idempotency key เพื่อให้ retry ได้อย่างปลอดภัย
+  const { error: timestampError } = await supabase
+    .from('orders')
+    .update({ created_at: order.created_at })
+    .eq('client_uuid', order.client_uuid)
+    .select('id')
+    .single()
+  if (timestampError) throw timestampError
 }
 
 export interface SyncResult {
