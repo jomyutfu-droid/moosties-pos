@@ -91,20 +91,22 @@ export function PaymentModal({
                   setCashReceived(digits === '' ? 0 : parseInt(digits, 10))
                 }}
               />
-              <div className="flex justify-between text-sm">
-                <span>เงินทอน</span>
-                <span className={change < 0 ? 'text-red-600' : 'text-gray-800'}>{formatBahtSymbol(change)}</span>
-              </div>
               <div className="grid grid-cols-4 gap-2">
                 {[1, 5, 10, 20, 50, 100, 500, 1000].map((v) => (
                   <button key={v} type="button" className="btn-secondary min-h-12 text-sm" onClick={() => setCashReceived((current) => current + v)}>
-                    {v >= 20 ? `฿${v}` : `เหรียญ ${v}`}
+                    {v >= 20 ? `฿${v}` : v}
                   </button>
                 ))}
               </div>
               <button type="button" className="btn-ghost w-full text-sm" onClick={() => setCashReceived(total)}>
                 เงินพอดี {formatBahtSymbol(total)}
               </button>
+              <div className="mt-3 rounded-2xl border-2 border-brand-200 bg-brand-50 px-4 py-3 text-center">
+                <div className="text-sm font-semibold text-brand-700">เงินทอน</div>
+                <div className={`mt-1 text-4xl font-extrabold tabular-nums ${change < 0 ? 'text-red-600' : 'text-brand-800'}`}>
+                  {formatBahtSymbol(change)}
+                </div>
+              </div>
             </div>
           )}
 
@@ -137,3 +139,4 @@ export function PaymentModal({
     </div>
   )
 }
+
