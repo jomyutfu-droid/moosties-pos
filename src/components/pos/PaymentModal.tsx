@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import generatePayload from 'promptpay-qr'
 import { QRCodeSVG } from 'qrcode.react'
 import { formatBahtSymbol, round2 } from '@/lib/money'
@@ -14,13 +14,14 @@ export function PaymentModal({
   onConfirm: (
     payments: { method: PaymentMethod; amount: number; ref: string | null }[],
     meta: { cashReceived: number },
-  ) => void
+  ) => Promise<void> | void
   onClose: () => void
 }) {
   const { data: settings } = useSettings()
   const [method, setMethod] = useState<PaymentMethod>('cash')
   const [cashReceived, setCashReceived] = useState<number>(total)
   const [submitting, setSubmitting] = useState(false)
+  const submitLockRef = useRef(false)
 
   const change = round2(cashReceived - total)
 
@@ -34,17 +35,20 @@ export function PaymentModal({
   }, [settings?.promptpay_id, total])
 
   async function handleConfirm() {
-    if (submitting) return // กันกดซ้ำ → ออเดอร์ซ้ำ
+    // useState อัปเดตหลัง render ถัดไป จึงใช้ ref ล็อกทันทีเพื่อกัน double-click
+    if (submitLockRef.current) return
+    submitLockRef.current = true
     setSubmitting(true)
     try {
       // amount = ยอดที่ต้องชำระเสมอ (ไม่ใช่เงินที่รับมา) เพื่อให้ยอดขายในรายงานถูกต้อง
       // cashReceived ส่งแยกไว้สำหรับคำนวณเงินทอนบนใบเสร็จ
       if (method === 'cash') {
-        onConfirm([{ method: 'cash', amount: total, ref: null }], { cashReceived })
+        await onConfirm([{ method: 'cash', amount: total, ref: null }], { cashReceived })
       } else {
-        onConfirm([{ method: 'promptpay', amount: total, ref: null }], { cashReceived: total })
+        await onConfirm([{ method: 'promptpay', amount: total, ref: null }], { cashReceived: total })
       }
     } finally {
+      submitLockRef.current = false
       setSubmitting(false)
     }
   }
@@ -115,7 +119,7 @@ export function PaymentModal({
           )}
         </div>
         <div className="p-5 border-t border-gray-200 flex justify-end gap-2">
-          <button className="btn-ghost" onClick={onClose}>
+          <button className="btn-ghost" disabled={submitting} onClick={onClose}>
             ยกเลิก
           </button>
           <button
