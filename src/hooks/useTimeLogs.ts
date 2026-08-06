@@ -7,6 +7,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useSessionStore } from '@/store/session'
 import { getPinSessionToken } from '@/hooks/useAuth'
+import { useSettings } from '@/hooks/useSettings'
+import {
+  createDefaultBusinessHours,
+  getBillableMinutes as getConfiguredBillableMinutes,
+  getEffectiveBusinessHours,
+  getOvertimeStart,
+  getWorkWindow as getConfiguredWorkWindow,
+  isWithinWorkWindow as isConfiguredWithinWorkWindow,
+} from '@/lib/businessHours'
+import type { BusinessHoursSettings } from '@/types'
 
 /** ช่วงเวลาที่นำไปคิดเป็นเวลาทำงานของร้าน (เวลาเครื่อง/เวลาไทย) */
 export const WORK_START_HOUR = 10
@@ -14,33 +24,25 @@ export const WORK_START_MINUTE = 0
 export const WORK_END_HOUR = 20
 export const WORK_END_MINUTE = 30
 
-export function getWorkWindow(date: Date) {
-  const start = new Date(date)
-  start.setHours(WORK_START_HOUR, WORK_START_MINUTE, 0, 0)
-  const end = new Date(date)
-  end.setHours(WORK_END_HOUR, WORK_END_MINUTE, 0, 0)
-  return { start, end }
+export function getWorkWindow(date: Date, settings: BusinessHoursSettings = createDefaultBusinessHours()) {
+  return getConfiguredWorkWindow(date, settings)
 }
 
-/** ร้านปิดตามปกติทุกวันพุธ (ค่าเริ่มต้นของร้าน) */
-export function isRegularWorkDay(date: Date) {
-  return date.getDay() !== 3
+export function isRegularWorkDay(date: Date, settings: BusinessHoursSettings = createDefaultBusinessHours()) {
+  return getEffectiveBusinessHours(date, settings).is_open
 }
 
-export function isWithinWorkWindow(date = new Date()) {
-  const { start, end } = getWorkWindow(date)
-  return isRegularWorkDay(date) && date >= start && date < end
+export function isWithinWorkWindow(date = new Date(), settings: BusinessHoursSettings = createDefaultBusinessHours()) {
+  return isConfiguredWithinWorkWindow(date, settings)
 }
 
-/** นาทีที่คิดค่าแรงจริง โดยตัดเวลานอก 10:00–20:30 ออก */
-export function getBillableMinutes(clockIn: string, clockOut: string | null, now = new Date()) {
-  const started = new Date(clockIn)
-  const { start, end } = getWorkWindow(started)
-  if (!isRegularWorkDay(started)) return 0
-  const actualEnd = clockOut ? new Date(clockOut) : now
-  const billableStart = started > start ? started : start
-  const billableEnd = actualEnd < end ? actualEnd : end
-  return Math.max(0, Math.floor((billableEnd.getTime() - billableStart.getTime()) / 60_000))
+export function getBillableMinutes(
+  clockIn: string,
+  clockOut: string | null,
+  settings: BusinessHoursSettings = createDefaultBusinessHours(),
+  now = new Date(),
+) {
+  return getConfiguredBillableMinutes(clockIn, clockOut, settings, now)
 }
 
 export interface TimeLog {
@@ -81,10 +83,13 @@ function getNextMidnight(date: Date) {
 }
 
 /** บันทึก/ปรับปรุงคำขอ OT จากเวลาออกงานจริง โดยคิดเป็นรายนาที */
-export async function upsertOvertimeRequest(log: TimeLog, clockOut: Date) {
-  const started = new Date(log.clock_in)
-  const { end } = getWorkWindow(started)
-  const otStart = !isRegularWorkDay(started) || started > end ? started : end
+export async function upsertOvertimeRequest(
+  log: TimeLog,
+  clockOut: Date,
+  settings: BusinessHoursSettings = createDefaultBusinessHours(),
+) {
+  const otStart = getOvertimeStart(log.clock_in, settings)
+  if (!otStart) return
   const minutes = Math.max(0, Math.floor((clockOut.getTime() - otStart.getTime()) / 60_000))
   if (minutes <= 0) return
 
@@ -226,14 +231,14 @@ async function closeLog(logId: string, at: Date = new Date()): Promise<void> {
 }
 
 /** เมื่อเลยเวลาปิดร้านให้เปิดกะต่อเพื่อเก็บ OT จนกว่าจะออกงานหรือถึงเที่ยงคืน */
-async function closeExpiredLogs(logs: TimeLog[]) {
+async function closeExpiredLogs(logs: TimeLog[], settings: BusinessHoursSettings) {
   const now = new Date()
   for (const log of logs) {
     const workDate = new Date(log.clock_in)
-    const { end: regularEnd } = getWorkWindow(workDate)
+    const { end: regularEnd, is_open: isOpen } = getWorkWindow(workDate, settings)
     const midnight = getNextMidnight(workDate)
-    if ((!isRegularWorkDay(workDate) || now >= regularEnd) && now > new Date(log.clock_in)) {
-      await upsertOvertimeRequest(log, now >= midnight ? midnight : now)
+    if ((!isOpen || now >= regularEnd) && now > new Date(log.clock_in)) {
+      await upsertOvertimeRequest(log, now >= midnight ? midnight : now, settings)
     }
     if (now >= midnight) {
       await closeLog(log.id, midnight)
@@ -244,6 +249,7 @@ async function closeExpiredLogs(logs: TimeLog[]) {
 /** เรียกจากหน้าหลัก เพื่อปิดกะอัตโนมัติเมื่อถึง 20:30 */
 export function useAutoCloseExpiredTimeLogs() {
   const { data: openLogs = [] } = useActiveTimeLogs()
+  const { data: settings } = useSettings()
   const qc = useQueryClient()
   const running = useRef(false)
 
@@ -251,7 +257,7 @@ export function useAutoCloseExpiredTimeLogs() {
     const run = () => {
       if (running.current || openLogs.length === 0) return
       running.current = true
-      closeExpiredLogs(openLogs)
+      closeExpiredLogs(openLogs, settings?.business_hours ?? createDefaultBusinessHours())
         .then(() => {
           qc.invalidateQueries({ queryKey: ['time-logs-today'] })
           qc.invalidateQueries({ queryKey: ['time-logs-active'] })
@@ -263,11 +269,12 @@ export function useAutoCloseExpiredTimeLogs() {
     run()
     const interval = window.setInterval(run, 30_000)
     return () => window.clearInterval(interval)
-  }, [openLogs, qc])
+  }, [openLogs, qc, settings?.business_hours])
 }
 
 /** Clock-in — force = ปิดกะที่ค้างอยู่ให้อัตโนมัติแล้วเข้างานใหม่ */
 export function useClockIn() {
+  const { data: settings } = useSettings()
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({
@@ -282,10 +289,15 @@ export function useClockIn() {
       automatic?: boolean
     }) => {
       const now = new Date()
+      const businessHours = settings?.business_hours ?? createDefaultBusinessHours()
+      const todayWindow = getWorkWindow(now, businessHours)
+      if (!todayWindow.is_open && !todayWindow.allow_ot) {
+        throw new Error('วันนี้ร้านปิดและไม่ได้อนุญาตให้พนักงานเข้ามาทำ OT')
+      }
       const open = await findOpenLog(userId)
       if (open) {
         const openedAt = new Date(open.clock_in)
-        const { end: openedDayEnd } = getWorkWindow(openedAt)
+        const { end: openedDayEnd, is_open: openedDayIsOpen } = getWorkWindow(openedAt, businessHours)
         const sameLocalDay = openedAt.toDateString() === now.toDateString()
 
         // PIN ซ้ำในวันเดียวกันไม่ควรสร้างกะซ้ำ
@@ -296,8 +308,8 @@ export function useClockIn() {
           const midnight = getNextMidnight(openedAt)
           const closeAt = sameLocalDay ? now : midnight
           const oldLog = { ...open, user_id: userId, clock_out: null, note: null, created_at: open.clock_in } as TimeLog
-          if (closeAt > openedDayEnd || !isRegularWorkDay(openedAt)) {
-            await upsertOvertimeRequest(oldLog, closeAt > midnight ? midnight : closeAt)
+          if (closeAt > openedDayEnd || !openedDayIsOpen) {
+            await upsertOvertimeRequest(oldLog, closeAt > midnight ? midnight : closeAt, businessHours)
           }
           await closeLog(open.id, closeAt > midnight ? midnight : closeAt)
         } else if (force) {
@@ -320,7 +332,7 @@ export function useClockIn() {
       })
       if (error) throw error
       if (!data?.[0]) throw new Error('ไม่สามารถบันทึกเวลาเข้างานได้')
-      return isWithinWorkWindow(now) ? 'started' as const : 'started-overtime' as const
+      return isWithinWorkWindow(now, businessHours) ? 'started' as const : 'started-overtime' as const
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['time-logs-today'] })
@@ -331,6 +343,7 @@ export function useClockIn() {
 
 /** Clock-out */
 export function useClockOut() {
+  const { data: settings } = useSettings()
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ userId }: { userId: string }) => {
@@ -340,8 +353,10 @@ export function useClockOut() {
       const midnight = getNextMidnight(new Date(open.clock_in))
       const clockOutAt = now > midnight ? midnight : now
       const log = { ...open, user_id: userId, clock_out: null, note: null, created_at: open.clock_in } as TimeLog
-      if (clockOutAt > getWorkWindow(new Date(open.clock_in)).end) {
-        await upsertOvertimeRequest(log, clockOutAt)
+      const businessHours = settings?.business_hours ?? createDefaultBusinessHours()
+      const window = getWorkWindow(new Date(open.clock_in), businessHours)
+      if (clockOutAt > window.end || !window.is_open) {
+        await upsertOvertimeRequest(log, clockOutAt, businessHours)
       }
       await closeLog(open.id, clockOutAt)
     },

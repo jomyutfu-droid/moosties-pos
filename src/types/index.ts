@@ -177,6 +177,29 @@ export interface CashSession {
   note: string | null
 }
 
+export interface BusinessDaySetting {
+  day: number
+  is_open: boolean
+  open_time: string
+  close_time: string
+  allow_ot: boolean
+}
+
+export interface SpecialBusinessDate {
+  date: string
+  label: string
+  mode: 'open' | 'closed'
+  open_time: string
+  close_time: string
+  allow_ot: boolean
+}
+
+export interface BusinessHoursSettings {
+  timezone: 'Asia/Bangkok'
+  weekly: BusinessDaySetting[]
+  special_dates: SpecialBusinessDate[]
+}
+
 export interface Settings {
   store_name: string
   promptpay_id: string
@@ -188,6 +211,7 @@ export interface Settings {
   staff_discount_limit: number
   target_margin_percent: number
   recipe_card_mode: 'before_add' | 'icon_only'
+  business_hours: BusinessHoursSettings
 }
 
 export interface AuditLog {

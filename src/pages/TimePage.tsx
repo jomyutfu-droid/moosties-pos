@@ -13,13 +13,14 @@ import {
   getBillableMinutes,
 } from '@/hooks/useTimeLogs'
 import { explainSupabaseError } from '@/lib/errors'
+import { useSettings } from '@/hooks/useSettings'
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
 }
 
-function formatDuration(clockIn: string, clockOut: string | null): string {
-  const mins = getBillableMinutes(clockIn, clockOut)
+function formatDuration(clockIn: string, clockOut: string | null, businessHours?: Parameters<typeof getBillableMinutes>[2]): string {
+  const mins = getBillableMinutes(clockIn, clockOut, businessHours)
   const h = Math.floor(mins / 60)
   const m = mins % 60
   return `${h > 0 ? `${h} ชม. ` : ''}${m} นาที${!clockOut ? ' (ยังทำงานอยู่)' : ''}`
@@ -54,6 +55,8 @@ export default function TimePage() {
   const { data: openLogs } = useActiveTimeLogs()
   const clockIn = useClockIn()
   const clockOut = useClockOut()
+  const { data: settings } = useSettings()
+  const businessHours = settings?.business_hours
 
   const selectedUserId = activeStaff?.id ?? ''
   const [note, setNote] = useState('')
@@ -64,7 +67,7 @@ export default function TimePage() {
 
   const workedDays = new Set(myMonthLogs.map((log) => getLocalDateKey(log.clock_in))).size
   const totalMinutes = myMonthLogs.reduce(
-    (total, log) => total + getBillableMinutes(log.clock_in, log.clock_out),
+    (total, log) => total + getBillableMinutes(log.clock_in, log.clock_out, businessHours),
     0,
   )
   const totalHours = Math.floor(totalMinutes / 60)
@@ -123,7 +126,9 @@ export default function TimePage() {
       {/* Clock-in / Clock-out form */}
       <div className="card p-5 space-y-4">
         <h2 className="font-semibold text-gray-700">เข้า / ออกงาน</h2>
-        <p className="text-xs text-gray-500">หลังใส่ PIN ระบบเริ่มงานให้อัตโนมัติ และคิดเวลาเฉพาะ 10:00–20:30</p>
+        <p className="text-xs text-gray-500">
+          หลังใส่ PIN ระบบเริ่มงานให้อัตโนมัติ คิดเวลาปกติตามเวลาทำการที่ตั้งไว้ และส่ง OT ให้ตรวจสอบเมื่อทำงานในช่วงที่อนุญาต
+        </p>
 
         <div>
           <label className="label">พนักงานที่กำลังใช้งาน</label>
@@ -200,7 +205,7 @@ export default function TimePage() {
                 <td className="p-3 font-medium">{log.user_name}</td>
                 <td className="p-3 text-gray-600">{formatTime(log.clock_in)}</td>
                 <td className="p-3 text-gray-600">{log.clock_out ? formatTime(log.clock_out) : <span className="text-green-600">ยังทำงานอยู่</span>}</td>
-                <td className="p-3 text-gray-400 text-xs">{formatDuration(log.clock_in, log.clock_out)}</td>
+                <td className="p-3 text-gray-400 text-xs">{formatDuration(log.clock_in, log.clock_out, businessHours)}</td>
                 {log.note && <td className="p-3 text-gray-400 text-xs">{log.note}</td>}
               </tr>
             ))}
@@ -293,7 +298,7 @@ export default function TimePage() {
                     <td className="p-3 text-gray-600">
                       {log.clock_out ? formatTime(log.clock_out) : <span className="text-green-600">ยังทำงานอยู่</span>}
                     </td>
-                    <td className="p-3 text-gray-500">{formatDuration(log.clock_in, log.clock_out)}</td>
+                    <td className="p-3 text-gray-500">{formatDuration(log.clock_in, log.clock_out, businessHours)}</td>
                     <td className="p-3 text-gray-400 text-xs">{log.note || '—'}</td>
                   </tr>
                 ))}

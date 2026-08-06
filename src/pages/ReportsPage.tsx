@@ -13,6 +13,7 @@ import { useCurrentAppUser } from '@/hooks/useAuth'
 import { parseUnsignedNumber } from '@/lib/forms'
 import { NumberField } from '@/components/NumberField'
 import { getBillableMinutes, useTimeLogsByRange, usePendingOvertimeRequests, useReviewOvertime, useApprovedOvertimeByRange } from '@/hooks/useTimeLogs'
+import { useSettings } from '@/hooks/useSettings'
 
 /** วันที่ "วันนี้" ตามเวลาเครื่อง — toISOString() ให้วันที่ UTC ซึ่งก่อน 07:00 น. ไทยจะเป็นเมื่อวาน */
 function todayStr() {
@@ -158,6 +159,8 @@ function StaffTimeReport() {
   const [to, setTo] = useState(() => localDateString(now))
   const { data: logs = [], isLoading, isError } = useTimeLogsByRange(from, to)
   const { data: approvedOt = [] } = useApprovedOvertimeByRange(from, to)
+  const { data: settings } = useSettings()
+  const businessHours = settings?.business_hours
 
   function choosePeriod(next: 'week' | 'month') {
     const today = new Date()
@@ -171,7 +174,7 @@ function StaffTimeReport() {
 
   const summary = new Map<string, { name: string; wage: number; minutes: number; shifts: number; otMinutes: number; otPay: number }>()
   for (const log of logs) {
-    const minutes = getBillableMinutes(log.clock_in, log.clock_out)
+    const minutes = getBillableMinutes(log.clock_in, log.clock_out, businessHours)
     const row = summary.get(log.user_id) ?? { name: log.user_name, wage: log.hourly_wage, minutes: 0, shifts: 0, otMinutes: 0, otPay: 0 }
     row.minutes += minutes
     row.shifts += 1
