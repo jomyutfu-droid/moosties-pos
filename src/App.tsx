@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AppLayout } from '@/components/AppLayout'
-import { RequireAuth, RequireStaff, RequireRole } from '@/components/guards'
+import { RequireAuth, RequireStaff, RequireRole, RequireSecureRole } from '@/components/guards'
 import { useAuthListener } from '@/hooks/useAuth'
 import { useSessionStore } from '@/store/session'
 import { refreshReferenceData, startAutoSync } from '@/lib/sync'
@@ -16,6 +16,7 @@ import SettingsPage from '@/pages/SettingsPage'
 import QueuePage from '@/pages/QueuePage'
 import TimePage from '@/pages/TimePage'
 import CustomerDisplayPage from '@/pages/CustomerDisplayPage'
+import LoginPage from '@/pages/LoginPage'
 
 function App() {
   useAuthListener()
@@ -52,6 +53,7 @@ function App() {
           </RequireAuth>
         }
       />
+      <Route path="/login" element={<RequireAuth><LoginPage /></RequireAuth>} />
 
       {/* Feature 7: หน้าจอลูกค้า — ไม่ต้อง auth */}
       <Route path="/display" element={<CustomerDisplayPage />} />
@@ -79,9 +81,9 @@ function App() {
         <Route
           path="/reports"
           element={
-            <RequireRole roles={['owner', 'manager']}>
+            <RequireSecureRole roles={['owner', 'manager']}>
               <ReportsPage />
-            </RequireRole>
+            </RequireSecureRole>
           }
         />
         <Route

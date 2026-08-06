@@ -81,6 +81,16 @@ export function useStaffList() {
   })
 }
 
+/** ตรวจ PIN ผ่าน RPC โดยไม่ส่ง pin_hash ของพนักงานลง browser */
+export async function verifyStaffPin(pin: string): Promise<AppUser[]> {
+  const { data, error } = await supabase.rpc('verify_staff_pin', { p_pin: pin })
+  if (error) throw error
+  return ((data ?? []) as Omit<AppUser, 'pin_hash'>[]).map((user) => ({
+    ...user,
+    pin_hash: null,
+  })) as AppUser[]
+}
+
 export async function signInWithPassword(email: string, password: string) {
   const { error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) throw error
