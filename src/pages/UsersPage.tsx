@@ -4,7 +4,7 @@ import { explainSupabaseError } from '@/lib/errors'
 import type { AppUser, Role } from '@/types'
 
 export default function UsersPage() {
-  const { data: users, isLoading } = useUsers()
+  const { data: users, isLoading, error, refetch } = useUsers()
   const [editing, setEditing] = useState<AppUser | null | undefined>(undefined)
   const deactivate = useDeactivateUser()
 
@@ -20,6 +20,16 @@ export default function UsersPage() {
       </div>
 
       {isLoading && <p className="text-gray-500">กำลังโหลด…</p>}
+
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 whitespace-pre-line">
+          <p className="font-medium">โหลดรายชื่อผู้ใช้ไม่สำเร็จ</p>
+          <p className="mt-1">{explainSupabaseError(error, 'ไม่สามารถโหลดข้อมูลผู้ใช้ได้')}</p>
+          <button className="btn-ghost mt-2 text-xs" onClick={() => refetch()}>
+            ลองใหม่
+          </button>
+        </div>
+      )}
 
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
@@ -49,7 +59,7 @@ export default function UsersPage() {
                 </td>
               </tr>
             ))}
-            {active.length === 0 && !isLoading && (
+            {active.length === 0 && !isLoading && !error && (
               <tr>
                 <td colSpan={5} className="p-6 text-center text-gray-400">
                   ยังไม่มีผู้ใช้
