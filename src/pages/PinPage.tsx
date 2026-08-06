@@ -12,7 +12,6 @@ export default function PinPage() {
   const setActiveStaff = useSessionStore((s) => s.setActiveStaff)
   const navigate = useNavigate()
   const clockIn = useClockIn()
-  const [selected, setSelected] = useState<AppUser | null>(null)
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
@@ -27,16 +26,25 @@ export default function PinPage() {
     setPin((p) => p.slice(0, -1))
   }
 
-  async function confirm(user: AppUser) {
+  async function confirm() {
     setChecking(true)
     setError(null)
     try {
-      const ok = await verifyPin(pin, user.pin_hash)
-      if (!ok) {
+      const matches: AppUser[] = []
+      for (const user of staff ?? []) {
+        if (await verifyPin(pin, user.pin_hash)) matches.push(user)
+      }
+      if (matches.length === 0) {
         setError('PIN ไม่ถูกต้อง')
         setPin('')
         return
       }
+      if (matches.length > 1) {
+        setError('พบ PIN ซ้ำกัน กรุณาให้เจ้าของร้านตั้ง PIN ใหม่')
+        setPin('')
+        return
+      }
+      const user = matches[0]
       const result = await clockIn.mutateAsync({
         userId: user.id,
         note: 'เริ่มงานอัตโนมัติจาก PIN',
@@ -56,32 +64,11 @@ export default function PinPage() {
     }
   }
 
-  if (!selected) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <h1 className="text-xl font-bold text-brand-700 mb-4">เลือกพนักงาน</h1>
-        {isLoading && <p className="text-gray-500">กำลังโหลด…</p>}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-          {staff?.map((u) => (
-            <button
-              key={u.id}
-              onClick={() => setSelected(u)}
-              className="card p-4 text-center hover:border-brand-500 hover:shadow"
-            >
-              <div className="text-lg font-semibold">{u.name}</div>
-              <div className="text-xs text-gray-500 mt-1">{roleLabel(u.role)}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="card w-full max-w-sm p-6 text-center">
-        <h1 className="text-lg font-bold mb-1">{selected.name}</h1>
-        <p className="text-gray-500 text-sm mb-4">กรอก PIN เพื่อเข้าใช้งาน</p>
+        <h1 className="text-lg font-bold mb-1">เข้าสู่ระบบพนักงาน</h1>
+        <p className="text-gray-500 text-sm mb-4">กรอก PIN เพื่อเริ่มงานและเข้าใช้งาน</p>
         <div className="flex justify-center gap-2 mb-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <div
@@ -101,9 +88,7 @@ export default function PinPage() {
               {d}
             </button>
           ))}
-          <button className="btn-ghost text-sm" onClick={() => setSelected(null)}>
-            ย้อนกลับ
-          </button>
+          <span />
           <button className="btn-secondary text-lg py-4" onClick={() => pressDigit('0')}>
             0
           </button>
@@ -113,23 +98,12 @@ export default function PinPage() {
         </div>
         <button
           className="btn-primary w-full"
-          disabled={pin.length < 4 || checking}
-          onClick={() => confirm(selected)}
+          disabled={pin.length < 4 || checking || isLoading}
+          onClick={confirm}
         >
           {checking ? 'กำลังตรวจสอบ…' : 'ยืนยัน'}
         </button>
       </div>
     </div>
   )
-}
-
-function roleLabel(role: AppUser['role']): string {
-  switch (role) {
-    case 'owner':
-      return 'เจ้าของร้าน'
-    case 'manager':
-      return 'ผู้จัดการ'
-    default:
-      return 'พนักงาน'
-  }
 }
