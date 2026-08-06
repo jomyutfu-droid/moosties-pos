@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useDeactivateUser, useSaveUser, useUsers, ROLE_LABELS, type UserInput } from '@/hooks/useUsers'
 import { explainSupabaseError } from '@/lib/errors'
+import { formatBahtSymbol } from '@/lib/money'
 import type { AppUser, Role } from '@/types'
 
 export default function UsersPage() {
@@ -11,13 +12,17 @@ export default function UsersPage() {
   const active = (users ?? []).filter((u) => u.is_active)
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-800">ผู้ใช้ / สิทธิ์</h1>
         <button className="btn-primary" onClick={() => setEditing(null)}>
           + เพิ่มผู้ใช้
         </button>
       </div>
+
+      <p className="-mt-3 text-sm text-gray-500">
+        ค่าแรงของแต่ละคนแสดงอยู่ในรายการด้านล่าง กด <span className="font-semibold text-brand-700">แก้ไขค่าแรง</span> เพื่อปรับค่าได้ทันที
+      </p>
 
       {isLoading && <p className="text-gray-500">กำลังโหลด…</p>}
 
@@ -31,11 +36,12 @@ export default function UsersPage() {
         </div>
       )}
 
-      <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="hidden md:block card overflow-x-auto">
+        <table className="w-full min-w-[760px] text-sm">
           <thead className="bg-gray-50 text-gray-500">
             <tr>
               <th className="text-left p-3">ชื่อ</th>
+              <th className="text-left p-3">ค่าแรง/ชม.</th>
               <th className="text-left p-3">อีเมล</th>
               <th className="text-left p-3">สิทธิ์</th>
               <th className="text-left p-3">PIN</th>
@@ -46,14 +52,15 @@ export default function UsersPage() {
             {active.map((u) => (
               <tr key={u.id} className="border-t border-gray-100">
                 <td className="p-3 font-medium">{u.name}</td>
+                <td className="p-3 font-semibold text-brand-700">{formatBahtSymbol(u.hourly_wage)}/ชม.</td>
                 <td className="p-3 text-gray-500">{u.email ?? '-'}</td>
                 <td className="p-3">{ROLE_LABELS[u.role]}</td>
                 <td className="p-3 text-gray-500">{u.pin_hash ? 'ตั้งแล้ว' : '-'}</td>
-                <td className="p-3 text-right space-x-2 whitespace-nowrap">
-                  <button className="btn-ghost text-xs" onClick={() => setEditing(u)}>
-                    แก้ไข
+                <td className="p-3 text-right whitespace-nowrap">
+                  <button className="btn-primary text-xs" onClick={() => setEditing(u)}>
+                    แก้ไขค่าแรง
                   </button>
-                  <button className="btn-ghost text-xs text-red-600" onClick={() => deactivate.mutate(u.id)}>
+                  <button className="btn-ghost text-xs text-red-600 ml-2" onClick={() => deactivate.mutate(u.id)}>
                     ปิดใช้งาน
                   </button>
                 </td>
@@ -61,13 +68,40 @@ export default function UsersPage() {
             ))}
             {active.length === 0 && !isLoading && !error && (
               <tr>
-                <td colSpan={5} className="p-6 text-center text-gray-400">
+                <td colSpan={6} className="p-6 text-center text-gray-400">
                   ยังไม่มีผู้ใช้
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="md:hidden card divide-y divide-gray-100">
+        {active.map((u) => (
+          <div key={u.id} className="p-4 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-semibold text-gray-800 truncate">{u.name}</p>
+                <p className="mt-1 text-xs text-gray-500">{ROLE_LABELS[u.role]} · PIN {u.pin_hash ? 'ตั้งแล้ว' : 'ยังไม่ตั้ง'}</p>
+                {u.email && <p className="mt-1 text-xs text-gray-500 truncate">{u.email}</p>}
+              </div>
+              <div className="shrink-0 rounded-xl bg-green-50 px-3 py-2 text-right">
+                <p className="text-[11px] text-gray-500">ค่าแรง/ชม.</p>
+                <p className="font-bold text-brand-700">{formatBahtSymbol(u.hourly_wage)}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button className="btn-primary flex-1 text-xs" onClick={() => setEditing(u)}>
+                แก้ไขค่าแรง
+              </button>
+              <button className="btn-ghost text-xs text-red-600" onClick={() => deactivate.mutate(u.id)}>
+                ปิดใช้งาน
+              </button>
+            </div>
+          </div>
+        ))}
+        {active.length === 0 && !isLoading && !error && <p className="p-6 text-center text-gray-400">ยังไม่มีผู้ใช้</p>}
       </div>
 
       {editing !== undefined && <UserEditor user={editing} onClose={() => setEditing(undefined)} />}
