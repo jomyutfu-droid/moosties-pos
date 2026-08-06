@@ -2,7 +2,6 @@ import type { ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useSessionStore } from '@/store/session'
 import type { Role } from '@/types'
-import { useCurrentAppUser } from '@/hooks/useAuth'
 
 /**
  * Feature 4: แสดง spinner ขณะ anonymous session กำลัง init
@@ -49,15 +48,11 @@ export function RequireRole({ roles, children }: { roles: Role[]; children: Reac
   return <>{children}</>
 }
 
-/** หน้าที่มีข้อมูลค่าแรงต้องยืนยันตัวด้วย Supabase Auth จริง ไม่ใช่เพียง PIN */
+/** หน้าที่มีข้อมูลค่าแรงต้องยืนยันด้วย PIN ของ Owner/Manager */
 export function RequireSecureRole({ roles, children }: { roles: Role[]; children: ReactNode }) {
-  const authEmail = useSessionStore((s) => s.authEmail)
-  const { data: authUser, isLoading } = useCurrentAppUser()
   const activeStaff = useSessionStore((s) => s.activeStaff)
-
-  if (isLoading) return <div className="p-6 text-gray-500">กำลังตรวจสอบสิทธิ์…</div>
-  if (!authEmail || !authUser || !roles.includes(authUser.role) || !activeStaff || !roles.includes(activeStaff.role)) {
-    return <Navigate to="/login" replace />
+  if (!activeStaff || !roles.includes(activeStaff.role)) {
+    return <Navigate to="/pin" replace />
   }
   return <>{children}</>
 }
