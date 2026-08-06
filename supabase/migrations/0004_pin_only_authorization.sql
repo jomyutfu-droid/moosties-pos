@@ -12,6 +12,12 @@ create table if not exists public.pin_sessions (
 
 alter table public.pin_sessions enable row level security;
 revoke all on public.pin_sessions from anon, authenticated;
+grant select on public.pin_sessions to authenticated;
+
+drop policy if exists pin_sessions_self on public.pin_sessions;
+create policy pin_sessions_self on public.pin_sessions
+  for select to authenticated
+  using (auth_user_id = auth.uid());
 
 create or replace function public.verify_staff_pin(p_pin text)
 returns table (
