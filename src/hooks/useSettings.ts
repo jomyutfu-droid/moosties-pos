@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { db } from '@/lib/db'
 import { explainSupabaseError } from '@/lib/errors'
+import { createDefaultBusinessHours, normaliseBusinessHours } from '@/lib/businessHours'
 import type { Settings } from '@/types'
 
 const DEFAULTS: Settings = {
@@ -15,6 +16,7 @@ const DEFAULTS: Settings = {
   staff_discount_limit: 0,
   target_margin_percent: 60,
   recipe_card_mode: 'before_add',
+  business_hours: createDefaultBusinessHours(),
 }
 
 /** ตาราง settings เป็น key/value — รวมเป็น object เดียวสำหรับใช้งานในแอป และแคชไว้ใน Dexie สำหรับออฟไลน์ */
@@ -28,7 +30,9 @@ export function useSettings() {
         const merged: Settings = { ...DEFAULTS }
         for (const row of data ?? []) {
           if (row.key in merged) {
-            ;(merged as unknown as Record<string, unknown>)[row.key] = row.value
+            ;(merged as unknown as Record<string, unknown>)[row.key] = row.key === 'business_hours'
+              ? normaliseBusinessHours(row.value)
+              : row.value
           }
         }
         await db.settings.put({ ...merged, id: 'singleton' })
@@ -39,7 +43,9 @@ export function useSettings() {
         // มองไม่เห็นแม้แต่ใน console จนกว่าจะมีคนสังเกตว่าค่าที่ตั้งไว้ไม่เคยถูกใช้จริง
         console.warn('[settings] โหลดจาก Supabase ไม่สำเร็จ ใช้แคช/ค่า default แทน:', explainSupabaseError(err))
         const cached = await db.settings.get('singleton')
-        return cached ?? DEFAULTS
+        return cached
+          ? { ...DEFAULTS, ...cached, business_hours: normaliseBusinessHours(cached.business_hours) }
+          : DEFAULTS
       }
     },
     staleTime: 60_000,
