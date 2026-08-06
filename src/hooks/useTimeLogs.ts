@@ -121,8 +121,11 @@ export function useTimeLogsByRange(from: string, to: string) {
 
 /** รายการ time_logs ของวันนี้ */
 export function useTodayTimeLogs() {
+  const activeStaffId = useSessionStore((s) => s.activeStaff?.id)
+  const pinSessionToken = useSessionStore((s) => s.pinSessionToken)
+
   return useQuery({
-    queryKey: ['time-logs-today'],
+    queryKey: ['time-logs-today', activeStaffId],
     queryFn: async (): Promise<(TimeLog & { user_name: string })[]> => {
       const start = new Date()
       start.setHours(0, 0, 0, 0)
@@ -138,14 +141,57 @@ export function useTodayTimeLogs() {
         user_name: r.user_name ?? r.user_id,
       }))
     },
+    enabled: Boolean(activeStaffId && pinSessionToken),
+    refetchInterval: 30_000,
+  })
+}
+
+/** ช่วงเวลาของเดือนตามเวลาเครื่อง ซึ่งตั้งค่าเป็นเวลาไทยในเครื่อง POS */
+function getLocalMonthRange(month: string) {
+  const [year, monthNumber] = month.split('-').map(Number)
+  if (!year || !monthNumber || monthNumber < 1 || monthNumber > 12) {
+    throw new Error('รูปแบบเดือนไม่ถูกต้อง')
+  }
+
+  return {
+    start: new Date(year, monthNumber - 1, 1, 0, 0, 0, 0),
+    end: new Date(year, monthNumber, 0, 23, 59, 59, 999),
+  }
+}
+
+/** ประวัติเวลาของพนักงานที่กำลังใช้งาน เฉพาะรายการของตนเองตาม PIN session */
+export function useMyTimeLogsByMonth(month: string) {
+  const activeStaffId = useSessionStore((s) => s.activeStaff?.id)
+  const pinSessionToken = useSessionStore((s) => s.pinSessionToken)
+
+  return useQuery({
+    queryKey: ['my-time-logs-month', activeStaffId, month],
+    queryFn: async (): Promise<(TimeLog & { user_name: string })[]> => {
+      const { start, end } = getLocalMonthRange(month)
+      const { data, error } = await supabase.rpc('get_time_logs_session', {
+        p_token: getPinSessionToken(),
+        p_open_only: false,
+        p_from: start.toISOString(),
+        p_to: end.toISOString(),
+      })
+      if (error) throw error
+      return (data ?? []).map((r: any) => ({
+        ...r,
+        user_name: r.user_name ?? r.user_id,
+      }))
+    },
+    enabled: Boolean(month && activeStaffId && pinSessionToken),
     refetchInterval: 30_000,
   })
 }
 
 /** พนักงานที่ยังไม่ clock-out วันนี้ */
 export function useActiveTimeLogs() {
+  const activeStaffId = useSessionStore((s) => s.activeStaff?.id)
+  const pinSessionToken = useSessionStore((s) => s.pinSessionToken)
+
   return useQuery({
-    queryKey: ['time-logs-active'],
+    queryKey: ['time-logs-active', activeStaffId],
     queryFn: async (): Promise<(TimeLog & { user_name: string })[]> => {
       // ไม่กรองด้วยวันที่ เพื่อให้ปิดกะค้างจากวันก่อนหน้าได้อัตโนมัติ
       const { data, error } = await supabase.rpc('get_time_logs_session', {
@@ -154,6 +200,7 @@ export function useActiveTimeLogs() {
       if (error) throw error
       return (data ?? []).map((r: any) => ({ ...r, user_name: r.user_name ?? r.user_id }))
     },
+    enabled: Boolean(activeStaffId && pinSessionToken),
     refetchInterval: 30_000,
   })
 }
