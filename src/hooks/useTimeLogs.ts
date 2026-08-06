@@ -316,7 +316,7 @@ export function useClockOut() {
 
 /** OT ที่เจ้าของ/ผู้จัดการต้องตรวจสอบ */
 export function usePendingOvertimeRequests() {
-  const authEmail = useSessionStore((s) => s.authEmail)
+  const activeStaff = useSessionStore((s) => s.activeStaff)
   return useQuery({
     queryKey: ['overtime-requests', 'pending'],
     queryFn: async (): Promise<OvertimeRequest[]> => {
@@ -336,13 +336,13 @@ export function usePendingOvertimeRequests() {
       }))
     },
     refetchInterval: 30_000,
-    enabled: Boolean(authEmail),
+    enabled: activeStaff?.role === 'owner' || activeStaff?.role === 'manager',
   })
 }
 
 /** OT ที่อนุมัติแล้วสำหรับรวมในรายงานค่าแรงตามช่วงวันที่ */
 export function useApprovedOvertimeByRange(from: string, to: string) {
-  const authEmail = useSessionStore((s) => s.authEmail)
+  const activeStaff = useSessionStore((s) => s.activeStaff)
   return useQuery({
     queryKey: ['overtime-requests', 'approved', from, to],
     queryFn: async (): Promise<OvertimeRequest[]> => {
@@ -364,7 +364,7 @@ export function useApprovedOvertimeByRange(from: string, to: string) {
         minutes: Number(row.minutes ?? 0),
       }))
     },
-    enabled: Boolean(from && to && authEmail),
+    enabled: Boolean(from && to && (activeStaff?.role === 'owner' || activeStaff?.role === 'manager')),
   })
 }
 
