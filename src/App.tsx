@@ -81,7 +81,7 @@ function App() {
         <Route
           path="/reports"
           element={
-            <RequireSecureRole roles={['owner', 'manager']}>
+            <RequireSecureRole roles={['owner', 'manager', 'staff']}>
               <ReportsPage />
             </RequireSecureRole>
           }
