@@ -7,7 +7,7 @@ import type { AppUser } from '@/types'
 /**
  * ติดตามสถานะ Supabase Auth และ sync เข้ากับ session store
  * Feature 4: ถ้าไม่มี session จะ signInAnonymously อัตโนมัติ
- * ทุกระดับยืนยันตัวด้วย PIN ผ่านตาราง users
+ * (ผู้ใช้ที่เป็น owner/manager จะยืนยันตัวด้วย PIN ผ่านตาราง users)
  */
 export function useAuthListener() {
   const setAuthUser = useSessionStore((s) => s.setAuthUser)
@@ -41,17 +41,19 @@ export function useAuthListener() {
   }, [setAuthUser, setAuthReady, queryClient])
 }
 
-/** คง hook เดิมไว้สำหรับข้อมูลอ้างอิง — สิทธิ์จริงใช้ PIN session ฝั่งฐานข้อมูล */
+/**
+ * ดึงแถวใน public.users ที่ตรงกับ Supabase auth user id
+ * Anonymous users จะไม่มี email → คืน null (ไม่มีสิทธิ์ owner/manager)
+ */
 export function useCurrentAppUser() {
+  const activeStaff = useSessionStore((s) => s.activeStaff)
+
   return useQuery({
-    queryKey: ['current-app-user'],
+    queryKey: ['current-app-user', activeStaff?.id],
     queryFn: async (): Promise<AppUser | null> => {
-      const { data, error } = await supabase.rpc('get_pin_session_user')
-      if (error) throw error
-      const rows = (data ?? []) as Omit<AppUser, 'pin_hash'>[]
-      return rows.length === 1 ? ({ ...rows[0], pin_hash: null } as AppUser) : null
+      return activeStaff
     },
-    refetchInterval: 60_000,
+    enabled: !!activeStaff,
   })
 }
 
@@ -60,11 +62,7 @@ export function useStaffList() {
   return useQuery({
     queryKey: ['staff-list'],
     queryFn: async (): Promise<AppUser[]> => {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('is_active', true)
-        .order('name')
+      const { data, error } = await supabase.rpc('get_staff_directory')
       if (error) throw error
       return (data ?? []) as AppUser[]
     },
@@ -75,10 +73,24 @@ export function useStaffList() {
 export async function verifyStaffPin(pin: string): Promise<AppUser[]> {
   const { data, error } = await supabase.rpc('verify_staff_pin', { p_pin: pin })
   if (error) throw error
+  const session = useSessionStore.getState()
+  const row = (data ?? [])[0] as (Omit<AppUser, 'pin_hash' | 'email' | 'hourly_wage'> & { session_token: string }) | undefined
+  if (row?.session_token) session.setPinSessionToken(row.session_token)
   return ((data ?? []) as Omit<AppUser, 'pin_hash'>[]).map((user) => ({
     ...user,
+    email: null,
+    hourly_wage: 0,
     pin_hash: null,
   })) as AppUser[]
+}
+
+export function getPinSessionToken() {
+  return useSessionStore.getState().pinSessionToken
+}
+
+export async function signInWithPassword(email: string, password: string) {
+  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  if (error) throw error
 }
 
 export async function signOut() {
