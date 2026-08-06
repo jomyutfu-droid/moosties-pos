@@ -342,7 +342,7 @@ export function usePendingOvertimeRequests() {
 
 /** OT ที่อนุมัติแล้วสำหรับรวมในรายงานค่าแรงตามช่วงวันที่ */
 export function useApprovedOvertimeByRange(from: string, to: string) {
-  const authEmail = useSessionStore((s) => s.authEmail)
+  const activeStaff = useSessionStore((s) => s.activeStaff)
   return useQuery({
     queryKey: ['overtime-requests', 'approved', from, to],
     queryFn: async (): Promise<OvertimeRequest[]> => {
