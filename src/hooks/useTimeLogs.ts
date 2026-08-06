@@ -6,6 +6,7 @@ import { useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useSessionStore } from '@/store/session'
+import { getPinSessionToken } from '@/hooks/useAuth'
 
 /** ช่วงเวลาที่นำไปคิดเป็นเวลาทำงานของร้าน (เวลาเครื่อง/เวลาไทย) */
 export const WORK_START_HOUR = 10
@@ -88,6 +89,7 @@ export async function upsertOvertimeRequest(log: TimeLog, clockOut: Date) {
   if (minutes <= 0) return
 
   const { error } = await supabase.rpc('submit_overtime_request', {
+    p_token: getPinSessionToken(),
     p_time_log_id: log.id,
     p_ot_start: otStart.toISOString(),
     p_ot_end: clockOut.toISOString(),
@@ -103,17 +105,14 @@ export function useTimeLogsByRange(from: string, to: string) {
     queryFn: async (): Promise<TimeLogReport[]> => {
       const start = new Date(`${from}T00:00:00`)
       const end = new Date(`${to}T23:59:59.999`)
-      const { data, error } = await supabase
-        .from('time_logs')
-        .select('*, user:users(name, hourly_wage)')
-        .gte('clock_in', start.toISOString())
-        .lte('clock_in', end.toISOString())
-        .order('clock_in', { ascending: true })
+      const { data, error } = await supabase.rpc('get_time_logs_report', {
+        p_token: getPinSessionToken(), p_from: start.toISOString(), p_to: end.toISOString(),
+      })
       if (error) throw error
       return (data ?? []).map((r: any) => ({
         ...r,
-        user_name: r.user?.name ?? r.user_id,
-        hourly_wage: Number(r.user?.hourly_wage ?? 0),
+        user_name: r.user_name ?? r.user_id,
+        hourly_wage: Number(r.hourly_wage ?? 0),
       }))
     },
     enabled: Boolean(from && to),
@@ -127,15 +126,16 @@ export function useTodayTimeLogs() {
     queryFn: async (): Promise<(TimeLog & { user_name: string })[]> => {
       const start = new Date()
       start.setHours(0, 0, 0, 0)
-      const { data, error } = await supabase
-        .from('time_logs')
-        .select('*, user:users(name)')
-        .gt('clock_in', start.toISOString())
-        .order('clock_in', { ascending: false })
+      const end = new Date(start)
+      end.setHours(23, 59, 59, 999)
+      const { data, error } = await supabase.rpc('get_time_logs_session', {
+        p_token: getPinSessionToken(), p_open_only: false,
+        p_from: start.toISOString(), p_to: end.toISOString(),
+      })
       if (error) throw error
       return (data ?? []).map((r: any) => ({
         ...r,
-        user_name: r.user?.name ?? r.user_id,
+        user_name: r.user_name ?? r.user_id,
       }))
     },
     refetchInterval: 30_000,
@@ -148,13 +148,11 @@ export function useActiveTimeLogs() {
     queryKey: ['time-logs-active'],
     queryFn: async (): Promise<(TimeLog & { user_name: string })[]> => {
       // ไม่กรองด้วยวันที่ เพื่อให้ปิดกะค้างจากวันก่อนหน้าได้อัตโนมัติ
-      const { data, error } = await supabase
-        .from('time_logs')
-        .select('*, user:users(name)')
-        .is('clock_out', null)
-        .order('clock_in')
+      const { data, error } = await supabase.rpc('get_time_logs_session', {
+        p_token: getPinSessionToken(), p_open_only: true, p_from: null, p_to: null,
+      })
       if (error) throw error
-      return (data ?? []).map((r: any) => ({ ...r, user_name: r.user?.name ?? r.user_id }))
+      return (data ?? []).map((r: any) => ({ ...r, user_name: r.user_name ?? r.user_id }))
     },
     refetchInterval: 30_000,
   })
@@ -165,24 +163,18 @@ export function useActiveTimeLogs() {
  * เพราะกะที่ข้ามเที่ยงคืน (เช่น เข้า 22:00 ออก 01:00) จะหาไม่เจอถ้ากรองด้วยวันที่
  */
 async function findOpenLog(userId: string): Promise<{ id: string; clock_in: string } | null> {
-  const { data, error } = await supabase
-    .from('time_logs')
-    .select('id, clock_in')
-    .eq('user_id', userId)
-    .is('clock_out', null)
-    .order('clock_in', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  const { data, error } = await supabase.rpc('get_open_time_log', {
+    p_token: getPinSessionToken(), p_user_id: userId,
+  })
   if (error) throw error
-  return data as { id: string; clock_in: string } | null
+  return ((data ?? [])[0] ?? null) as { id: string; clock_in: string } | null
 }
 
 /** ปิดรายการที่ค้างอยู่ทันที ณ เวลาที่ระบุ (ค่าเริ่มต้น = ตอนนี้) */
 async function closeLog(logId: string, at: Date = new Date()): Promise<void> {
-  const { error } = await supabase
-    .from('time_logs')
-    .update({ clock_out: at.toISOString() })
-    .eq('id', logId)
+  const { error } = await supabase.rpc('close_time_log', {
+    p_token: getPinSessionToken(), p_log_id: logId, p_clock_out: at.toISOString(),
+  })
   if (error) throw error
 }
 
@@ -276,12 +268,11 @@ export function useClockIn() {
 
       // หลัง 20:30 ยังเปิดกะไว้เพื่อเก็บเวลาส่วน OT จนกว่าจะออกงาน/เที่ยงคืน
 
-      const { error } = await supabase
-        .from('time_logs')
-        .insert({ user_id: userId, note: note ?? null })
-        .select('id, user_id, clock_in, clock_out, note, created_at')
-        .single()
+      const { data, error } = await supabase.rpc('create_time_log', {
+        p_token: getPinSessionToken(), p_user_id: userId, p_note: note ?? null,
+      })
       if (error) throw error
+      if (!data?.[0]) throw new Error('ไม่สามารถบันทึกเวลาเข้างานได้')
       return isWithinWorkWindow(now) ? 'started' as const : 'started-overtime' as const
     },
     onSuccess: () => {
@@ -316,55 +307,49 @@ export function useClockOut() {
 
 /** OT ที่เจ้าของ/ผู้จัดการต้องตรวจสอบ */
 export function usePendingOvertimeRequests() {
-  const activeStaff = useSessionStore((s) => s.activeStaff)
+  const pinSessionToken = useSessionStore((s) => s.pinSessionToken)
   return useQuery({
     queryKey: ['overtime-requests', 'pending'],
     queryFn: async (): Promise<OvertimeRequest[]> => {
-      const { data, error } = await supabase
-        .from('overtime_requests')
-        .select('*, user:users!overtime_requests_user_id_fkey(name), reviewer:users!overtime_requests_reviewed_by_fkey(name)')
-        .eq('status', 'pending')
-        .order('requested_at', { ascending: false })
+      const { data, error } = await supabase.rpc('get_overtime_requests', {
+        p_token: getPinSessionToken(), p_status: 'pending', p_from: null, p_to: null,
+      })
       if (error) throw error
       return (data ?? []).map((row: any) => ({
         ...row,
-        user_name: row.user?.name ?? row.user_id,
-        reviewer_name: row.reviewer?.name,
+        user_name: row.user_name ?? row.user_id,
+        reviewer_name: row.reviewer_name,
         hourly_wage: Number(row.hourly_wage ?? 0),
         amount: Number(row.amount ?? 0),
         minutes: Number(row.minutes ?? 0),
       }))
     },
     refetchInterval: 30_000,
-    enabled: activeStaff?.role === 'owner' || activeStaff?.role === 'manager',
+    enabled: Boolean(pinSessionToken),
   })
 }
 
 /** OT ที่อนุมัติแล้วสำหรับรวมในรายงานค่าแรงตามช่วงวันที่ */
 export function useApprovedOvertimeByRange(from: string, to: string) {
-  const activeStaff = useSessionStore((s) => s.activeStaff)
+  const pinSessionToken = useSessionStore((s) => s.pinSessionToken)
   return useQuery({
     queryKey: ['overtime-requests', 'approved', from, to],
     queryFn: async (): Promise<OvertimeRequest[]> => {
       const start = new Date(`${from}T00:00:00`)
       const end = new Date(`${to}T23:59:59.999`)
-      const { data, error } = await supabase
-        .from('overtime_requests')
-        .select('*, user:users!overtime_requests_user_id_fkey(name)')
-        .eq('status', 'approved')
-        .gte('ot_start', start.toISOString())
-        .lte('ot_start', end.toISOString())
-        .order('ot_start', { ascending: true })
+      const { data, error } = await supabase.rpc('get_overtime_requests', {
+        p_token: getPinSessionToken(), p_status: 'approved', p_from: start.toISOString(), p_to: end.toISOString(),
+      })
       if (error) throw error
       return (data ?? []).map((row: any) => ({
         ...row,
-        user_name: row.user?.name ?? row.user_id,
+        user_name: row.user_name ?? row.user_id,
         hourly_wage: Number(row.hourly_wage ?? 0),
         amount: Number(row.amount ?? 0),
         minutes: Number(row.minutes ?? 0),
       }))
     },
-    enabled: Boolean(from && to && (activeStaff?.role === 'owner' || activeStaff?.role === 'manager')),
+    enabled: Boolean(from && to && pinSessionToken),
   })
 }
 
@@ -372,11 +357,10 @@ export function useReviewOvertime() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, status, reviewerId }: { id: string; status: 'approved' | 'rejected'; reviewerId: string }) => {
-      const { error } = await supabase.from('overtime_requests').update({
-        status,
-        reviewed_by: reviewerId,
-        reviewed_at: new Date().toISOString(),
-      }).eq('id', id).eq('status', 'pending')
+      void reviewerId
+      const { error } = await supabase.rpc('review_overtime_request', {
+        p_token: getPinSessionToken(), p_id: id, p_status: status,
+      })
       if (error) throw error
     },
     onSuccess: () => {
