@@ -80,14 +80,13 @@ function getNextMidnight(date: Date) {
 }
 
 /** บันทึก/ปรับปรุงคำขอ OT จากเวลาออกงานจริง โดยคิดเป็นรายนาที */
-export async function upsertOvertimeRequest(log: TimeLog, clockOut: Date, hourlyWage: number) {
+export async function upsertOvertimeRequest(log: TimeLog, clockOut: Date) {
   const started = new Date(log.clock_in)
   const { end } = getWorkWindow(started)
   const otStart = !isRegularWorkDay(started) || started > end ? started : end
   const minutes = Math.max(0, Math.floor((clockOut.getTime() - otStart.getTime()) / 60_000))
   if (minutes <= 0) return
 
-  void hourlyWage
   const { error } = await supabase.rpc('submit_overtime_request', {
     p_time_log_id: log.id,
     p_ot_start: otStart.toISOString(),
@@ -195,19 +194,12 @@ async function closeExpiredLogs(logs: TimeLog[]) {
     const { end: regularEnd } = getWorkWindow(workDate)
     const midnight = getNextMidnight(workDate)
     if ((!isRegularWorkDay(workDate) || now >= regularEnd) && now > new Date(log.clock_in)) {
-      const wage = await getHourlyWage(log.user_id)
-      await upsertOvertimeRequest(log, now >= midnight ? midnight : now, wage)
+      await upsertOvertimeRequest(log, now >= midnight ? midnight : now)
     }
     if (now >= midnight) {
       await closeLog(log.id, midnight)
     }
   }
-}
-
-async function getHourlyWage(userId: string) {
-  const { data, error } = await supabase.from('users').select('hourly_wage').eq('id', userId).single()
-  if (error) throw error
-  return Number(data?.hourly_wage ?? 0)
 }
 
 /** เรียกจากหน้าหลัก เพื่อปิดกะอัตโนมัติเมื่อถึง 20:30 */
@@ -266,7 +258,7 @@ export function useClockIn() {
           const closeAt = sameLocalDay ? now : midnight
           const oldLog = { ...open, user_id: userId, clock_out: null, note: null, created_at: open.clock_in } as TimeLog
           if (closeAt > openedDayEnd || !isRegularWorkDay(openedAt)) {
-            await upsertOvertimeRequest(oldLog, closeAt > midnight ? midnight : closeAt, await getHourlyWage(userId))
+            await upsertOvertimeRequest(oldLog, closeAt > midnight ? midnight : closeAt)
           }
           await closeLog(open.id, closeAt > midnight ? midnight : closeAt)
         } else if (force) {
@@ -310,9 +302,8 @@ export function useClockOut() {
       const midnight = getNextMidnight(new Date(open.clock_in))
       const clockOutAt = now > midnight ? midnight : now
       const log = { ...open, user_id: userId, clock_out: null, note: null, created_at: open.clock_in } as TimeLog
-      const wage = await getHourlyWage(userId)
       if (clockOutAt > getWorkWindow(new Date(open.clock_in)).end) {
-        await upsertOvertimeRequest(log, clockOutAt, wage)
+        await upsertOvertimeRequest(log, clockOutAt)
       }
       await closeLog(open.id, clockOutAt)
     },
