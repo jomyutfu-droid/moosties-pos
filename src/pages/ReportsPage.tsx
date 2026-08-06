@@ -1,11 +1,14 @@
 import { useState } from 'react'
 import { useTodaySummary, useSalesByDateRange } from '@/hooks/useReports'
 import {
+  useAddCashMovement,
+  useCashMovements,
+  useCashSessionSummaries,
   useCloseSession,
   useOpenCashSession,
   useOpenSession,
-  useCashSalesSince,
 } from '@/hooks/useCashSession'
+import type { CashCloseResult, CashMovementType } from '@/hooks/useCashSession'
 import { formatBahtSymbol, round2 } from '@/lib/money'
 import { explainSupabaseError } from '@/lib/errors'
 import { useSessionStore } from '@/store/session'
@@ -24,6 +27,25 @@ function todayStr() {
 }
 
 export default function ReportsPage() {
+  const role = useSessionStore((s) => s.activeStaff?.role)
+
+  // พนักงานต้องเห็นเฉพาะเงินสดกะของตัวเอง ไม่เปิดยอดขายรวม ค่าแรง หรือ OT ของคนอื่น
+  if (role === 'staff') {
+    return (
+      <div className="p-6 space-y-6">
+        <div>
+          <h1 className="text-xl font-bold text-gray-800">เงินสดกะ / ปิดกะ</h1>
+          <p className="text-sm text-gray-500 mt-1">ตรวจเงินของกะที่คุณรับผิดชอบ และดูยอดขาด/เกินของตัวเอง</p>
+        </div>
+        <CashSessionPanel />
+      </div>
+    )
+  }
+
+  return <ManagementReportsPage />
+}
+
+function ManagementReportsPage() {
   const { data: today, isLoading } = useTodaySummary()
   const [from, setFrom] = useState(todayStr())
   const [to, setTo] = useState(todayStr())
@@ -244,25 +266,25 @@ function Stat({ label, value, highlight }: { label: string; value: string; highl
 }
 
 function CashSessionPanel() {
-  const { data: session, isLoading } = useOpenCashSession()
-  const {
-    data: cashSales = 0,
-    isError: cashSalesError,
-    isLoading: cashSalesLoading,
-  } = useCashSalesSince(session?.opened_at ?? null)
+  const { data: session, isLoading, error: sessionError } = useOpenCashSession()
+  const { data: history = [] } = useCashSessionSummaries(50)
+  const { data: movements = [] } = useCashMovements(session?.id ?? null)
   const openSession = useOpenSession()
+  const addMovement = useAddCashMovement()
   const closeSession = useCloseSession()
   const activeStaff = useSessionStore((s) => s.activeStaff)
 
   const [openingCash, setOpeningCash] = useState(0)
   const [countedCash, setCountedCash] = useState(0)
-  const [note, setNote] = useState('')
+  const [closeNote, setCloseNote] = useState('')
+  const [movementType, setMovementType] = useState<CashMovementType>('cash_out')
+  const [movementAmount, setMovementAmount] = useState(0)
+  const [movementNote, setMovementNote] = useState('')
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // เก็บผลสรุปไว้แสดงต่อหลังปิดกะ — ถ้าไม่แยกออกมา ผลจะหายทันทีที่ session กลายเป็น null
-  const [result, setResult] = useState<{ expected: number; variance: number; counted: number } | null>(null)
+  const [result, setResult] = useState<(CashCloseResult & { counted: number }) | null>(null)
 
-  const expected = session ? round2(session.opening_cash + cashSales) : 0
+  const expected = session?.expected_cash ?? 0
   const variancePreview = round2(countedCash - expected)
 
   async function handleOpen() {
@@ -280,24 +302,48 @@ function CashSessionPanel() {
     }
   }
 
+  async function handleMovement() {
+    if (!session) return
+    setError(null)
+    if (movementAmount <= 0) {
+      setError('กรุณาระบุจำนวนเงิน')
+      return
+    }
+    if (movementType === 'cash_out' && !movementNote.trim()) {
+      setError('กรุณาระบุเหตุผลการเบิกจ่าย')
+      return
+    }
+    try {
+      await addMovement.mutateAsync({
+        sessionId: session.id,
+        type: movementType,
+        amount: movementAmount,
+        note: movementNote.trim() || null,
+      })
+      setMovementAmount(0)
+      setMovementNote('')
+    } catch (err) {
+      setError(explainSupabaseError(err, 'บันทึกรายการเงินสดไม่สำเร็จ'))
+    }
+  }
+
   async function handleClose() {
     if (!session) return
     setError(null)
     try {
-      const r = await closeSession.mutateAsync({ session, countedCash, note: note || null })
-      setResult({ ...r, counted: countedCash })
+      const closed = await closeSession.mutateAsync({ session, countedCash, note: closeNote.trim() || null })
+      setResult({ ...closed, counted: countedCash })
       setConfirming(false)
       setCountedCash(0)
-      setNote('')
+      setCloseNote('')
     } catch (err) {
       setError(explainSupabaseError(err, 'ปิดกะไม่สำเร็จ'))
       setConfirming(false)
     }
   }
 
-  if (isLoading) return null
+  if (isLoading) return <section className="card p-4 text-sm text-gray-500">กำลังโหลดกะเงินสด…</section>
 
-  // สรุปผลหลังปิดกะ — แสดงค้างไว้จนกดรับทราบ
   const resultCard = result && (
     <div
       className={`rounded-xl p-4 mb-4 border ${
@@ -316,138 +362,131 @@ function CashSessionPanel() {
           : `⚠️ ปิดกะแล้ว — เงินขาด ${formatBahtSymbol(Math.abs(result.variance))}`}
       </p>
       <div className="text-sm space-y-0.5">
-        <div className="flex justify-between">
-          <span>ยอดที่ควรมี</span>
-          <span>{formatBahtSymbol(result.expected)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>นับได้จริง</span>
-          <span>{formatBahtSymbol(result.counted)}</span>
-        </div>
+        <div className="flex justify-between"><span>ยอดที่ควรมี</span><span>{formatBahtSymbol(result.expected_cash)}</span></div>
+        <div className="flex justify-between"><span>นับได้จริง</span><span>{formatBahtSymbol(result.counted)}</span></div>
+        <div className="flex justify-between text-gray-600"><span>ขายเงินสด / เงินเข้า / เบิกจ่าย</span><span>{formatBahtSymbol(result.cash_sales)} / {formatBahtSymbol(result.cash_in)} / {formatBahtSymbol(result.cash_out)}</span></div>
       </div>
-      <button className="btn-secondary text-xs mt-3" onClick={() => setResult(null)}>
-        รับทราบ
-      </button>
+      <button className="btn-secondary text-xs mt-3" onClick={() => setResult(null)}>รับทราบ</button>
     </div>
   )
 
-  const errorLine = error && (
-    <p className="text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2 mb-3">{error}</p>
+  const errorLine = (error || sessionError) && (
+    <p className="text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2 mb-3">
+      {error ?? explainSupabaseError(sessionError, 'โหลดกะเงินสดไม่สำเร็จ')}
+    </p>
+  )
+
+  const historyCard = (
+    <section className="card p-4">
+      <h2 className="font-semibold mb-3">ประวัติปิดกะและยอดขาด/เกิน</h2>
+      {history.filter((item) => item.closed_at).length === 0 ? (
+        <p className="text-sm text-gray-400">ยังไม่มีประวัติปิดกะ</p>
+      ) : (
+        <div className="space-y-2">
+          {history.filter((item) => item.closed_at).slice(0, 10).map((item) => (
+            <div key={item.id} className="rounded-lg border border-gray-200 p-3 text-sm">
+              <div className="flex flex-wrap justify-between gap-2">
+                <span className="font-medium">{item.user_name}</span>
+                <span className={item.variance === 0 ? 'text-green-700' : item.variance && item.variance < 0 ? 'text-red-700' : 'text-amber-700'}>
+                  {item.variance === 0 ? 'ตรงพอดี' : item.variance && item.variance < 0 ? `ขาด ${formatBahtSymbol(Math.abs(item.variance))}` : `เกิน ${formatBahtSymbol(item.variance ?? 0)}`}
+                </span>
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                ปิด {new Date(item.closed_at as string).toLocaleString('th-TH')} · ควรมี {formatBahtSymbol(item.expected_cash ?? 0)} · นับได้ {formatBahtSymbol(item.counted_cash ?? 0)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   )
 
   if (!session) {
     return (
-      <section className="card p-4">
-        <h2 className="font-semibold mb-3">เปิดกะ</h2>
-        {resultCard}
-        {errorLine}
-        <p className="text-sm text-gray-500 mb-3">
-          นับเงินทอนย่อยที่ใส่ลิ้นชักตอนเปิดร้าน แล้วกรอกยอดที่นี่ — ใช้ตรวจเงินขาด/เกินตอนปิดร้าน
-        </p>
-        <div className="flex gap-2 items-end">
-          <div className="flex-1">
-            <label className="label">เงินทอนตั้งต้น (บาท)</label>
-            <NumberField className="input" value={openingCash} parse={parseUnsignedNumber} onChange={setOpeningCash} />
+      <>
+        <section className="card p-4">
+          <h2 className="font-semibold mb-3">เปิดกะเงินสดของฉัน</h2>
+          {resultCard}
+          {errorLine}
+          <p className="text-sm text-gray-500 mb-3">นับเงินทอนตั้งต้นที่อยู่ในลิ้นชัก แล้วกรอกยอดก่อนเริ่มรับเงินลูกค้า</p>
+          <div className="flex gap-2 items-end">
+            <div className="flex-1">
+              <label className="label">เงินทอนตั้งต้น (บาท)</label>
+              <NumberField className="input" value={openingCash} parse={parseUnsignedNumber} onChange={setOpeningCash} />
+            </div>
+            <button className="btn-primary" disabled={openSession.isPending} onClick={handleOpen}>
+              {openSession.isPending ? 'กำลังเปิด…' : 'เปิดกะ'}
+            </button>
           </div>
-          <button className="btn-primary" disabled={openSession.isPending} onClick={handleOpen}>
-            {openSession.isPending ? 'กำลังเปิด…' : 'เปิดกะ'}
-          </button>
-        </div>
-      </section>
+        </section>
+        {historyCard}
+      </>
     )
   }
 
   return (
-    <section className="card p-4">
-      <h2 className="font-semibold mb-3">ปิดกะ</h2>
-      {resultCard}
-      {errorLine}
+    <>
+      <section className="card p-4">
+        <h2 className="font-semibold mb-3">กะเงินสดของฉัน</h2>
+        {resultCard}
+        {errorLine}
 
-      {/* ยอดที่ควรมีในลิ้นชัก — คำนวณสด ให้เห็นก่อนนับเงิน */}
-      <div className="rounded-xl bg-gray-50 border border-gray-200 p-3 mb-3 text-sm space-y-1">
-        <p className="text-gray-500 text-xs mb-1">
-          เปิดกะเมื่อ {new Date(session.opened_at).toLocaleString('th-TH')}
-        </p>
-        <div className="flex justify-between">
-          <span>เงินทอนตั้งต้น</span>
-          <span>{formatBahtSymbol(session.opening_cash)}</span>
+        <div className="rounded-xl bg-gray-50 border border-gray-200 p-3 mb-4 text-sm space-y-1">
+          <p className="text-gray-500 text-xs mb-1">เปิดกะเมื่อ {new Date(session.opened_at).toLocaleString('th-TH')}</p>
+          <div className="flex justify-between"><span>เงินทอนตั้งต้น</span><span>{formatBahtSymbol(session.opening_cash)}</span></div>
+          <div className="flex justify-between"><span>+ ขายเงินสด</span><span>{formatBahtSymbol(session.cash_sales)}</span></div>
+          <div className="flex justify-between"><span>+ เงินเข้า / รับเงิน</span><span>{formatBahtSymbol(session.cash_in)}</span></div>
+          <div className="flex justify-between"><span>- เบิกจ่ายเงินสด</span><span>{formatBahtSymbol(session.cash_out)}</span></div>
+          <div className="flex justify-between font-bold border-t border-gray-200 pt-1 mt-1"><span>= ยอดที่ควรมี</span><span>{formatBahtSymbol(expected)}</span></div>
         </div>
-        <div className="flex justify-between">
-          <span>+ ขายเงินสดตั้งแต่เปิดกะ</span>
-          <span>{cashSalesLoading ? 'กำลังโหลด…' : formatBahtSymbol(cashSales)}</span>
-        </div>
-        <div className="flex justify-between font-bold border-t border-gray-200 pt-1 mt-1">
-          <span>= ควรมีในลิ้นชัก</span>
-          <span>{formatBahtSymbol(expected)}</span>
-        </div>
-      </div>
 
-      {/* ถ้าดึงยอดขายเงินสดไม่ได้ ตัวเลข "ควรมี" ข้างบนจะต่ำกว่าความจริง — ห้ามปิดกะด้วยเลขที่ผิด */}
-      {cashSalesError && (
-        <p className="text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2 mb-3">
-          ⚠️ คำนวณยอดขายเงินสดไม่สำเร็จ — ตัวเลข "ควรมีในลิ้นชัก" ด้านบนอาจไม่ถูกต้อง กรุณาลองใหม่ก่อนปิดกะ
-        </p>
-      )}
-
-      <div className="flex flex-wrap gap-2 items-end">
-        <div className="flex-1 min-w-[140px]">
-          <label className="label">นับเงินสดได้จริง (บาท)</label>
-          <NumberField
-            className="input"
-            value={countedCash}
-            parse={parseUnsignedNumber}
-            onChange={(n) => { setCountedCash(n); setConfirming(false) }}
-          />
+        <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3 mb-4">
+          <h3 className="font-semibold text-sm mb-2">รับเงิน / เบิกจ่ายเงินสด</h3>
+          <div className="flex gap-2 mb-3">
+            <button className={`btn text-sm flex-1 ${movementType === 'cash_in' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setMovementType('cash_in')}>รับเงิน / เงินเข้า</button>
+            <button className={`btn text-sm flex-1 ${movementType === 'cash_out' ? 'bg-red-600 text-white' : 'btn-secondary'}`} onClick={() => setMovementType('cash_out')}>เบิกจ่าย / เงินออก</button>
+          </div>
+          <div className="flex flex-wrap gap-2 items-end">
+            <div className="flex-1 min-w-[140px]"><label className="label">จำนวนเงิน (บาท)</label><NumberField className="input" value={movementAmount} parse={parseUnsignedNumber} onChange={setMovementAmount} /></div>
+            <div className="flex-[2] min-w-[180px]"><label className="label">เหตุผล / รายละเอียด {movementType === 'cash_out' && <span className="text-red-600">*</span>}</label><input className="input" value={movementNote} onChange={(e) => setMovementNote(e.target.value)} placeholder={movementType === 'cash_out' ? 'เช่น ซื้อหลอด/น้ำแข็ง' : 'เช่น เติมเงินทอน'} /></div>
+            <button className="btn-primary" disabled={addMovement.isPending} onClick={handleMovement}>{addMovement.isPending ? 'กำลังบันทึก…' : 'บันทึกรายการ'}</button>
+          </div>
+          {movements.length > 0 && (
+            <div className="mt-3 border-t border-blue-100 pt-2 space-y-1 text-xs">
+              <p className="font-medium text-gray-600">รายการระหว่างกะ</p>
+              {movements.slice(0, 8).map((movement) => (
+                <div key={movement.id} className="flex justify-between gap-2">
+                  <span className="truncate">{movement.type === 'cash_in' ? 'เงินเข้า' : 'เบิกจ่าย'} · {movement.note || '-'}</span>
+                  <span className={movement.type === 'cash_in' ? 'text-green-700' : 'text-red-700'}>{movement.type === 'cash_in' ? '+' : '-'}{formatBahtSymbol(movement.amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-        <div className="flex-1 min-w-[140px]">
-          <label className="label">หมายเหตุ</label>
-          <input className="input" value={note} onChange={(e) => setNote(e.target.value)} />
+
+        <h3 className="font-semibold mb-2">รวมเงินตอนปิดกะ</h3>
+        <div className="flex flex-wrap gap-2 items-end">
+          <div className="flex-1 min-w-[140px]"><label className="label">นับเงินสดได้จริง (บาท)</label><NumberField className="input" value={countedCash} parse={parseUnsignedNumber} onChange={(n) => { setCountedCash(n); setConfirming(false) }} /></div>
+          <div className="flex-1 min-w-[140px]"><label className="label">หมายเหตุปิดกะ</label><input className="input" value={closeNote} onChange={(e) => setCloseNote(e.target.value)} /></div>
         </div>
-      </div>
-
-      {/* พรีวิวผลต่างระหว่างพิมพ์ */}
-      {countedCash > 0 && (
-        <p
-          className={`mt-3 text-sm font-medium ${
-            variancePreview === 0
-              ? 'text-green-700'
-              : Math.abs(variancePreview) <= 20
-              ? 'text-amber-700'
-              : 'text-red-700'
-          }`}
-        >
-          {variancePreview === 0
-            ? 'เงินตรงพอดี ✓'
-            : variancePreview > 0
-            ? `เงินเกิน ${formatBahtSymbol(variancePreview)}`
-            : `เงินขาด ${formatBahtSymbol(Math.abs(variancePreview))}`}
-        </p>
-      )}
-
-      <div className="flex gap-2 mt-3">
-        {confirming ? (
-          <>
-            <button className="btn-primary flex-1" disabled={closeSession.isPending} onClick={handleClose}>
-              {closeSession.isPending ? 'กำลังปิดกะ…' : 'ยืนยันปิดกะ'}
-            </button>
-            <button className="btn-secondary" onClick={() => setConfirming(false)}>
-              ยกเลิก
-            </button>
-          </>
-        ) : (
-          <button
-            className="btn-primary"
-            disabled={cashSalesError}
-            title={cashSalesError ? 'คำนวณยอดขายไม่สำเร็จ — รอลองใหม่ก่อนปิดกะ' : undefined}
-            onClick={() => { setError(null); setConfirming(true) }}
-          >
-            ปิดกะ
-          </button>
+        {countedCash > 0 && (
+          <p className={`mt-3 text-sm font-medium ${variancePreview === 0 ? 'text-green-700' : Math.abs(variancePreview) <= 20 ? 'text-amber-700' : 'text-red-700'}`}>
+            {variancePreview === 0 ? 'เงินตรงพอดี ✓' : variancePreview > 0 ? `เงินเกิน ${formatBahtSymbol(variancePreview)}` : `เงินขาด ${formatBahtSymbol(Math.abs(variancePreview))}`}
+          </p>
         )}
-      </div>
-      {confirming && (
-        <p className="text-xs text-gray-500 mt-2">ปิดกะแล้วแก้ไขยอดไม่ได้ — ตรวจยอดที่นับอีกครั้งก่อนยืนยัน</p>
-      )}
-    </section>
+        <div className="flex gap-2 mt-3">
+          {confirming ? (
+            <>
+              <button className="btn-primary flex-1" disabled={closeSession.isPending} onClick={handleClose}>{closeSession.isPending ? 'กำลังปิดกะ…' : 'ยืนยันปิดกะ'}</button>
+              <button className="btn-secondary" onClick={() => setConfirming(false)}>ยกเลิก</button>
+            </>
+          ) : (
+            <button className="btn-primary" onClick={() => { setError(null); setConfirming(true) }}>ปิดกะ</button>
+          )}
+        </div>
+        {confirming && <p className="text-xs text-gray-500 mt-2">ปิดกะแล้วแก้ไขยอดไม่ได้ — ตรวจยอดเงินสดอีกครั้งก่อนยืนยัน</p>}
+      </section>
+      {historyCard}
+    </>
   )
 }
