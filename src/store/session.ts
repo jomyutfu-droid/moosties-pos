@@ -48,6 +48,9 @@ export const useSessionStore = create<SessionState>()(
         authUserId: s.authUserId,
         authEmail: s.authEmail,
         activeStaff: s.activeStaff ? { ...s.activeStaff, pin_hash: '' } : null,
+        // เก็บเฉพาะ session token แบบสุ่มที่ฐานข้อมูลออกให้ เพื่อให้ refresh แล้ว
+        // RPC ที่ป้องกันด้วย PIN session ยังทำงานต่อได้ ไม่เก็บ pin_hash เด็ดขาด
+        pinSessionToken: s.pinSessionToken,
       }),
     },
   ),
