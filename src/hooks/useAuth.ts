@@ -45,8 +45,13 @@ export function useAuthListener() {
 export function useCurrentAppUser() {
   return useQuery({
     queryKey: ['current-app-user'],
-    queryFn: async (): Promise<AppUser | null> => null,
-    enabled: false,
+    queryFn: async (): Promise<AppUser | null> => {
+      const { data, error } = await supabase.rpc('get_pin_session_user')
+      if (error) throw error
+      const rows = (data ?? []) as Omit<AppUser, 'pin_hash'>[]
+      return rows.length === 1 ? ({ ...rows[0], pin_hash: null } as AppUser) : null
+    },
+    refetchInterval: 60_000,
   })
 }
 
