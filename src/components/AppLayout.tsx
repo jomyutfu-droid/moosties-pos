@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/db'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useSessionStore } from '@/store/session'
+import { useAutoCloseExpiredTimeLogs } from '@/hooks/useTimeLogs'
 
 type NavRole = 'owner' | 'manager' | 'staff'
 
@@ -18,6 +19,7 @@ const navItems: { to: string; label: string; roles?: NavRole[] }[] = [
 ]
 
 export function AppLayout() {
+  useAutoCloseExpiredTimeLogs()
   const online = useOnlineStatus()
   const activeStaff = useSessionStore((s) => s.activeStaff)
   const clearActiveStaff = useSessionStore((s) => s.clearActiveStaff)
