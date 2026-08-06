@@ -14,7 +14,7 @@ const navItems: { to: string; label: string; roles?: NavRole[] }[] = [
   { to: '/inventory', label: 'สต็อก', roles: ['owner', 'manager', 'staff'] },
   { to: '/queue', label: 'คิวออเดอร์', roles: ['owner', 'manager', 'staff'] },
   { to: '/time', label: 'เวลาพนักงาน', roles: ['owner', 'manager', 'staff'] },
-  { to: '/reports', label: 'รายงาน', roles: ['owner', 'manager'] },
+  { to: '/reports', label: 'รายงาน / เงินสด', roles: ['owner', 'manager', 'staff'] },
   { to: '/users', label: 'ผู้ใช้', roles: ['owner'] },
   { to: '/settings', label: 'ตั้งค่า', roles: ['owner'] },
 ]
@@ -46,7 +46,9 @@ export function AppLayout() {
   }
 
   function handleLogout() {
+    // ล้างข้อมูลพนักงานและ PIN session ของคนก่อนออกจากเครื่อง
     logout()
+    // ไม่ให้ข้อมูลจากพนักงานเดิมค้างใน React Query ระหว่างเลือก User คนใหม่
     queryClient.clear()
     navigate('/pin', { replace: true })
   }
