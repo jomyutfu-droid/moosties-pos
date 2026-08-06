@@ -4,11 +4,14 @@ import { useStaffList } from '@/hooks/useAuth'
 import { verifyPin } from '@/lib/pin'
 import { useSessionStore } from '@/store/session'
 import type { AppUser } from '@/types'
+import { useClockIn } from '@/hooks/useTimeLogs'
+import { explainSupabaseError } from '@/lib/errors'
 
 export default function PinPage() {
   const { data: staff, isLoading } = useStaffList()
   const setActiveStaff = useSessionStore((s) => s.setActiveStaff)
   const navigate = useNavigate()
+  const clockIn = useClockIn()
   const [selected, setSelected] = useState<AppUser | null>(null)
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -34,8 +37,20 @@ export default function PinPage() {
         setPin('')
         return
       }
+      const result = await clockIn.mutateAsync({
+        userId: user.id,
+        note: 'เริ่มงานอัตโนมัติจาก PIN',
+        automatic: true,
+      })
       setActiveStaff(user)
+      if (result === 'outside-hours') {
+        // ยังเข้าใช้งาน POS ได้ตามปกติ แต่ไม่สร้างเวลาทำงานนอกช่วง 10:00–20:30
+        navigate('/', { replace: true })
+        return
+      }
       navigate('/', { replace: true })
+    } catch (err) {
+      setError(explainSupabaseError(err))
     } finally {
       setChecking(false)
     }
