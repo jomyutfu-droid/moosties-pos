@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
+import { useQueryClient } from '@tanstack/react-query'
 import { db } from '@/lib/db'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useSessionStore } from '@/store/session'
@@ -24,6 +25,8 @@ export function AppLayout() {
   const online = useOnlineStatus()
   const activeStaff = useSessionStore((s) => s.activeStaff)
   const clearActiveStaff = useSessionStore((s) => s.clearActiveStaff)
+  const logout = useSessionStore((s) => s.logout)
+  const queryClient = useQueryClient()
   const navigate = useNavigate()
 
   const pendingCount =
@@ -40,6 +43,12 @@ export function AppLayout() {
   function handleSwitchStaff() {
     clearActiveStaff()
     navigate('/pin')
+  }
+
+  function handleLogout() {
+    logout()
+    queryClient.clear()
+    navigate('/pin', { replace: true })
   }
 
   function handleOpenDisplay() {
@@ -167,6 +176,17 @@ export function AppLayout() {
               จอลูกค้า
             </button>
           </div>
+          <button
+            onClick={handleLogout}
+            className="w-full h-[34px] rounded-[10px] text-[11px] font-semibold transition-colors"
+            style={{
+              background: 'rgba(254,226,226,.55)',
+              border: '1px solid rgba(248,113,113,.35)',
+              color: '#b91c1c',
+            }}
+          >
+            ออกจากระบบ
+          </button>
         </div>
       </aside>
 
@@ -184,7 +204,7 @@ export function AppLayout() {
           style={{ background: 'linear-gradient(135deg,#16a34a,#4ade80)' }}
         />
         <span className="font-bold text-sm" style={{ color: '#123524' }}>MOOSTTIES</span>
-        <nav className="flex gap-1 ml-2 overflow-x-auto">
+        <nav className="flex flex-1 min-w-0 gap-1 ml-2 overflow-x-auto">
           {visibleItems.map((item) => (
             <NavLink
               key={item.to}
@@ -196,6 +216,19 @@ export function AppLayout() {
             </NavLink>
           ))}
         </nav>
+        <button
+          onClick={handleLogout}
+          className="flex-none h-[30px] px-2.5 rounded-[9px] text-[11px] font-semibold"
+          style={{
+            background: 'rgba(254,226,226,.72)',
+            border: '1px solid rgba(248,113,113,.35)',
+            color: '#b91c1c',
+          }}
+          title="ออกจากระบบ"
+          aria-label="ออกจากระบบ"
+        >
+          ออก
+        </button>
       </div>
 
       {/* ── Main content ── */}
