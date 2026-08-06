@@ -4,8 +4,7 @@
  */
 import { useState } from 'react'
 import { useSessionStore } from '@/store/session'
-import { useStaffList } from '@/hooks/useAuth'
-import { useTodayTimeLogs, useActiveTimeLogs, useClockIn, useClockOut } from '@/hooks/useTimeLogs'
+import { useTodayTimeLogs, useActiveTimeLogs, useClockIn, useClockOut, getBillableMinutes } from '@/hooks/useTimeLogs'
 import { explainSupabaseError } from '@/lib/errors'
 
 function formatTime(iso: string) {
@@ -13,8 +12,7 @@ function formatTime(iso: string) {
 }
 
 function formatDuration(clockIn: string, clockOut: string | null): string {
-  const end = clockOut ? new Date(clockOut) : new Date()
-  const mins = Math.floor((end.getTime() - new Date(clockIn).getTime()) / 60_000)
+  const mins = getBillableMinutes(clockIn, clockOut)
   const h = Math.floor(mins / 60)
   const m = mins % 60
   return `${h > 0 ? `${h} ชม. ` : ''}${m} นาที${!clockOut ? ' (ยังทำงานอยู่)' : ''}`
@@ -22,13 +20,12 @@ function formatDuration(clockIn: string, clockOut: string | null): string {
 
 export default function TimePage() {
   const activeStaff = useSessionStore((s) => s.activeStaff)
-  const { data: staffList } = useStaffList()
   const { data: logs, isLoading } = useTodayTimeLogs()
   const { data: openLogs } = useActiveTimeLogs()
   const clockIn = useClockIn()
   const clockOut = useClockOut()
 
-  const [selectedUserId, setSelectedUserId] = useState<string>(activeStaff?.id ?? '')
+  const selectedUserId = activeStaff?.id ?? ''
   const [note, setNote] = useState('')
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
@@ -85,19 +82,12 @@ export default function TimePage() {
       {/* Clock-in / Clock-out form */}
       <div className="card p-5 space-y-4">
         <h2 className="font-semibold text-gray-700">เข้า / ออกงาน</h2>
+        <p className="text-xs text-gray-500">หลังใส่ PIN ระบบเริ่มงานให้อัตโนมัติ และคิดเวลาเฉพาะ 10:00–20:30</p>
 
         <div>
-          <label className="label">พนักงาน</label>
-          <select
-            className="input"
-            value={selectedUserId}
-            onChange={(e) => { setSelectedUserId(e.target.value); setMsg(null) }}
-          >
-            <option value="">— เลือกพนักงาน —</option>
-            {(staffList ?? []).map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
+          <label className="label">พนักงานที่กำลังใช้งาน</label>
+          <div className="input bg-gray-50">{activeStaff?.name ?? 'ยังไม่ได้ระบุพนักงาน'}</div>
+          <p className="text-xs text-gray-500 mt-1">ระบบเลือกจาก PIN ที่เข้าสู่ระบบ ไม่ต้องเลือกซ้ำ</p>
         </div>
 
         {!isClockdIn && (
