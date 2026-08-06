@@ -17,7 +17,7 @@ export function useUsers() {
   })
 }
 
-export type UserInput = Pick<AppUser, 'name' | 'email' | 'role' | 'is_active' | 'branch_id'> & {
+export type UserInput = Pick<AppUser, 'name' | 'email' | 'role' | 'is_active' | 'branch_id' | 'hourly_wage'> & {
   id?: string
   pin?: string // ถ้ามีค่า จะแฮชและบันทึกเป็น pin_hash ใหม่
 }
@@ -40,7 +40,7 @@ export function useSaveUser() {
       const { data, error } = await supabase.rpc('save_user_admin', {
         p_token: getPinSessionToken(), p_id: input.id ?? null, p_branch_id: input.branch_id,
         p_name: input.name, p_email: input.email || null, p_role: input.role,
-        p_is_active: input.is_active, p_hourly_wage: 0, p_pin_hash: (payload.pin_hash as string | undefined) ?? null,
+        p_is_active: input.is_active, p_hourly_wage: input.hourly_wage, p_pin_hash: (payload.pin_hash as string | undefined) ?? null,
       })
       if (error) throw error
       return data as AppUser
