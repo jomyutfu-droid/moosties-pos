@@ -84,6 +84,24 @@ export async function verifyStaffPin(pin: string): Promise<AppUser[]> {
   })) as AppUser[]
 }
 
+/** ตรวจ PIN ของพนักงานที่ผู้ใช้เลือกไว้เท่านั้น */
+export async function verifySelectedStaffPin(pin: string, userId: string): Promise<AppUser | null> {
+  const { data, error } = await supabase.rpc('verify_selected_staff_pin', {
+    p_user_id: userId,
+    p_pin: pin,
+  })
+  if (error) throw error
+  const row = (data ?? [])[0] as (Omit<AppUser, 'pin_hash' | 'email' | 'hourly_wage'> & { session_token: string }) | undefined
+  if (!row) return null
+  if (row.session_token) useSessionStore.getState().setPinSessionToken(row.session_token)
+  return {
+    ...row,
+    email: null,
+    hourly_wage: 0,
+    pin_hash: null,
+  } as AppUser
+}
+
 export function getPinSessionToken() {
   return useSessionStore.getState().pinSessionToken
 }
