@@ -80,6 +80,7 @@ function UserEditor({ user, onClose }: { user: AppUser | null; onClose: () => vo
   const [name, setName] = useState(user?.name ?? '')
   const [email, setEmail] = useState(user?.email ?? '')
   const [role, setRole] = useState<Role>(user?.role ?? 'staff')
+  const [hourlyWage, setHourlyWage] = useState(String(user?.hourly_wage ?? 0))
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
 
@@ -87,6 +88,11 @@ function UserEditor({ user, onClose }: { user: AppUser | null; onClose: () => vo
     setError(null)
     if (pin && (pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin))) {
       setError('PIN ต้องเป็นเลข 4-6 หลัก')
+      return
+    }
+    const parsedHourlyWage = Number(hourlyWage)
+    if (!Number.isFinite(parsedHourlyWage) || parsedHourlyWage < 0) {
+      setError('ค่าแรงต้องเป็นตัวเลขตั้งแต่ 0 บาท/ชั่วโมงขึ้นไป')
       return
     }
     // ผู้ใช้ใหม่ที่ไม่มีทั้งอีเมล (ล็อกอินด้วยรหัสผ่าน) และ PIN (สลับหน้าร้าน) จะเข้าระบบไม่ได้เลย
@@ -102,6 +108,7 @@ function UserEditor({ user, onClose }: { user: AppUser | null; onClose: () => vo
         role,
         is_active: true,
         branch_id: user?.branch_id ?? null,
+        hourly_wage: parsedHourlyWage,
       }
       if (pin) input.pin = pin
       await save.mutateAsync(input)
@@ -133,6 +140,20 @@ function UserEditor({ user, onClose }: { user: AppUser | null; onClose: () => vo
               <option value="manager">ผู้จัดการ</option>
               <option value="owner">เจ้าของร้าน</option>
             </select>
+          </div>
+          <div>
+            <label className="label">ค่าแรงต่อชั่วโมง (บาท/ชม.)</label>
+            <input
+              className="input"
+              type="number"
+              min="0"
+              step="0.01"
+              inputMode="decimal"
+              value={hourlyWage}
+              onChange={(e) => setHourlyWage(e.target.value)}
+              placeholder="เช่น 50"
+            />
+            <p className="mt-1 text-xs text-gray-500">ใช้คำนวณค่าแรงและค่าล่วงเวลา</p>
           </div>
           <div>
             <label className="label">ตั้ง PIN ใหม่ (4-6 หลัก, เว้นไว้ถ้าไม่เปลี่ยน)</label>
