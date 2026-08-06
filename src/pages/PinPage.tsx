@@ -45,17 +45,13 @@ export default function PinPage() {
         return
       }
       const user = matches[0]
-      const result = await clockIn.mutateAsync({
+      await clockIn.mutateAsync({
         userId: user.id,
         note: 'เริ่มงานอัตโนมัติจาก PIN',
         automatic: true,
       })
       setActiveStaff(user)
-      if (result === 'outside-hours') {
-        // ยังเข้าใช้งาน POS ได้ตามปกติ แต่ไม่สร้างเวลาทำงานนอกช่วง 10:00–20:30
-        navigate('/', { replace: true })
-        return
-      }
+      // ถ้าเริ่มหลังเวลาปกติ ระบบจะเปิดกะไว้เป็น OT และแจ้งเจ้าของตอนออกงาน
       navigate('/', { replace: true })
     } catch (err) {
       setError(explainSupabaseError(err))
