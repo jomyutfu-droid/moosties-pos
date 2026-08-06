@@ -4,7 +4,14 @@
  */
 import { useState } from 'react'
 import { useSessionStore } from '@/store/session'
-import { useTodayTimeLogs, useActiveTimeLogs, useClockIn, useClockOut, getBillableMinutes } from '@/hooks/useTimeLogs'
+import {
+  useTodayTimeLogs,
+  useMyTimeLogsByMonth,
+  useActiveTimeLogs,
+  useClockIn,
+  useClockOut,
+  getBillableMinutes,
+} from '@/hooks/useTimeLogs'
 import { explainSupabaseError } from '@/lib/errors'
 
 function formatTime(iso: string) {
@@ -18,6 +25,29 @@ function formatDuration(clockIn: string, clockOut: string | null): string {
   return `${h > 0 ? `${h} ชม. ` : ''}${m} นาที${!clockOut ? ' (ยังทำงานอยู่)' : ''}`
 }
 
+function getMonthInput(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
+function shiftMonth(month: string, amount: number) {
+  const [year, monthNumber] = month.split('-').map(Number)
+  const date = new Date(year, monthNumber - 1 + amount, 1)
+  return getMonthInput(date)
+}
+
+function formatMonth(month: string) {
+  const [year, monthNumber] = month.split('-').map(Number)
+  return new Date(year, monthNumber - 1, 1).toLocaleDateString('th-TH', {
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+function getLocalDateKey(iso: string) {
+  const date = new Date(iso)
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
+}
+
 export default function TimePage() {
   const activeStaff = useSessionStore((s) => s.activeStaff)
   const { data: logs, isLoading } = useTodayTimeLogs()
@@ -28,6 +58,17 @@ export default function TimePage() {
   const selectedUserId = activeStaff?.id ?? ''
   const [note, setNote] = useState('')
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+  const [selectedMonth, setSelectedMonth] = useState(getMonthInput())
+  const currentMonth = getMonthInput()
+  const { data: myMonthLogs = [], isLoading: monthLoading, error: monthError } = useMyTimeLogsByMonth(selectedMonth)
+
+  const workedDays = new Set(myMonthLogs.map((log) => getLocalDateKey(log.clock_in))).size
+  const totalMinutes = myMonthLogs.reduce(
+    (total, log) => total + getBillableMinutes(log.clock_in, log.clock_out),
+    0,
+  )
+  const totalHours = Math.floor(totalMinutes / 60)
+  const remainingMinutes = totalMinutes % 60
 
   // เช็คจากรายการที่ยังไม่ clock-out (ไม่ผูกกับวันที่)
   // ถ้าใช้ logs ของวันนี้ พนักงานกะดึกที่ข้ามเที่ยงคืนจะกดปุ่มออกงานไม่ได้
@@ -146,7 +187,7 @@ export default function TimePage() {
       {/* รายการวันนี้ */}
       <div className="card overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm text-gray-600">
-          บันทึกวันนี้ ({new Date().toLocaleDateString('th-TH')})
+          {activeStaff?.role === 'staff' ? 'บันทึกเวลาของฉันวันนี้' : 'บันทึกเวลาพนักงานวันนี้'} ({new Date().toLocaleDateString('th-TH')})
         </div>
         {isLoading && <p className="p-4 text-gray-400">กำลังโหลด…</p>}
         {!isLoading && (logs ?? []).length === 0 && (
@@ -165,6 +206,101 @@ export default function TimePage() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* ประวัติรายเดือนของพนักงานที่กำลังใช้งาน */}
+      <div className="card overflow-hidden">
+        <div className="px-4 py-4 border-b border-gray-100 space-y-3">
+          <div>
+            <h2 className="font-semibold text-gray-700">ประวัติการทำงานของฉัน</h2>
+            <p className="text-xs text-gray-500 mt-1">ดูวันที่เคยเข้างานย้อนหลังได้ทีละเดือน</p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="btn-secondary px-3 py-2"
+              aria-label="ดูเดือนก่อนหน้า"
+              onClick={() => setSelectedMonth((month) => shiftMonth(month, -1))}
+            >
+              ‹
+            </button>
+            <input
+              className="input flex-1 min-w-0"
+              type="month"
+              value={selectedMonth}
+              max={currentMonth}
+              onChange={(event) => setSelectedMonth(event.target.value)}
+              aria-label="เลือกเดือนที่ต้องการดู"
+            />
+            <button
+              type="button"
+              className="btn-secondary px-3 py-2"
+              aria-label="ดูเดือนถัดไป"
+              disabled={selectedMonth >= currentMonth}
+              onClick={() => setSelectedMonth((month) => shiftMonth(month, 1))}
+            >
+              ›
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 p-4 border-b border-gray-100 sm:grid-cols-3">
+          <div className="rounded-xl bg-green-50 px-3 py-3">
+            <p className="text-xs text-gray-500">วันที่มาทำงาน</p>
+            <p className="text-xl font-bold text-green-700">{workedDays} วัน</p>
+          </div>
+          <div className="rounded-xl bg-blue-50 px-3 py-3">
+            <p className="text-xs text-gray-500">จำนวนกะ</p>
+            <p className="text-xl font-bold text-blue-700">{myMonthLogs.length} กะ</p>
+          </div>
+          <div className="rounded-xl bg-purple-50 px-3 py-3 col-span-2 sm:col-span-1">
+            <p className="text-xs text-gray-500">เวลางานปกติรวม</p>
+            <p className="text-xl font-bold text-purple-700">{totalHours} ชม. {remainingMinutes} นาที</p>
+          </div>
+        </div>
+
+        {monthError && (
+          <p className="p-4 text-sm text-red-600">{explainSupabaseError(monthError, 'โหลดประวัติการทำงานไม่สำเร็จ')}</p>
+        )}
+        {monthLoading && <p className="p-4 text-gray-400">กำลังโหลดประวัติเดือน{formatMonth(selectedMonth)}…</p>}
+        {!monthLoading && !monthError && myMonthLogs.length === 0 && (
+          <p className="p-4 text-gray-400">เดือน{formatMonth(selectedMonth)}ยังไม่มีบันทึกเวลา</p>
+        )}
+        {!monthLoading && !monthError && myMonthLogs.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-sm">
+              <thead className="bg-white/40 text-left text-xs text-gray-500">
+                <tr>
+                  <th className="p-3 font-semibold">วันที่</th>
+                  <th className="p-3 font-semibold">เข้างาน</th>
+                  <th className="p-3 font-semibold">ออกงาน</th>
+                  <th className="p-3 font-semibold">เวลางาน</th>
+                  <th className="p-3 font-semibold">หมายเหตุ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {myMonthLogs.map((log) => (
+                  <tr key={log.id} className="border-t border-gray-100">
+                    <td className="p-3 font-medium">
+                      {new Date(log.clock_in).toLocaleDateString('th-TH', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </td>
+                    <td className="p-3 text-gray-600">{formatTime(log.clock_in)}</td>
+                    <td className="p-3 text-gray-600">
+                      {log.clock_out ? formatTime(log.clock_out) : <span className="text-green-600">ยังทำงานอยู่</span>}
+                    </td>
+                    <td className="p-3 text-gray-500">{formatDuration(log.clock_in, log.clock_out)}</td>
+                    <td className="p-3 text-gray-400 text-xs">{log.note || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   )
