@@ -1,14 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useStaffList } from '@/hooks/useAuth'
-import { verifyPin } from '@/lib/pin'
+import { verifyStaffPin } from '@/hooks/useAuth'
 import { useSessionStore } from '@/store/session'
-import type { AppUser } from '@/types'
 import { useClockIn } from '@/hooks/useTimeLogs'
 import { explainSupabaseError } from '@/lib/errors'
 
 export default function PinPage() {
-  const { data: staff, isLoading } = useStaffList()
   const setActiveStaff = useSessionStore((s) => s.setActiveStaff)
   const navigate = useNavigate()
   const clockIn = useClockIn()
@@ -30,10 +27,7 @@ export default function PinPage() {
     setChecking(true)
     setError(null)
     try {
-      const matches: AppUser[] = []
-      for (const user of staff ?? []) {
-        if (await verifyPin(pin, user.pin_hash)) matches.push(user)
-      }
+      const matches = await verifyStaffPin(pin)
       if (matches.length === 0) {
         setError('PIN ไม่ถูกต้อง')
         setPin('')
@@ -45,17 +39,13 @@ export default function PinPage() {
         return
       }
       const user = matches[0]
-      const result = await clockIn.mutateAsync({
+      await clockIn.mutateAsync({
         userId: user.id,
         note: 'เริ่มงานอัตโนมัติจาก PIN',
         automatic: true,
       })
       setActiveStaff(user)
-      if (result === 'outside-hours') {
-        // ยังเข้าใช้งาน POS ได้ตามปกติ แต่ไม่สร้างเวลาทำงานนอกช่วง 10:00–20:30
-        navigate('/', { replace: true })
-        return
-      }
+      // ถ้าเริ่มหลังเวลาปกติ ระบบจะเปิดกะไว้เป็น OT และแจ้งเจ้าของตอนออกงาน
       navigate('/', { replace: true })
     } catch (err) {
       setError(explainSupabaseError(err))
@@ -98,7 +88,7 @@ export default function PinPage() {
         </div>
         <button
           className="btn-primary w-full"
-          disabled={pin.length < 4 || checking || isLoading}
+          disabled={pin.length < 4 || checking}
           onClick={confirm}
         >
           {checking ? 'กำลังตรวจสอบ…' : 'ยืนยัน'}
