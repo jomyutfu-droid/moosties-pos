@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useSessionStore } from '@/store/session'
+import { useCurrentAppUser } from '@/hooks/useAuth'
 import type { Role } from '@/types'
 
 /**
