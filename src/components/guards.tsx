@@ -51,7 +51,9 @@ export function RequireRole({ roles, children }: { roles: Role[]; children: Reac
 /** หน้าที่มีข้อมูลค่าแรงต้องยืนยันด้วย PIN ของ Owner/Manager */
 export function RequireSecureRole({ roles, children }: { roles: Role[]; children: ReactNode }) {
   const activeStaff = useSessionStore((s) => s.activeStaff)
-  if (!activeStaff || !roles.includes(activeStaff.role)) {
+  const { data: currentUser, isLoading } = useCurrentAppUser()
+  if (isLoading) return <div className="p-6 text-gray-500">กำลังตรวจสอบสิทธิ์…</div>
+  if (!activeStaff || !currentUser || currentUser.id !== activeStaff.id || !roles.includes(currentUser.role)) {
     return <Navigate to="/pin" replace />
   }
   return <>{children}</>
