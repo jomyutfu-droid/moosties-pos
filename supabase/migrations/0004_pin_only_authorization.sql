@@ -33,7 +33,7 @@ declare
   v_count integer;
   v_user_id uuid;
 begin
-  select count(*), min(u.id)
+  select count(*), (array_agg(u.id))[1]
     into v_count, v_user_id
   from public.users u
   where u.is_active = true
@@ -120,3 +120,33 @@ create policy time_logs_owner_manager_read on public.time_logs
         and u.role in ('owner', 'manager')
     )
   );
+
+
+-- Resolve the currently verified PIN identity without exposing pin_hash.
+create or replace function public.get_pin_session_user()
+returns table (
+  id uuid,
+  branch_id uuid,
+  name text,
+  email text,
+  role text,
+  hourly_wage numeric,
+  is_active boolean,
+  created_at timestamptz,
+  updated_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select u.id, u.branch_id, u.name, u.email, u.role::text, u.hourly_wage,
+         u.is_active, u.created_at, u.updated_at
+  from public.pin_sessions ps
+  join public.users u on u.id = ps.user_id
+  where ps.auth_user_id = auth.uid()
+    and ps.expires_at > now()
+    and u.is_active = true;
+$$;
+
+revoke all on function public.get_pin_session_user() from public;
+grant execute on function public.get_pin_session_user() to anon, authenticated;
