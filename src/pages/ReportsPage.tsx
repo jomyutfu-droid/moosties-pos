@@ -11,7 +11,7 @@ import { explainSupabaseError } from '@/lib/errors'
 import { useSessionStore } from '@/store/session'
 import { parseUnsignedNumber } from '@/lib/forms'
 import { NumberField } from '@/components/NumberField'
-import { useTimeLogsByRange } from '@/hooks/useTimeLogs'
+import { getBillableMinutes, useTimeLogsByRange } from '@/hooks/useTimeLogs'
 
 /** วันที่ "วันนี้" ตามเวลาเครื่อง — toISOString() ให้วันที่ UTC ซึ่งก่อน 07:00 น. ไทยจะเป็นเมื่อวาน */
 function todayStr() {
@@ -122,8 +122,7 @@ function StaffTimeReport() {
 
   const summary = new Map<string, { name: string; wage: number; minutes: number; shifts: number }>()
   for (const log of logs) {
-    const end = log.clock_out ? new Date(log.clock_out) : new Date()
-    const minutes = Math.max(0, Math.floor((end.getTime() - new Date(log.clock_in).getTime()) / 60_000))
+    const minutes = getBillableMinutes(log.clock_in, log.clock_out)
     const row = summary.get(log.user_id) ?? { name: log.user_name, wage: log.hourly_wage, minutes: 0, shifts: 0 }
     row.minutes += minutes
     row.shifts += 1
