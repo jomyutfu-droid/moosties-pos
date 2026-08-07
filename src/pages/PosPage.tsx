@@ -151,7 +151,7 @@ export default function PosPage() {
   }
 
   return (
-    <div className="h-full flex flex-col md:flex-row">
+    <div className="h-full min-h-0 flex flex-col overflow-hidden md:flex-row">
       <ProductGrid categories={categories} products={products} onSelect={handleSelectProduct} />
       <CartPanel onCheckout={() => setShowPayment(true)} />
 

@@ -188,7 +188,7 @@ export function CartPanel({ onCheckout }: { onCheckout: () => void }) {
 
   return (
     <aside
-      className="w-full md:w-80 flex-none flex flex-col"
+      className="flex h-[min(46vh,520px)] min-h-0 w-full flex-none flex-col overflow-hidden md:h-full md:w-80"
       style={{
         background: 'rgba(255,255,255,.52)',
         backdropFilter: 'blur(22px) saturate(180%)',
@@ -210,7 +210,7 @@ export function CartPanel({ onCheckout }: { onCheckout: () => void }) {
       </div>
 
       {/* Cart lines */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
         {lines.length === 0 && (
           <p className="text-sm text-center py-10" style={{ color: '#5c7466' }}>ยังไม่มีรายการ</p>
         )}
@@ -256,7 +256,7 @@ export function CartPanel({ onCheckout }: { onCheckout: () => void }) {
       </div>
 
       {/* Footer */}
-      <div className="p-4 space-y-3" style={{ borderTop: '1px solid rgba(255,255,255,.6)' }}>
+      <div className="flex-none space-y-3 p-4" style={{ borderTop: '1px solid rgba(255,255,255,.6)' }}>
         <div className="flex justify-between text-sm" style={{ color: '#5c7466' }}>
           <span>ยอดรวม</span>
           <span>{formatBahtSymbol(subtotal)}</span>

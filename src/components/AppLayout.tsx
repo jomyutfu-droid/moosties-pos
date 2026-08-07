@@ -63,10 +63,10 @@ export function AppLayout() {
   }
 
   return (
-    <div className="min-h-full flex bg-transparent">
+    <div className="h-full min-h-0 flex bg-transparent">
       {/* ── Sidebar ── */}
       <aside
-        className="hidden md:flex w-56 flex-none flex-col"
+        className="hidden md:flex h-full min-h-0 w-56 flex-none flex-col"
         style={{
           background: 'rgba(255,255,255,.45)',
           backdropFilter: 'blur(20px) saturate(180%)',
@@ -90,7 +90,7 @@ export function AppLayout() {
         </div>
 
         {/* Nav */}
-        <nav className="flex flex-col gap-1 px-3 flex-1">
+        <nav className="min-h-0 flex flex-1 flex-col gap-1 overflow-y-auto px-3">
           {visibleItems.map((item) => (
             <NavLink
               key={item.to}
@@ -105,7 +105,7 @@ export function AppLayout() {
 
         {/* Staff footer */}
         <div
-          className="p-3 flex flex-col gap-2.5"
+          className="flex-none p-3 flex flex-col gap-2.5"
           style={{ borderTop: '1px solid rgba(255,255,255,.55)' }}
         >
           {/* Avatar + name */}
@@ -234,7 +234,7 @@ export function AppLayout() {
       </div>
 
       {/* ── Main content ── */}
-      <main className="flex-1 min-w-0 md:pt-0 pt-12">
+      <main className="h-full min-h-0 flex-1 min-w-0 md:pt-0 pt-12">
         <Outlet />
       </main>
     </div>

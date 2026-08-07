@@ -38,7 +38,7 @@ export function ProductGrid({
   }
 
   return (
-    <div className="flex-1 min-w-0 p-4 flex flex-col gap-3">
+    <div className="flex min-h-0 flex-1 min-w-0 flex-col gap-3 overflow-hidden p-4">
       {/* Category tabs */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         <button
@@ -76,7 +76,7 @@ export function ProductGrid({
       />
 
       {/* Product grid */}
-      <div className="overflow-y-auto space-y-5">
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
         {groupedProducts.map((group) => (
           <section key={group.category?.id ?? 'uncategorized'}>
             {activeCategory === 'all' && (
@@ -115,4 +115,3 @@ export function ProductGrid({
     </div>
   )
 }
-
