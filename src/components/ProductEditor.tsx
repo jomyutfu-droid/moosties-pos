@@ -195,10 +195,19 @@ export function ProductEditor({
       // สินค้าใหม่: เขียนตรงด้วย supabase client ผ่าน hook เดิมแต่ productId ต่างไป — ใช้ fetch แทน hook
       const { supabase } = await import('@/lib/supabase')
       if (removedRecipeIds.length) {
-        await supabase.from('recipe_items').delete().in('id', removedRecipeIds)
+        const { error } = await supabase.from('recipe_items').delete().in('id', removedRecipeIds)
+        if (error) throw error
       }
       if (upserts.length) {
-        await supabase.from('recipe_items').insert(upserts.map((u) => ({ ...u, product_id: targetId, id: undefined })))
+        const rows = upserts.map((u) => ({
+          product_id: targetId,
+          ingredient_id: u.ingredient_id,
+          qty: u.qty,
+          sort_order: u.sort_order,
+          note: u.note,
+        }))
+        const { error } = await supabase.from('recipe_items').insert(rows)
+        if (error) throw error
       }
       // เส้นทางนี้ไม่ผ่าน useSaveRecipeItems จึงต้องคำนวณ cost_cached เอง
       // ไม่งั้นเมนูใหม่จะมีต้นทุน = 0 และกำไรในรายงานจะสูงเกินจริง
@@ -222,10 +231,20 @@ export function ProductEditor({
     } else {
       const { supabase } = await import('@/lib/supabase')
       if (removedOptionIds.length) {
-        await supabase.from('product_options').delete().in('id', removedOptionIds)
+        const { error } = await supabase.from('product_options').delete().in('id', removedOptionIds)
+        if (error) throw error
       }
       if (upserts.length) {
-        await supabase.from('product_options').insert(upserts.map((u) => ({ ...u, product_id: targetId, id: undefined })))
+        const rows = upserts.map((u) => ({
+          product_id: targetId,
+          name: u.name,
+          price_delta: u.price_delta,
+          linked_ingredient_id: u.linked_ingredient_id,
+          qty_delta: u.qty_delta,
+          sort_order: u.sort_order,
+        }))
+        const { error } = await supabase.from('product_options').insert(rows)
+        if (error) throw error
       }
     }
   }
