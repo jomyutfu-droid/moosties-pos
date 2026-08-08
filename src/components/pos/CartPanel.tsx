@@ -6,6 +6,7 @@ import { useSessionStore } from '@/store/session'
 import { parseUnsignedNumber } from '@/lib/forms'
 import { escapeHtml, openPrintWindow, THERMAL_BASE_CSS } from '@/lib/html'
 import { NumberField } from '@/components/NumberField'
+import { fromBaseQty } from '@/domain/units'
 import type { CartLine } from '@/types'
 
 /**
@@ -30,7 +31,11 @@ function computeAdjustedRecipe(line: CartLine) {
   const adjusted = recipeItems.map((r) => {
     const delta = optDeltaById.get(r.ingredient_id) ?? 0
     if (delta) optDeltaById.delete(r.ingredient_id)
-    return { r, qty: Math.round((r.qty + delta) * 1000) / 1000, isAdjusted: delta !== 0 }
+    return {
+      r,
+      qty: fromBaseQty(r.qty + delta, Number(r.unit_factor) || 1),
+      isAdjusted: delta !== 0,
+    }
   })
 
   const extra = Array.from(optDeltaById.entries()).map(([ingId, qty]) => ({
@@ -53,7 +58,7 @@ function RecipeModal({ line, onClose }: { line: CartLine; onClose: () => void })
             r.note ? `<br><small>${escapeHtml(r.note)}</small>` : ''
           }</td>
           <td class="r">${qty}</td>
-          <td class="r">${escapeHtml(r.ingredient.unit)}</td>
+          <td class="r">${escapeHtml(r.unit_name ?? r.ingredient.unit)}</td>
         </tr>`,
     )
 
@@ -138,7 +143,7 @@ function RecipeModal({ line, onClose }: { line: CartLine; onClose: () => void })
                       {r.note && <div className="text-xs" style={{ color: '#5c7466' }}>{r.note}</div>}
                     </td>
                     <td className="text-right py-1.5 tabular-nums" style={{ color: '#5c7466' }}>{qty}</td>
-                    <td className="text-right py-1.5 pl-2 text-xs" style={{ color: '#5c7466' }}>{r.ingredient.unit}</td>
+                    <td className="text-right py-1.5 pl-2 text-xs" style={{ color: '#5c7466' }}>{r.unit_name ?? r.ingredient.unit}</td>
                   </tr>
                 ))}
                 {extra.map(({ name, qty }, i) => (

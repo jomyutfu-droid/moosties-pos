@@ -12,7 +12,7 @@ import type { Category, Ingredient, Product, ProductOption, RecipeItem } from '@
 export async function refreshReferenceData(): Promise<void> {
   const [categories, ingredients, products, options, recipeItems] = await Promise.all([
     supabase.from('categories').select('*').order('sort_order'),
-    supabase.from('ingredients').select('*'),
+    supabase.from('ingredients').select('*, units:ingredient_units(*)'),
     supabase.from('products').select('*').order('sort_order'),
     supabase.from('product_options').select('*'),
     supabase.from('recipe_items').select('*'),

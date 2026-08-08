@@ -12,7 +12,8 @@ export default defineConfig([
     extends: [
       js.configs.recommended,
       tseslint.configs.recommended,
-      reactHooks.configs.flat.recommended,
+      // react-hooks 5.2 exposes the flat config as recommended-latest.
+      reactHooks.configs['recommended-latest'] ?? reactHooks.configs.flat?.recommended,
       reactRefresh.configs.vite,
     ],
     languageOptions: {

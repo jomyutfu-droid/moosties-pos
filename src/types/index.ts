@@ -37,6 +37,20 @@ export interface Category {
   updated_at: string
 }
 
+export type IngredientUnitKind = 'purchase' | 'usage' | 'both'
+
+export interface IngredientUnit {
+  id: UUID
+  ingredient_id: UUID
+  name: string
+  factor_to_base: number
+  kind: IngredientUnitKind
+  is_default_purchase: boolean
+  is_default_usage: boolean
+  created_at: string
+  updated_at: string
+}
+
 export interface Ingredient {
   id: UUID
   name: string
@@ -49,6 +63,7 @@ export interface Ingredient {
   reorder_point: number
   expiry_alert_days: number | null
   is_active: boolean
+  units?: IngredientUnit[]
   created_at: string
   updated_at: string
 }
@@ -88,6 +103,9 @@ export interface RecipeItem {
   product_id: UUID
   ingredient_id: UUID
   qty: number
+  /** qty is always stored in the ingredient base unit. */
+  unit_name: string | null
+  unit_factor: number
   sort_order: number
   note: string | null
   created_at: string
@@ -158,6 +176,9 @@ export interface StockMovement {
   ingredient_id: UUID
   type: StockMovementType
   qty_delta: number
+  input_qty: number | null
+  input_unit: string | null
+  conversion_factor: number
   ref_order_id: UUID | null
   user_id: UUID | null
   note: string | null

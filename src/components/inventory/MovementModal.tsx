@@ -1,11 +1,18 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRecordStockMovement } from '@/hooks/useInventory'
 import { useSessionStore } from '@/store/session'
 import { formatStockQty } from '@/lib/money'
 import { parseUnsignedNumber } from '@/lib/forms'
 import { explainSupabaseError } from '@/lib/errors'
 import { NumberField } from '@/components/NumberField'
-import type { Ingredient, StockMovementType } from '@/types'
+import {
+  defaultPurchaseUnit,
+  defaultUsageUnit,
+  purchaseUnitsForIngredient,
+  toBaseQty,
+  usageUnitsForIngredient,
+} from '@/domain/units'
+import type { Ingredient, IngredientUnit, StockMovementType } from '@/types'
 
 interface Props {
   ingredient?: Ingredient
@@ -17,19 +24,33 @@ export function MovementModal({ ingredient: preSelected, ingredients = [], onClo
   const record = useRecordStockMovement()
   const activeStaff = useSessionStore((s) => s.activeStaff)
 
-  // smart-search state (ใช้เฉพาะโหมดไม่มี preSelected)
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Ingredient | null>(null)
   const [open, setOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const [type, setType] = useState<StockMovementType>('receive')
+  const [unitName, setUnitName] = useState('')
   const [qty, setQty] = useState<number>(0)
-  const [pricePerUnit, setPricePerUnit] = useState<number>(0) // Feature 5: WAC
+  const [pricePerUnit, setPricePerUnit] = useState<number>(0)
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const ingredient = preSelected ?? selected
+  const configuredUnits = type === 'receive' ? purchaseUnitsForIngredient(ingredient) : usageUnitsForIngredient(ingredient)
+  const activeUnit: IngredientUnit | null =
+    configuredUnits.find((unit) => unit.name === unitName)
+    ?? (type === 'receive' ? defaultPurchaseUnit(ingredient) : defaultUsageUnit(ingredient))
+    ?? configuredUnits[0]
+    ?? null
+  const baseQty = activeUnit ? toBaseQty(qty, activeUnit.factor_to_base) : 0
+
+  useEffect(() => {
+    const next = type === 'receive' ? defaultPurchaseUnit(ingredient) : defaultUsageUnit(ingredient)
+    setUnitName(next?.name ?? '')
+    setQty(0)
+    setPricePerUnit(0)
+  }, [ingredient, type])
 
   const filtered = query.trim()
     ? ingredients.filter((i) => i.name.toLowerCase().includes(query.toLowerCase()))
@@ -39,6 +60,8 @@ export function MovementModal({ ingredient: preSelected, ingredients = [], onClo
     setSelected(ing)
     setQuery(ing.name)
     setOpen(false)
+    const next = type === 'receive' ? defaultPurchaseUnit(ing) : defaultUsageUnit(ing)
+    setUnitName(next?.name ?? ing.unit)
     setQty(0)
     inputRef.current?.blur()
   }
@@ -46,13 +69,19 @@ export function MovementModal({ ingredient: preSelected, ingredients = [], onClo
   async function handleSave() {
     setError(null)
     if (!ingredient) { setError('เลือกวัตถุดิบก่อน'); return }
+    if (!activeUnit) { setError('วัตถุดิบนี้ยังไม่ได้ตั้งค่าหน่วย'); return }
     if (qty <= 0) { setError('กรอกจำนวนมากกว่า 0'); return }
-    const delta = type === 'receive' ? qty : -qty
+    if (type === 'receive' && baseQty <= 0) { setError('จำนวนหน่วยกลางไม่ถูกต้อง'); return }
+
+    const delta = type === 'receive' ? baseQty : -baseQty
     try {
       await record.mutateAsync({
         ingredient_id: ingredient.id,
         type,
         qty_delta: delta,
+        input_qty: qty,
+        input_unit: activeUnit.name,
+        conversion_factor: activeUnit.factor_to_base,
         user_id: activeStaff?.id ?? null,
         note: note || null,
         price_per_unit: type === 'receive' && pricePerUnit > 0 ? pricePerUnit : undefined,
@@ -72,13 +101,10 @@ export function MovementModal({ ingredient: preSelected, ingredients = [], onClo
               <h2 className="text-lg font-bold">{preSelected.name}</h2>
               <p className="text-sm text-gray-500">คงเหลือ {formatStockQty(preSelected.stock_qty, preSelected.unit)}</p>
             </>
-          ) : (
-            <h2 className="text-lg font-bold">รับ / ปรับสต็อก</h2>
-          )}
+          ) : <h2 className="text-lg font-bold">รับ / ปรับสต็อก</h2>}
         </div>
 
         <div className="p-5 space-y-3">
-          {/* Smart search — แสดงเฉพาะโหมดไม่มี preSelected */}
           {!preSelected && (
             <div className="relative">
               <label className="label">ค้นหาวัตถุดิบ</label>
@@ -106,47 +132,40 @@ export function MovementModal({ ingredient: preSelected, ingredients = [], onClo
                   ))}
                 </ul>
               )}
-              {selected && (
-                <p className="text-xs text-gray-500 mt-1">
-                  คงเหลือ {formatStockQty(selected.stock_qty, selected.unit)}
-                </p>
-              )}
+              {selected && <p className="text-xs text-gray-500 mt-1">คงเหลือ {formatStockQty(selected.stock_qty, selected.unit)}</p>}
             </div>
           )}
 
           <div className="grid grid-cols-3 gap-2">
-            <button
-              className={`btn text-sm ${type === 'receive' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setType('receive')}
-            >
-              รับเข้า
-            </button>
-            <button
-              className={`btn text-sm ${type === 'adjust' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setType('adjust')}
-            >
-              ปรับยอด (ลด)
-            </button>
-            <button
-              className={`btn text-sm ${type === 'waste' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setType('waste')}
-            >
-              ของเสีย
-            </button>
+            <button className={`btn text-sm ${type === 'receive' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setType('receive')}>รับเข้า</button>
+            <button className={`btn text-sm ${type === 'adjust' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setType('adjust')}>ปรับยอด (ลด)</button>
+            <button className={`btn text-sm ${type === 'waste' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setType('waste')}>ของเสีย</button>
           </div>
+
           <div>
-            <label className="label">จำนวน{ingredient ? ` (${ingredient.unit})` : ''}</label>
+            <label className="label">หน่วยที่ใช้บันทึก</label>
+            <select className="input" value={activeUnit?.name ?? ''} disabled={!ingredient} onChange={(e) => setUnitName(e.target.value)}>
+              {!ingredient && <option value="">เลือกวัตถุดิบก่อน</option>}
+              {configuredUnits.map((unitOption) => (
+                <option key={unitOption.id} value={unitOption.name}>{unitOption.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="label">จำนวน{activeUnit ? ` (${activeUnit.name})` : ''}</label>
             <NumberField className="input" value={qty} parse={parseUnsignedNumber} onChange={setQty} />
             <p className="text-xs text-gray-400 mt-1">
-              {type === 'receive' ? 'จะเพิ่มเข้าสต็อก' : 'จะตัดออกจากสต็อก'}
+              {activeUnit && qty > 0
+                ? `${type === 'receive' ? 'เพิ่ม' : 'ตัดออก'} ${baseQty} ${ingredient?.unit ?? 'หน่วยกลาง'}`
+                : type === 'receive' ? 'จะเพิ่มเข้าสต็อก' : 'จะตัดออกจากสต็อก'}
             </p>
           </div>
 
-          {/* Feature 5: ราคาซื้อเพื่อคำนวณ WAC */}
           {type === 'receive' && (
             <div>
               <label className="label">
-                ราคาซื้อต่อหน่วย (฿)
+                ราคาซื้อต่อหน่วย ({activeUnit?.name ?? 'หน่วย'}) (฿)
                 <span className="ml-1 text-xs font-normal text-gray-400">ใช้คำนวณต้นทุนถัวเฉลี่ย</span>
               </label>
               <NumberField
@@ -154,7 +173,7 @@ export function MovementModal({ ingredient: preSelected, ingredients = [], onClo
                 value={pricePerUnit}
                 parse={parseUnsignedNumber}
                 onChange={setPricePerUnit}
-                placeholder={ingredient ? `ปัจจุบัน ${ingredient.cost_per_unit.toFixed(2)}` : '0.00'}
+                placeholder={ingredient ? `ปัจจุบัน ${ingredient.cost_per_unit.toFixed(2)} / ${ingredient.unit}` : '0.00'}
               />
             </div>
           )}

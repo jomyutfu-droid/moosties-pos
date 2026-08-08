@@ -6,6 +6,7 @@
 import { formatBahtSymbol } from '@/lib/money'
 import { useSettings } from '@/hooks/useSettings'
 import { escapeHtml, openPrintWindow } from '@/lib/html'
+import { fromBaseQty } from '@/domain/units'
 import type { CartLine } from '@/types'
 
 interface ReceiptInfo {
@@ -94,7 +95,11 @@ function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
     const adjusted = recipeItems.map((ri) => {
       const delta = optDeltaById.get(ri.ingredient_id) ?? 0
       if (delta) optDeltaById.delete(ri.ingredient_id) // ใช้แล้ว ไม่ต้องแสดงเป็นแถวแยก
-      return { ri, qty: Math.round((ri.qty + delta) * 1000) / 1000, adjusted: delta !== 0 }
+      return {
+        ri,
+        qty: fromBaseQty(ri.qty + delta, Number(ri.unit_factor) || 1),
+        adjusted: delta !== 0,
+      }
     })
 
     // วัตถุดิบที่มาจากตัวเลือกล้วน ๆ (ไม่มีในสูตรพื้นฐาน)
@@ -110,7 +115,7 @@ function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
             `<tr>
                   <td>${esc(ri.ingredient.name)}${isAdj ? ' <small>(ปรับตามตัวเลือก)</small>' : ''}${ri.note ? `<br><small>${esc(ri.note)}</small>` : ''}</td>
                   <td class="r">${qty}</td>
-                  <td class="r unit">${esc(ri.ingredient.unit)}</td>
+                  <td class="r unit">${esc(ri.unit_name ?? ri.ingredient.unit)}</td>
                 </tr>`,
         ),
         ...extraRows,

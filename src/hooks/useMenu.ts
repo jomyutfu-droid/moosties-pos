@@ -50,7 +50,10 @@ export function useIngredients() {
   return useQuery({
     queryKey: ['ingredients'],
     queryFn: async (): Promise<Ingredient[]> => {
-      const { data, error } = await supabase.from('ingredients').select('*').order('name')
+      const { data, error } = await supabase
+        .from('ingredients')
+        .select('*, units:ingredient_units(*)')
+        .order('name')
       if (error) throw error
       return (data ?? []) as Ingredient[]
     },
@@ -81,7 +84,7 @@ export function useProductDetail(productId: string | null) {
         supabase.from('products').select('*').eq('id', productId).single(),
         supabase
           .from('recipe_items')
-          .select('*, ingredient:ingredients(*)')
+          .select('*, ingredient:ingredients(*, units:ingredient_units(*))')
           .eq('product_id', productId)
           .order('sort_order'),
         supabase.from('product_options').select('*').eq('product_id', productId).order('sort_order'),
@@ -202,7 +205,11 @@ export function useSaveRecipeItems(productId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (params: {
-      upserts: (Pick<RecipeItem, 'ingredient_id' | 'qty' | 'sort_order' | 'note'> & { id?: string })[]
+      upserts: (
+        Pick<RecipeItem, 'ingredient_id' | 'qty' | 'unit_name' | 'unit_factor' | 'sort_order' | 'note'> & {
+          id?: string
+        }
+      )[]
       deleteIds: string[]
     }) => {
       if (params.deleteIds.length) {
@@ -221,6 +228,8 @@ export function useSaveRecipeItems(productId: string) {
           product_id: productId,
           ingredient_id: r.ingredient_id,
           qty: r.qty,
+          unit_name: r.unit_name,
+          unit_factor: r.unit_factor,
           sort_order: r.sort_order,
           note: r.note,
         }))
@@ -230,6 +239,8 @@ export function useSaveRecipeItems(productId: string) {
           product_id: productId,
           ingredient_id: r.ingredient_id,
           qty: r.qty,
+          unit_name: r.unit_name,
+          unit_factor: r.unit_factor,
           sort_order: r.sort_order,
           note: r.note,
         }))
