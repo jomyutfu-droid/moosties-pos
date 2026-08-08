@@ -14,11 +14,14 @@ import { formatBahtSymbol } from '@/lib/money'
 import { parseUnsignedNumber, parseSignedNumber } from '@/lib/forms'
 import { explainSupabaseError } from '@/lib/errors'
 import { NumberField } from '@/components/NumberField'
+import { defaultUsageUnit, fromBaseQty, toBaseQty, unitByName, usageUnitsForIngredient } from '@/domain/units'
 import type { ProductOption, RecipeItem } from '@/types'
 
 interface RecipeRow extends Partial<Pick<RecipeItem, 'id'>> {
   ingredient_id: string
   qty: number
+  unit_name: string | null
+  unit_factor: number
   sort_order: number
   note: string | null
   _key: string
@@ -37,6 +40,10 @@ let keyCounter = 0
 function newKey() {
   keyCounter += 1
   return `new-${keyCounter}`
+}
+
+function baseQtyForRow(row: Pick<RecipeRow, 'qty' | 'unit_factor'>): number {
+  return toBaseQty(row.qty, row.unit_factor || 1)
 }
 
 export function ProductEditor({
@@ -76,7 +83,9 @@ export function ProductEditor({
         detail.recipe_items.map((r) => ({
           id: r.id,
           ingredient_id: r.ingredient_id,
-          qty: r.qty,
+          qty: fromBaseQty(r.qty, Number(r.unit_factor) || 1),
+          unit_name: r.unit_name ?? r.ingredient?.unit ?? null,
+          unit_factor: Number(r.unit_factor) || 1,
           sort_order: r.sort_order,
           note: r.note,
           _key: r.id,
@@ -111,7 +120,7 @@ export function ProductEditor({
     recipe_items: recipeRows
       .filter((r) => r.ingredient_id)
       .map((r) => ({
-        qty: r.qty,
+        qty: baseQtyForRow(r),
         ingredient: ingredientsById.get(r.ingredient_id) ?? { cost_per_unit: 0 },
       })) as never,
   })
@@ -121,7 +130,15 @@ export function ProductEditor({
   function addRecipeRow() {
     setRecipeRows((rows) => [
       ...rows,
-      { ingredient_id: '', qty: 0, sort_order: rows.length, note: null, _key: newKey() },
+      {
+        ingredient_id: '',
+        qty: 0,
+        unit_name: null,
+        unit_factor: 1,
+        sort_order: rows.length,
+        note: null,
+        _key: newKey(),
+      },
     ])
   }
 
@@ -147,6 +164,42 @@ export function ProductEditor({
   function removeOptionRow(row: OptionRow) {
     if (row.id) setRemovedOptionIds((ids) => [...ids, row.id!])
     setOptionRows((rows) => rows.filter((r) => r._key !== row._key))
+  }
+
+  function changeRecipeIngredient(rowKey: string, ingredientId: string) {
+    const ingredient = ingredientsById.get(ingredientId)
+    const usageUnit = defaultUsageUnit(ingredient)
+    setRecipeRows((rows) =>
+      rows.map((row) =>
+        row._key === rowKey
+          ? {
+              ...row,
+              ingredient_id: ingredientId,
+              unit_name: usageUnit?.name ?? ingredient?.unit ?? null,
+              unit_factor: usageUnit?.factor_to_base ?? 1,
+            }
+          : row,
+      ),
+    )
+  }
+
+  function changeRecipeUnit(row: RecipeRow, unitName: string) {
+    const ingredient = ingredientsById.get(row.ingredient_id)
+    const unit = unitByName(ingredient, unitName)
+    if (!unit) return
+    const currentBaseQty = baseQtyForRow(row)
+    setRecipeRows((rows) =>
+      rows.map((item) =>
+        item._key === row._key
+          ? {
+              ...item,
+              qty: fromBaseQty(currentBaseQty, unit.factor_to_base),
+              unit_name: unit.name,
+              unit_factor: unit.factor_to_base,
+            }
+          : item,
+      ),
+    )
   }
 
   async function handleSave() {
@@ -188,7 +241,15 @@ export function ProductEditor({
   async function saveRecipeForProduct(targetId: string) {
     const upserts = recipeRows
       .filter((r) => r.ingredient_id && r.qty > 0)
-      .map((r) => ({ id: r.id, ingredient_id: r.ingredient_id, qty: r.qty, sort_order: r.sort_order, note: r.note }))
+      .map((r) => ({
+        id: r.id,
+        ingredient_id: r.ingredient_id,
+        qty: baseQtyForRow(r),
+        unit_name: r.unit_name,
+        unit_factor: r.unit_factor || 1,
+        sort_order: r.sort_order,
+        note: r.note,
+      }))
     if (targetId === productId) {
       await saveRecipe.mutateAsync({ upserts, deleteIds: removedRecipeIds })
     } else {
@@ -203,6 +264,8 @@ export function ProductEditor({
           product_id: targetId,
           ingredient_id: u.ingredient_id,
           qty: u.qty,
+          unit_name: u.unit_name,
+          unit_factor: u.unit_factor,
           sort_order: u.sort_order,
           note: u.note,
         }))
@@ -307,17 +370,14 @@ export function ProductEditor({
             <div className="space-y-2">
               {recipeRows.map((row) => {
                 const ing = ingredientsById.get(row.ingredient_id)
+                const unitChoices = usageUnitsForIngredient(ing)
                 return (
                   <div key={row._key} className="flex gap-2 items-center">
                     <select
                       className="input"
                       style={{ flex: '3 1 0', minWidth: 0 }}
                       value={row.ingredient_id}
-                      onChange={(e) =>
-                        setRecipeRows((rows) =>
-                          rows.map((r) => (r._key === row._key ? { ...r, ingredient_id: e.target.value } : r)),
-                        )
-                      }
+                      onChange={(e) => changeRecipeIngredient(row._key, e.target.value)}
                     >
                       <option value="">เลือกวัตถุดิบ</option>
                       {ingredients?.map((i) => (
@@ -337,7 +397,20 @@ export function ProductEditor({
                         )
                       }
                     />
-                    <span className="text-xs text-gray-500" style={{ width: '36px', flexShrink: 0 }}>{ing?.unit ?? ''}</span>
+                    <select
+                      className="input text-xs"
+                      style={{ width: '92px', flexShrink: 0 }}
+                      value={row.unit_name ?? ing?.unit ?? ''}
+                      disabled={!ing}
+                      onChange={(e) => changeRecipeUnit(row, e.target.value)}
+                    >
+                      {!ing && <option value="">หน่วย</option>}
+                      {unitChoices.map((unit) => (
+                        <option key={unit.id} value={unit.name}>
+                          {unit.name}
+                        </option>
+                      ))}
+                    </select>
                     <input
                       className="input"
                       style={{ flex: '1 1 0', minWidth: 0 }}
