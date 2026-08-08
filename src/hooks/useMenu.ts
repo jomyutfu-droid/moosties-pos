@@ -209,9 +209,37 @@ export function useSaveRecipeItems(productId: string) {
         const { error } = await supabase.from('recipe_items').delete().in('id', params.deleteIds)
         if (error) throw error
       }
-      if (params.upserts.length) {
-        const rows = params.upserts.map((r) => ({ ...r, product_id: productId }))
-        const { error } = await supabase.from('recipe_items').upsert(rows)
+
+      // Do not mix existing rows (with an id) and new rows (without an id)
+      // in one bulk upsert. PostgREST determines the payload columns for the
+      // whole array, so a missing id on a new row can become NULL and violate
+      // the generated UUID primary key constraint.
+      const existingRows = params.upserts
+        .filter((r): r is typeof r & { id: string } => Boolean(r.id))
+        .map((r) => ({
+          id: r.id,
+          product_id: productId,
+          ingredient_id: r.ingredient_id,
+          qty: r.qty,
+          sort_order: r.sort_order,
+          note: r.note,
+        }))
+      const newRows = params.upserts
+        .filter((r) => !r.id)
+        .map((r) => ({
+          product_id: productId,
+          ingredient_id: r.ingredient_id,
+          qty: r.qty,
+          sort_order: r.sort_order,
+          note: r.note,
+        }))
+
+      if (existingRows.length) {
+        const { error } = await supabase.from('recipe_items').upsert(existingRows)
+        if (error) throw error
+      }
+      if (newRows.length) {
+        const { error } = await supabase.from('recipe_items').insert(newRows)
         if (error) throw error
       }
 
@@ -238,9 +266,37 @@ export function useSaveProductOptions(productId: string) {
         const { error } = await supabase.from('product_options').delete().in('id', params.deleteIds)
         if (error) throw error
       }
-      if (params.upserts.length) {
-        const rows = params.upserts.map((r) => ({ ...r, product_id: productId }))
-        const { error } = await supabase.from('product_options').upsert(rows)
+
+      // Apply the same split for options because they also have generated UUID
+      // primary keys and can be edited together with newly-added options.
+      const existingRows = params.upserts
+        .filter((r): r is typeof r & { id: string } => Boolean(r.id))
+        .map((r) => ({
+          id: r.id,
+          product_id: productId,
+          name: r.name,
+          price_delta: r.price_delta,
+          linked_ingredient_id: r.linked_ingredient_id,
+          qty_delta: r.qty_delta,
+          sort_order: r.sort_order,
+        }))
+      const newRows = params.upserts
+        .filter((r) => !r.id)
+        .map((r) => ({
+          product_id: productId,
+          name: r.name,
+          price_delta: r.price_delta,
+          linked_ingredient_id: r.linked_ingredient_id,
+          qty_delta: r.qty_delta,
+          sort_order: r.sort_order,
+        }))
+
+      if (existingRows.length) {
+        const { error } = await supabase.from('product_options').upsert(existingRows)
+        if (error) throw error
+      }
+      if (newRows.length) {
+        const { error } = await supabase.from('product_options').insert(newRows)
         if (error) throw error
       }
     },
