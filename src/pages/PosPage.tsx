@@ -10,7 +10,7 @@ import { stockMovementsForOrder } from '@/domain/stock'
 import { db, type OutboxOrder, type OutboxOrderItemInput, type OutboxPaymentInput } from '@/lib/db'
 import { syncOutbox } from '@/lib/sync'
 import { useSessionStore } from '@/store/session'
-import { round2 } from '@/lib/money'
+import { floorBaht, round2 } from '@/lib/money'
 import type { PaymentMethod, ProductWithRecipe, SelectedOption } from '@/types'
 
 function makeOrderNo(isoDate: string): string {
@@ -63,8 +63,10 @@ export default function PosPage() {
     const subtotal = cartSubtotal(lines)
     const cogsTotal = cartCogsTotal(lines)
     // ส่วนลดต้องไม่เกินยอดรวม มิฉะนั้น discount ที่บันทึกจะไม่ตรงกับ total
-    const effectiveDiscount = round2(Math.min(Math.max(0, discount), subtotal))
-    const total = round2(subtotal - effectiveDiscount)
+    const requestedDiscount = round2(Math.min(Math.max(0, discount), subtotal))
+    const total = floorBaht(Math.max(0, subtotal - requestedDiscount))
+    // ส่วนลดที่บันทึกคือส่วนลดจริงหลังปัดยอด เพื่อให้ subtotal - discount = total เสมอ
+    const effectiveDiscount = round2(subtotal - total)
     const clientUuid = crypto.randomUUID()
     const createdAt = new Date().toISOString()
     const orderNo = makeOrderNo(createdAt)
@@ -124,7 +126,7 @@ export default function PosPage() {
       orderNo,
       total,
       paid: received,
-      change: round2(received - total),
+      change: floorBaht(received - total),
       createdAt: outboxOrder.created_at,
       lines: [...lines], // snapshot ก่อน clear
       discount: effectiveDiscount,
@@ -165,7 +167,7 @@ export default function PosPage() {
 
       {showPayment && (
         <PaymentModal
-          total={Math.max(0, round2(cartSubtotal(lines) - discount))}
+          total={floorBaht(Math.max(0, round2(cartSubtotal(lines) - discount)))}
           onConfirm={handleConfirmPayment}
           onClose={() => setShowPayment(false)}
         />

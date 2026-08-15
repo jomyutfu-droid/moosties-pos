@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import generatePayload from 'promptpay-qr'
 import { QRCodeSVG } from 'qrcode.react'
-import { formatBahtSymbol, round2 } from '@/lib/money'
+import { floorBaht, formatBahtSymbol } from '@/lib/money'
 import { useSettings } from '@/hooks/useSettings'
 import type { PaymentMethod } from '@/types'
 
@@ -23,7 +23,7 @@ export function PaymentModal({
   const [submitting, setSubmitting] = useState(false)
   const submitLockRef = useRef(false)
 
-  const change = round2(cashReceived - total)
+  const change = cashReceived >= total ? floorBaht(cashReceived - total) : cashReceived - total
 
   const qrPayload = useMemo(() => {
     if (!settings?.promptpay_id) return null
