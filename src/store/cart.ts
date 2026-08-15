@@ -23,6 +23,22 @@ function nextUid() {
   return `line-${Date.now()}-${uidCounter}`
 }
 
+function optionSignature(options: SelectedOption[]): string {
+  // ต้องรวมค่าที่ถูกคูณตามจำนวน topping ด้วย ไม่อย่างนั้น “บุก ×1” และ “บุก ×2”
+  // จะถูกมองว่าเป็นตัวเลือกเดียวกันแล้วรวมบรรทัดผิดราคา/สต็อก
+  return JSON.stringify(
+    options
+      .map((o) => ({
+        option_id: o.option_id,
+        name: o.name,
+        price_delta: o.price_delta,
+        qty_delta: o.qty_delta,
+        linked_ingredient_id: o.linked_ingredient_id,
+      }))
+      .sort((a, b) => a.option_id.localeCompare(b.option_id)),
+  )
+}
+
 function calculateDiscount(mode: 'amount' | 'percent', value: number, lines: CartLine[]): number {
   const subtotal = cartSubtotal(lines)
   if (!Number.isFinite(value) || value <= 0 || subtotal <= 0) return 0
@@ -39,10 +55,10 @@ export const useCartStore = create<CartState>((set) => ({
     set((state) => {
       const price = unitPrice(product, options)
       const cost = unitCost(product, options, ingredientsById)
-      // รวมรายการที่สินค้า+ตัวเลือกเหมือนกันเข้าด้วยกัน
-      const optionsKey = JSON.stringify(options.map((o) => o.option_id).sort())
+      // รวมรายการที่สินค้า+ตัวเลือก+จำนวน topping เหมือนกันเข้าด้วยกัน
+      const optionsKey = optionSignature(options)
       const existing = state.lines.find(
-        (l) => l.product.id === product.id && JSON.stringify(l.selectedOptions.map((o) => o.option_id).sort()) === optionsKey,
+        (l) => l.product.id === product.id && optionSignature(l.selectedOptions) === optionsKey,
       )
       if (existing) {
         return {
