@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { cartSubtotal, useCartStore } from '@/store/cart'
-import { formatBahtSymbol } from '@/lib/money'
+import { floorBaht, formatBahtSymbol } from '@/lib/money'
 import { useSettings } from '@/hooks/useSettings'
 import { useSessionStore } from '@/store/session'
 import { parseUnsignedNumber } from '@/lib/forms'
@@ -180,7 +180,7 @@ export function CartPanel({ onCheckout }: { onCheckout: () => void }) {
   const clear = useCartStore((s) => s.clear)
 
   const subtotal = cartSubtotal(lines)
-  const total = Math.max(0, subtotal - discount)
+  const total = floorBaht(Math.max(0, subtotal - discount))
   const [recipeLine, setRecipeLine] = useState<CartLine | null>(null)
 
   // สิทธิ์ส่วนลด: พนักงานทั่วไปจำกัดตาม staff_discount_limit, เจ้าของ/ผู้จัดการไม่จำกัด
