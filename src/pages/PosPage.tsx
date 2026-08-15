@@ -167,7 +167,7 @@ export default function PosPage() {
 
       {showPayment && (
         <PaymentModal
-          total={Math.max(0, round2(cartSubtotal(lines) - discount))}
+          total={floorBaht(Math.max(0, round2(cartSubtotal(lines) - discount)))}
           onConfirm={handleConfirmPayment}
           onClose={() => setShowPayment(false)}
         />
