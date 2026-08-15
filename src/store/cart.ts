@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { unitCost, unitPrice } from '@/domain/cogs'
+import { floorBaht } from '@/lib/money'
 import type { CartLine, Ingredient, ProductWithRecipe, SelectedOption } from '@/types'
 
 interface CartState {
@@ -121,7 +122,7 @@ useCartStore.subscribe((state) => {
       })),
       discount: state.discount,
       subtotal: cartSubtotal(state.lines),
-      total: Math.max(0, cartSubtotal(state.lines) - state.discount),
+      total: floorBaht(Math.max(0, cartSubtotal(state.lines) - state.discount)),
       updatedAt: Date.now(),
     }
     localStorage.setItem(DISPLAY_KEY, JSON.stringify(payload))
