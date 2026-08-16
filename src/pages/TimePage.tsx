@@ -312,7 +312,8 @@ export default function TimePage() {
         </table>
       </div>
 
-{isManagementView ? (
+{isManagementView && (
+
       <div className="card overflow-hidden">
         <div className="px-4 py-4 border-b border-gray-100 space-y-3">
           <div>
@@ -485,7 +486,8 @@ export default function TimePage() {
         )}
       </div>
 
-) : (
+)}
+{!isManagementView && (
       {/* ประวัติรายเดือนของพนักงานที่กำลังใช้งาน */}
       <div className="card overflow-hidden">
         <div className="px-4 py-4 border-b border-gray-100 space-y-3">
@@ -581,6 +583,7 @@ export default function TimePage() {
         )}
       </div>
 
-)}    </div>
+)}
+    </div>
   )
 }
