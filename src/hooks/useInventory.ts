@@ -23,6 +23,40 @@ export function useIngredientsFull() {
   })
 }
 
+export interface IngredientUsage {
+  recipeProductCount: number
+  optionProductCount: number
+}
+
+/** ตรวจว่าวัตถุดิบถูกผูกกับสูตรหรือท็อปปิ้งของเมนูอยู่หรือไม่ */
+export function useIngredientUsage() {
+  return useQuery({
+    queryKey: ['ingredient-usage'],
+    queryFn: async (): Promise<Record<string, IngredientUsage>> => {
+      const [recipesRes, optionsRes] = await Promise.all([
+        supabase.from('recipe_items').select('ingredient_id, product_id'),
+        supabase.from('product_options').select('linked_ingredient_id, product_id').not('linked_ingredient_id', 'is', null),
+      ])
+      if (recipesRes.error) throw recipesRes.error
+      if (optionsRes.error) throw optionsRes.error
+
+      const usage: Record<string, IngredientUsage> = {}
+      for (const row of recipesRes.data ?? []) {
+        const ingredientId = row.ingredient_id as string
+        usage[ingredientId] ??= { recipeProductCount: 0, optionProductCount: 0 }
+        usage[ingredientId].recipeProductCount += 1
+      }
+      for (const row of optionsRes.data ?? []) {
+        const ingredientId = row.linked_ingredient_id as string | null
+        if (!ingredientId) continue
+        usage[ingredientId] ??= { recipeProductCount: 0, optionProductCount: 0 }
+        usage[ingredientId].optionProductCount += 1
+      }
+      return usage
+    },
+  })
+}
+
 export type IngredientUnitInput = Pick<
   IngredientUnit,
   'name' | 'factor_to_base' | 'kind' | 'is_default_purchase' | 'is_default_usage'
@@ -90,6 +124,22 @@ export function useDeactivateIngredient() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ingredients-full'] })
+      syncCatalogCache()
+    },
+  })
+}
+
+export function useDeleteIngredient() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('ingredients').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ingredients-full'] })
+      qc.invalidateQueries({ queryKey: ['ingredients'] })
+      qc.invalidateQueries({ queryKey: ['ingredient-usage'] })
       syncCatalogCache()
     },
   })
