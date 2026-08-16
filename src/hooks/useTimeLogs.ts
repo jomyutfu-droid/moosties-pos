@@ -104,7 +104,7 @@ export async function upsertOvertimeRequest(
 }
 
 /** รายการเข้า–ออกงานตามช่วงวันที่ ใช้สำหรับคำนวณชั่วโมงและค่าแรง */
-export function useTimeLogsByRange(from: string, to: string) {
+export function useTimeLogsByRange(from: string, to: string, enabled = true) {
   return useQuery({
     queryKey: ['time-logs-range', from, to],
     queryFn: async (): Promise<TimeLogReport[]> => {
@@ -120,7 +120,7 @@ export function useTimeLogsByRange(from: string, to: string) {
         hourly_wage: Number(r.hourly_wage ?? 0),
       }))
     },
-    enabled: Boolean(from && to),
+    enabled: Boolean(from && to && enabled),
   })
 }
 
@@ -368,7 +368,7 @@ export function useClockOut() {
 }
 
 /** OT ที่เจ้าของ/ผู้จัดการต้องตรวจสอบ */
-export function usePendingOvertimeRequests() {
+export function usePendingOvertimeRequests(enabled = true) {
   const pinSessionToken = useSessionStore((s) => s.pinSessionToken)
   return useQuery({
     queryKey: ['overtime-requests', 'pending'],
@@ -387,12 +387,12 @@ export function usePendingOvertimeRequests() {
       }))
     },
     refetchInterval: 30_000,
-    enabled: Boolean(pinSessionToken),
+    enabled: Boolean(pinSessionToken && enabled),
   })
 }
 
 /** OT ที่อนุมัติแล้วสำหรับรวมในรายงานค่าแรงตามช่วงวันที่ */
-export function useApprovedOvertimeByRange(from: string, to: string) {
+export function useApprovedOvertimeByRange(from: string, to: string, enabled = true) {
   const pinSessionToken = useSessionStore((s) => s.pinSessionToken)
   return useQuery({
     queryKey: ['overtime-requests', 'approved', from, to],
@@ -411,7 +411,7 @@ export function useApprovedOvertimeByRange(from: string, to: string) {
         minutes: Number(row.minutes ?? 0),
       }))
     },
-    enabled: Boolean(from && to && pinSessionToken),
+    enabled: Boolean(from && to && pinSessionToken && enabled),
   })
 }
 
