@@ -48,7 +48,7 @@ async function fetchSalesSummary(fromISO: string, toISO: string): Promise<SalesS
     if (itemsRes.error) throw itemsRes.error
     if (paymentsRes.error) throw paymentsRes.error
     items = (itemsRes.data ?? []) as OrderItem[]
-    paymentsData = (paymentsRes.data ?? []) as { method: PaymentMethod; amount: number }[]
+    paymentsData = (paymentsRes.data ?? []) as { method: PaymentMethod; amount: number; ref: string | null }[]
   }
 
   const subtotal = round2(orders.reduce((s, o) => s + (o.subtotal as number), 0))
