@@ -488,7 +488,6 @@ export default function TimePage() {
 
 )}
 {!isManagementView && (
-      {/* ประวัติรายเดือนของพนักงานที่กำลังใช้งาน */}
       <div className="card overflow-hidden">
         <div className="px-4 py-4 border-b border-gray-100 space-y-3">
           <div>
