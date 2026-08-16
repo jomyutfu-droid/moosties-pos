@@ -130,7 +130,8 @@ export default function InventoryPage() {
                       <td className="p-3 text-right">{formatStockQty(ing.stock_qty, ing.unit)}</td>
                       <td className="p-3 text-right text-gray-500">{formatStockQty(ing.reorder_point, ing.unit)}</td>
                       <td className="p-3 text-right text-gray-500">{formatBahtSymbol(ing.cost_per_unit)}</td>
-                      <td className="p-3 text-right space-x-2 whitespace-nowrap">
+                      <td className="p-3 align-top">
+                        <div className="flex min-w-[220px] flex-wrap justify-end gap-2">
                         <button className="btn-secondary text-xs" onClick={() => setMovementTarget(ing)}>
                           รับ/ปรับ
                         </button>
@@ -161,6 +162,7 @@ export default function InventoryPage() {
                             ลบ
                           </button>
                         )}
+                        </div>
                       </td>
                     </tr>
                   )
