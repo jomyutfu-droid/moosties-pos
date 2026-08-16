@@ -11,7 +11,7 @@ import { db, type OutboxOrder, type OutboxOrderItemInput, type OutboxPaymentInpu
 import { syncOutbox } from '@/lib/sync'
 import { useSessionStore } from '@/store/session'
 import { floorBaht, round2 } from '@/lib/money'
-import type { PaymentMethod, ProductWithRecipe, SelectedOption } from '@/types'
+import type { CheckoutSource, OrderChannel, PaymentMethod, ProductWithRecipe, SelectedOption } from '@/types'
 
 function makeOrderNo(isoDate: string): string {
   const date = new Date(isoDate)
@@ -57,7 +57,7 @@ export default function PosPage() {
 
   async function handleConfirmPayment(
     payments: { method: PaymentMethod; amount: number; ref: string | null }[],
-    meta: { cashReceived: number },
+    meta: { cashReceived: number; source: CheckoutSource },
   ) {
     if (lines.length === 0) return // กันบันทึกออเดอร์ว่าง
     const subtotal = cartSubtotal(lines)
@@ -91,7 +91,7 @@ export default function PosPage() {
       client_uuid: clientUuid,
       branch_id: activeStaff?.branch_id ?? null,
       user_id: activeStaff?.id ?? null,
-      channel: 'dine_in',
+      channel: (meta.source === 'grab' ? 'delivery' : 'dine_in') as OrderChannel,
       subtotal: round2(subtotal),
       discount: effectiveDiscount,
       total,

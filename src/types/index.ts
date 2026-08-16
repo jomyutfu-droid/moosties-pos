@@ -160,6 +160,9 @@ export interface OrderItem {
 
 export type PaymentMethod = 'cash' | 'promptpay' | 'stored_value' | 'card' | 'other'
 
+/** ช่องทางที่พนักงานเลือกตอนปิดการขาย — Grab ใช้ payment method `other` ในฐานข้อมูลเดิม */
+export type CheckoutSource = 'store' | 'grab'
+
 export interface Payment {
   id: UUID
   order_id: UUID

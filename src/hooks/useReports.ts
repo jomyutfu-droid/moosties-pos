@@ -11,6 +11,7 @@ export interface SalesSummary {
   cogsTotal: number
   profit: number
   paymentBreakdown: Record<PaymentMethod, number>
+  grabTotal: number
   topProducts: { name: string; qty: number; total: number }[]
 }
 
@@ -38,11 +39,11 @@ async function fetchSalesSummary(fromISO: string, toISO: string): Promise<SalesS
   const orderIds = orders.map((o) => o.id)
 
   let items: OrderItem[] = []
-  let paymentsData: { method: PaymentMethod; amount: number }[] = []
+  let paymentsData: { method: PaymentMethod; amount: number; ref: string | null }[] = []
   if (orderIds.length) {
     const [itemsRes, paymentsRes] = await Promise.all([
       supabase.from('order_items').select('*').in('order_id', orderIds),
-      supabase.from('payments').select('method, amount').in('order_id', orderIds),
+      supabase.from('payments').select('method, amount, ref').in('order_id', orderIds),
     ])
     if (itemsRes.error) throw itemsRes.error
     if (paymentsRes.error) throw paymentsRes.error
@@ -62,8 +63,13 @@ async function fetchSalesSummary(fromISO: string, toISO: string): Promise<SalesS
     card: 0,
     other: 0,
   }
+  let grabTotal = 0
   for (const p of paymentsData) {
-    paymentBreakdown[p.method] = round2((paymentBreakdown[p.method] ?? 0) + p.amount)
+    if (p.method === 'other' && p.ref?.trim().toLowerCase() === 'grab') {
+      grabTotal = round2(grabTotal + p.amount)
+    } else {
+      paymentBreakdown[p.method] = round2((paymentBreakdown[p.method] ?? 0) + p.amount)
+    }
   }
 
   const productMap = new Map<string, { qty: number; total: number }>()
@@ -86,6 +92,7 @@ async function fetchSalesSummary(fromISO: string, toISO: string): Promise<SalesS
     cogsTotal,
     profit: round2(total - cogsTotal),
     paymentBreakdown,
+    grabTotal,
     topProducts,
   }
 }
