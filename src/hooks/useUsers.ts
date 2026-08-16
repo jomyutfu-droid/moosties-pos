@@ -4,7 +4,7 @@ import { hashPin } from '@/lib/pin'
 import { getPinSessionToken } from '@/hooks/useAuth'
 import type { AppUser, Role } from '@/types'
 
-export function useUsers() {
+export function useUsers(enabled = true) {
   return useQuery({
     queryKey: ['users'],
     queryFn: async (): Promise<AppUser[]> => {
@@ -14,6 +14,7 @@ export function useUsers() {
       if (error) throw error
       return (data ?? []) as AppUser[]
     },
+    enabled,
   })
 }
 

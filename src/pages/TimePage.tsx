@@ -2,16 +2,21 @@
  * Feature 8: TimePage — บันทึกเวลาพนักงาน (Check-in / Check-out)
  * แสดงรายการ time_logs ของวันนี้ พร้อมปุ่ม Clock-in / Clock-out ตามพนักงานที่ active
  */
-import { useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useSessionStore } from '@/store/session'
 import {
   useTodayTimeLogs,
   useMyTimeLogsByMonth,
+  useTimeLogsByRange,
+  useApprovedOvertimeByRange,
+  usePendingOvertimeRequests,
   useActiveTimeLogs,
   useClockIn,
   useClockOut,
   getBillableMinutes,
 } from '@/hooks/useTimeLogs'
+import type { TimeLogReport } from '@/hooks/useTimeLogs'
+import { useUsers } from '@/hooks/useUsers'
 import { explainSupabaseError } from '@/lib/errors'
 import { useSettings } from '@/hooks/useSettings'
 
@@ -44,6 +49,37 @@ function formatMonth(month: string) {
   })
 }
 
+function getMonthRange(month: string) {
+  const [year, monthNumber] = month.split('-').map(Number)
+  const lastDay = new Date(year, monthNumber, 0).getDate()
+  return {
+    from: `${month}-01`,
+    to: `${month}-${String(lastDay).padStart(2, '0')}`,
+  }
+}
+
+function formatMinutes(minutes: number) {
+  const hours = Math.floor(minutes / 60)
+  const remaining = minutes % 60
+  return `${hours} ชม. ${remaining} นาที`
+}
+
+function isSameMonth(iso: string, month: string) {
+  const date = new Date(iso)
+  return getMonthInput(date) === month
+}
+
+type EmployeeSummary = {
+  userId: string
+  name: string
+  workedDays: number
+  shifts: number
+  regularMinutes: number
+  otMinutes: number
+  pendingOtMinutes: number
+  logs: TimeLogReport[]
+}
+
 function getLocalDateKey(iso: string) {
   const date = new Date(iso)
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
@@ -63,7 +99,70 @@ export default function TimePage() {
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
   const [selectedMonth, setSelectedMonth] = useState(getMonthInput())
   const currentMonth = getMonthInput()
+  const isManagementView = activeStaff?.role === 'owner' || activeStaff?.role === 'manager'
   const { data: myMonthLogs = [], isLoading: monthLoading, error: monthError } = useMyTimeLogsByMonth(selectedMonth)
+  const { data: users = [], isLoading: usersLoading, error: usersError } = useUsers(isManagementView)
+  const { from: selectedMonthFrom, to: selectedMonthTo } = getMonthRange(selectedMonth)
+  const {
+    data: managementLogs = [],
+    isLoading: managementMonthLoading,
+    error: managementMonthError,
+  } = useTimeLogsByRange(selectedMonthFrom, selectedMonthTo, isManagementView)
+  const { data: approvedOvertime = [] } = useApprovedOvertimeByRange(
+    selectedMonthFrom,
+    selectedMonthTo,
+    isManagementView,
+  )
+  const { data: pendingOvertime = [] } = usePendingOvertimeRequests(isManagementView)
+
+  const employeeLogs = useMemo(() => {
+    const employeeIds = new Set(users.filter((user) => user.role !== 'owner').map((user) => user.id))
+    return managementLogs.filter((log) => employeeIds.has(log.user_id))
+  }, [managementLogs, users])
+
+  const employeeSummaries = useMemo<EmployeeSummary[]>(() => {
+    const approvedByUser = new Map<string, number>()
+    for (const request of approvedOvertime) {
+      approvedByUser.set(request.user_id, (approvedByUser.get(request.user_id) ?? 0) + request.minutes)
+    }
+
+    const pendingByUser = new Map<string, number>()
+    for (const request of pendingOvertime) {
+      if (isSameMonth(request.ot_start, selectedMonth)) {
+        pendingByUser.set(request.user_id, (pendingByUser.get(request.user_id) ?? 0) + request.minutes)
+      }
+    }
+
+    const grouped = new Map<string, EmployeeSummary>()
+    for (const log of employeeLogs) {
+      const current = grouped.get(log.user_id) ?? {
+        userId: log.user_id,
+        name: log.user_name,
+        workedDays: 0,
+        shifts: 0,
+        regularMinutes: 0,
+        otMinutes: approvedByUser.get(log.user_id) ?? 0,
+        pendingOtMinutes: pendingByUser.get(log.user_id) ?? 0,
+        logs: [],
+      }
+      current.logs.push(log)
+      current.shifts += 1
+      current.regularMinutes += getBillableMinutes(log.clock_in, log.clock_out, businessHours)
+      current.workedDays = new Set(current.logs.map((item) => getLocalDateKey(item.clock_in))).size
+      grouped.set(log.user_id, current)
+    }
+
+    return Array.from(grouped.values()).sort((a, b) => a.name.localeCompare(b.name, 'th'))
+  }, [approvedOvertime, businessHours, employeeLogs, pendingOvertime, selectedMonth])
+
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('all')
+  const [expandedEmployeeId, setExpandedEmployeeId] = useState<string | null>(null)
+  const filteredEmployeeSummaries = selectedEmployeeId === 'all'
+    ? employeeSummaries
+    : employeeSummaries.filter((summary) => summary.userId === selectedEmployeeId)
+  const employeeRegularMinutes = filteredEmployeeSummaries.reduce((sum, summary) => sum + summary.regularMinutes, 0)
+  const employeePendingOtMinutes = filteredEmployeeSummaries.reduce((sum, summary) => sum + summary.pendingOtMinutes, 0)
+  const employeeShiftCount = filteredEmployeeSummaries.reduce((sum, summary) => sum + summary.shifts, 0)
 
   const workedDays = new Set(myMonthLogs.map((log) => getLocalDateKey(log.clock_in))).size
   const totalMinutes = myMonthLogs.reduce(
@@ -213,7 +312,182 @@ export default function TimePage() {
         </table>
       </div>
 
-      {/* ประวัติรายเดือนของพนักงานที่กำลังใช้งาน */}
+{isManagementView && (
+
+      <div className="card overflow-hidden">
+        <div className="px-4 py-4 border-b border-gray-100 space-y-3">
+          <div>
+            <h2 className="font-semibold text-gray-700">ประวัติการทำงานพนักงาน</h2>
+            <p className="text-xs text-gray-500 mt-1">สรุปเป็นรายคนและไม่รวมเวลาการทำงานของเจ้าของร้าน</p>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-2 flex-1">
+              <button
+                type="button"
+                className="btn-secondary px-3 py-2"
+                aria-label="ดูเดือนก่อนหน้า"
+                onClick={() => setSelectedMonth((month) => shiftMonth(month, -1))}
+              >
+                ‹
+              </button>
+              <input
+                className="input flex-1 min-w-0"
+                type="month"
+                value={selectedMonth}
+                max={currentMonth}
+                onChange={(event) => setSelectedMonth(event.target.value)}
+                aria-label="เลือกเดือนที่ต้องการดู"
+              />
+              <button
+                type="button"
+                className="btn-secondary px-3 py-2"
+                aria-label="ดูเดือนถัดไป"
+                disabled={selectedMonth >= currentMonth}
+                onClick={() => setSelectedMonth((month) => shiftMonth(month, 1))}
+              >
+                ›
+              </button>
+            </div>
+            <select
+              className="input sm:max-w-[220px]"
+              value={selectedEmployeeId}
+              onChange={(event) => {
+                setSelectedEmployeeId(event.target.value)
+                setExpandedEmployeeId(null)
+              }}
+              aria-label="กรองตามพนักงาน"
+            >
+              <option value="all">พนักงานทั้งหมด</option>
+              {employeeSummaries.map((summary) => (
+                <option key={summary.userId} value={summary.userId}>{summary.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 p-4 border-b border-gray-100 sm:grid-cols-4">
+          <div className="rounded-xl bg-green-50 px-3 py-3">
+            <p className="text-xs text-gray-500">พนักงานที่มาทำงาน</p>
+            <p className="text-xl font-bold text-green-700">{filteredEmployeeSummaries.length} คน</p>
+          </div>
+          <div className="rounded-xl bg-blue-50 px-3 py-3">
+            <p className="text-xs text-gray-500">จำนวนกะ</p>
+            <p className="text-xl font-bold text-blue-700">{employeeShiftCount} กะ</p>
+          </div>
+          <div className="rounded-xl bg-purple-50 px-3 py-3">
+            <p className="text-xs text-gray-500">เวลาปกติรวม</p>
+            <p className="text-xl font-bold text-purple-700">{formatMinutes(employeeRegularMinutes)}</p>
+          </div>
+          <div className="rounded-xl bg-amber-50 px-3 py-3">
+            <p className="text-xs text-gray-500">OT รอตรวจ</p>
+            <p className="text-xl font-bold text-amber-700">{formatMinutes(employeePendingOtMinutes)}</p>
+          </div>
+        </div>
+
+        {usersError && (
+          <p className="p-4 text-sm text-red-600">{explainSupabaseError(usersError, 'โหลดรายชื่อพนักงานไม่สำเร็จ')}</p>
+        )}
+        {managementMonthError && (
+          <p className="p-4 text-sm text-red-600">{explainSupabaseError(managementMonthError, 'โหลดประวัติการทำงานไม่สำเร็จ')}</p>
+        )}
+        {(usersLoading || managementMonthLoading) && (
+          <p className="p-4 text-gray-400">กำลังโหลดประวัติเดือน{formatMonth(selectedMonth)}…</p>
+        )}
+        {!usersLoading && !managementMonthLoading && !usersError && !managementMonthError && employeeSummaries.length === 0 && (
+          <p className="p-4 text-gray-400">เดือน{formatMonth(selectedMonth)}ยังไม่มีบันทึกเวลาพนักงาน</p>
+        )}
+        {!usersLoading && !managementMonthLoading && !usersError && !managementMonthError && employeeSummaries.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[700px] text-sm">
+              <thead className="bg-white/40 text-left text-xs text-gray-500">
+                <tr>
+                  <th className="p-3 font-semibold">พนักงาน</th>
+                  <th className="p-3 font-semibold">วันที่มาทำงาน</th>
+                  <th className="p-3 font-semibold">จำนวนกะ</th>
+                  <th className="p-3 font-semibold">ชั่วโมงปกติ</th>
+                  <th className="p-3 font-semibold">OT</th>
+                  <th className="p-3 font-semibold">สถานะ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredEmployeeSummaries.map((summary) => (
+                  <Fragment key={summary.userId}>
+                    <tr
+                      className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => setExpandedEmployeeId((id) => id === summary.userId ? null : summary.userId)}
+                    >
+                      <td className="p-3 font-medium">
+                        <button
+                          type="button"
+                          className="text-left hover:text-green-700"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            setExpandedEmployeeId((id) => id === summary.userId ? null : summary.userId)
+                          }}
+                          aria-expanded={expandedEmployeeId === summary.userId}
+                        >
+                          <span className="mr-1 text-gray-400">{expandedEmployeeId === summary.userId ? '⌄' : '›'}</span>
+                          {summary.name}
+                        </button>
+                      </td>
+                      <td className="p-3 text-gray-600">{summary.workedDays} วัน</td>
+                      <td className="p-3 text-gray-600">{summary.shifts} กะ</td>
+                      <td className="p-3 text-gray-600">{formatMinutes(summary.regularMinutes)}</td>
+                      <td className="p-3 text-gray-600">
+                        {formatMinutes(summary.otMinutes + summary.pendingOtMinutes)}
+                        {summary.pendingOtMinutes > 0 && <span className="block text-xs text-amber-600">รอตรวจ {formatMinutes(summary.pendingOtMinutes)}</span>}
+                      </td>
+                      <td className="p-3">
+                        {summary.pendingOtMinutes > 0 ? (
+                          <span className="inline-flex rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-700">มี OT รอตรวจ</span>
+                        ) : summary.otMinutes > 0 ? (
+                          <span className="inline-flex rounded-full bg-green-100 px-2 py-1 text-xs text-green-700">OT อนุมัติแล้ว</span>
+                        ) : (
+                          <span className="inline-flex rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600">ปกติ</span>
+                        )}
+                      </td>
+                    </tr>
+                    {expandedEmployeeId === summary.userId && (
+                      <tr className="border-t border-gray-100 bg-gray-50">
+                        <td colSpan={6} className="p-3">
+                          <div className="rounded-lg border border-gray-200 bg-white overflow-x-auto">
+                            <table className="w-full min-w-[560px] text-xs">
+                              <thead className="text-left text-gray-500">
+                                <tr>
+                                  <th className="p-3 font-semibold">วันที่</th>
+                                  <th className="p-3 font-semibold">เข้างาน</th>
+                                  <th className="p-3 font-semibold">ออกงาน</th>
+                                  <th className="p-3 font-semibold">เวลาปกติ</th>
+                                  <th className="p-3 font-semibold">หมายเหตุ</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {summary.logs.map((log) => (
+                                  <tr key={log.id} className="border-t border-gray-100">
+                                    <td className="p-3 font-medium">{new Date(log.clock_in).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                                    <td className="p-3 text-gray-600">{formatTime(log.clock_in)}</td>
+                                    <td className="p-3 text-gray-600">{log.clock_out ? formatTime(log.clock_out) : <span className="text-green-600">ยังทำงานอยู่</span>}</td>
+                                    <td className="p-3 text-gray-500">{formatDuration(log.clock_in, log.clock_out, businessHours)}</td>
+                                    <td className="p-3 text-gray-400">{log.note || '—'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+)}
+{!isManagementView && (
       <div className="card overflow-hidden">
         <div className="px-4 py-4 border-b border-gray-100 space-y-3">
           <div>
@@ -307,6 +581,8 @@ export default function TimePage() {
           </div>
         )}
       </div>
+
+)}
     </div>
   )
 }
