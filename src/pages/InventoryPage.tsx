@@ -10,6 +10,7 @@ import { explainSupabaseError } from '@/lib/errors'
 import { formatBahtSymbol, formatStockQty } from '@/lib/money'
 import { IngredientEditor } from '@/components/inventory/IngredientEditor'
 import { MovementModal } from '@/components/inventory/MovementModal'
+import { exportIngredientsToExcel } from '@/lib/exportStockExcel'
 import type { Ingredient } from '@/types'
 
 export default function InventoryPage() {
@@ -49,6 +50,18 @@ export default function InventoryPage() {
     }
   }
 
+  function handleExport() {
+    if (!ingredients?.length) {
+      window.alert('ยังไม่มีวัตถุดิบสำหรับส่งออก')
+      return
+    }
+    try {
+      exportIngredientsToExcel(ingredients)
+    } catch (err) {
+      window.alert(explainSupabaseError(err, 'ส่งออกไฟล์ Excel ไม่สำเร็จ'))
+    }
+  }
+
   // จัดกลุ่มตาม category เรียงตัวอักษรภายในกลุ่ม
   const sorted = [...active].sort((a, b) => a.name.localeCompare(b.name, 'th'))
   const groups = sorted.reduce<Record<string, Ingredient[]>>((acc, ing) => {
@@ -70,6 +83,9 @@ export default function InventoryPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-800">สต็อกวัตถุดิบ</h1>
         <div className="flex gap-2">
+          <button className="btn-secondary" disabled={isLoading || !ingredients?.length} onClick={handleExport}>
+            ส่งออก Excel
+          </button>
           <button className="btn-secondary" onClick={() => setQuickMovement(true)}>
             รับ / ปรับสต็อก
           </button>
