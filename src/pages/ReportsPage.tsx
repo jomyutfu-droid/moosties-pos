@@ -73,6 +73,7 @@ function ManagementReportsPage() {
               <ul className="text-sm space-y-0.5">
                 <li className="flex justify-between"><span>เงินสด</span><span>{formatBahtSymbol(today.paymentBreakdown.cash)}</span></li>
                 <li className="flex justify-between"><span>PromptPay</span><span>{formatBahtSymbol(today.paymentBreakdown.promptpay)}</span></li>
+                <li className="flex justify-between"><span>Grab</span><span>{formatBahtSymbol(today.grabTotal)}</span></li>
                 <li className="flex justify-between"><span>อื่น ๆ</span><span>{formatBahtSymbol(today.paymentBreakdown.stored_value + today.paymentBreakdown.card + today.paymentBreakdown.other)}</span></li>
               </ul>
             </div>

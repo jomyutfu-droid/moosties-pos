@@ -3,7 +3,7 @@ import generatePayload from 'promptpay-qr'
 import { QRCodeSVG } from 'qrcode.react'
 import { floorBaht, formatBahtSymbol } from '@/lib/money'
 import { useSettings } from '@/hooks/useSettings'
-import type { PaymentMethod } from '@/types'
+import type { CheckoutSource, PaymentMethod } from '@/types'
 
 export function PaymentModal({
   total,
@@ -13,12 +13,12 @@ export function PaymentModal({
   total: number
   onConfirm: (
     payments: { method: PaymentMethod; amount: number; ref: string | null }[],
-    meta: { cashReceived: number },
+    meta: { cashReceived: number; source: CheckoutSource },
   ) => Promise<void> | void
   onClose: () => void
 }) {
   const { data: settings } = useSettings()
-  const [method, setMethod] = useState<PaymentMethod>('cash')
+  const [method, setMethod] = useState<PaymentMethod | 'grab'>('cash')
   const [cashReceived, setCashReceived] = useState<number>(0)
   const [submitting, setSubmitting] = useState(false)
   const submitLockRef = useRef(false)
@@ -43,9 +43,12 @@ export function PaymentModal({
       // amount = ยอดที่ต้องชำระเสมอ (ไม่ใช่เงินที่รับมา) เพื่อให้ยอดขายในรายงานถูกต้อง
       // cashReceived ส่งแยกไว้สำหรับคำนวณเงินทอนบนใบเสร็จ
       if (method === 'cash') {
-        await onConfirm([{ method: 'cash', amount: total, ref: null }], { cashReceived })
+        await onConfirm([{ method: 'cash', amount: total, ref: null }], { cashReceived, source: 'store' })
+      } else if (method === 'promptpay') {
+        await onConfirm([{ method: 'promptpay', amount: total, ref: null }], { cashReceived: total, source: 'store' })
       } else {
-        await onConfirm([{ method: 'promptpay', amount: total, ref: null }], { cashReceived: total })
+        // ฐานข้อมูลเดิมยังไม่มี payment method ชื่อ grab จึงใช้ `other` + ref เพื่อไม่ต้องเปลี่ยน schema
+        await onConfirm([{ method: 'other', amount: total, ref: 'Grab' }], { cashReceived: total, source: 'grab' })
       }
     } finally {
       submitLockRef.current = false
@@ -61,7 +64,7 @@ export function PaymentModal({
           <p className="text-2xl font-bold text-brand-700 mt-1">{formatBahtSymbol(total)}</p>
         </div>
         <div className="p-5 space-y-4">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <button
               className={`btn ${method === 'cash' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setMethod('cash')}
@@ -73,6 +76,12 @@ export function PaymentModal({
               onClick={() => setMethod('promptpay')}
             >
               PromptPay
+            </button>
+            <button
+              className={`btn ${method === 'grab' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setMethod('grab')}
+            >
+              Grab
             </button>
           </div>
 
@@ -122,6 +131,15 @@ export function PaymentModal({
               <p className="text-sm text-gray-500">ให้ลูกค้าสแกนเพื่อชำระ {formatBahtSymbol(total)}</p>
             </div>
           )}
+
+          {method === 'grab' && (
+            <div className="rounded-2xl border-2 border-orange-200 bg-orange-50 px-4 py-5 text-center">
+              <div className="text-lg font-extrabold text-orange-700">ออเดอร์จาก Grab</div>
+              <p className="mt-2 text-sm text-orange-800">
+                ตรวจสอบรายการและตัวเลือกให้ครบแล้วกดยืนยัน ระบบจะไม่บันทึกเป็นเงินสดและจะตัดสต๊อกตามสูตร
+              </p>
+            </div>
+          )}
         </div>
         <div className="p-5 border-t border-gray-200 flex justify-end gap-2">
           <button className="btn-ghost" disabled={submitting} onClick={onClose}>
@@ -132,11 +150,10 @@ export function PaymentModal({
             disabled={submitting || (method === 'cash' && change < 0)}
             onClick={handleConfirm}
           >
-            {submitting ? 'กำลังบันทึก…' : 'ยืนยันรับเงิน'}
+            {submitting ? 'กำลังบันทึก…' : method === 'grab' ? 'บันทึก Grab และตัดสต๊อก' : 'ยืนยันรับเงิน'}
           </button>
         </div>
       </div>
     </div>
   )
 }
-
