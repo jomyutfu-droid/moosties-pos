@@ -7,18 +7,20 @@ import type { CheckoutSource, PaymentMethod } from '@/types'
 
 export function PaymentModal({
   total,
+  initialSource = 'store',
   onConfirm,
   onClose,
 }: {
   total: number
+  initialSource?: CheckoutSource
   onConfirm: (
     payments: { method: PaymentMethod; amount: number; ref: string | null }[],
-    meta: { cashReceived: number; source: CheckoutSource },
+    meta: { cashReceived: number; source: CheckoutSource; printWindow?: Window | null },
   ) => Promise<void> | void
   onClose: () => void
 }) {
   const { data: settings } = useSettings()
-  const [method, setMethod] = useState<PaymentMethod | 'grab'>('cash')
+  const [method, setMethod] = useState<PaymentMethod | 'grab'>(initialSource === 'grab' ? 'grab' : 'cash')
   const [cashReceived, setCashReceived] = useState<number>(0)
   const [submitting, setSubmitting] = useState(false)
   const submitLockRef = useRef(false)
@@ -47,8 +49,10 @@ export function PaymentModal({
       } else if (method === 'promptpay') {
         await onConfirm([{ method: 'promptpay', amount: total, ref: null }], { cashReceived: total, source: 'store' })
       } else {
+        // เปิดหน้าต่างไว้ก่อน await เพื่อให้ Chrome อนุญาตการพิมพ์จากการกดปุ่มของพนักงาน
+        const printWindow = window.open('', '_blank', 'width=420,height=700')
         // ฐานข้อมูลเดิมยังไม่มี payment method ชื่อ grab จึงใช้ `other` + ref เพื่อไม่ต้องเปลี่ยน schema
-        await onConfirm([{ method: 'other', amount: total, ref: 'Grab' }], { cashReceived: total, source: 'grab' })
+        await onConfirm([{ method: 'other', amount: total, ref: 'Grab' }], { cashReceived: total, source: 'grab', printWindow })
       }
     } finally {
       submitLockRef.current = false
