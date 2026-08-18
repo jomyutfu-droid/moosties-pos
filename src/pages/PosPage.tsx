@@ -120,11 +120,16 @@ export default function PosPage() {
     await db.outbox_orders.put(outboxOrder)
 
     // อัปเดตสต็อกในแคชทันทีเพื่อให้หน้าสต็อก/POS เห็นยอดล่าสุดแบบออฟไลน์
-    for (const mov of stockMovements) {
-      const ing = await db.ingredients.get(mov.ingredient_id)
-      if (ing) {
-        await db.ingredients.put({ ...ing, stock_qty: round2(ing.stock_qty + mov.qty_delta) })
+    // ถ้า cache เครื่องมีปัญหา ให้ outbox ที่บันทึกแล้วเป็นตัวหลักและห้ามทำรายการซ้ำ
+    try {
+      for (const mov of stockMovements) {
+        const ing = await db.ingredients.get(mov.ingredient_id)
+        if (ing) {
+          await db.ingredients.put({ ...ing, stock_qty: round2(ing.stock_qty + mov.qty_delta) })
+        }
       }
+    } catch {
+      // syncOutbox จะส่ง stock movement จาก outbox ต่อเมื่อออนไลน์
     }
 
     // เงินสด: ใช้ยอดเงินที่รับมาจริงเพื่อคำนวณเงินทอน
