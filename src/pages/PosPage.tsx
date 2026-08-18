@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { usePosCatalog } from '@/hooks/usePosCatalog'
 import { ProductGrid } from '@/components/pos/ProductGrid'
 import { CartPanel } from '@/components/pos/CartPanel'
@@ -34,6 +34,8 @@ export default function PosPage() {
   const [pickerProduct, setPickerProduct] = useState<ProductWithRecipe | null>(null)
   const [showPayment, setShowPayment] = useState(false)
   const [paymentSource, setPaymentSource] = useState<CheckoutSource>('store')
+  const [grabSubmitting, setGrabSubmitting] = useState(false)
+  const grabSubmitLockRef = useRef(false)
   const [receiptOrder, setReceiptOrder] = useState<{
     orderNo: string
     total: number
@@ -66,7 +68,7 @@ export default function PosPage() {
 
   async function handleConfirmPayment(
     payments: { method: PaymentMethod; amount: number; ref: string | null }[],
-    meta: { cashReceived: number; source: CheckoutSource; printWindow?: Window | null },
+    meta: { cashReceived: number; source: CheckoutSource; printWindow?: Window | null; quickGrab?: boolean },
   ) {
     if (lines.length === 0) return // กันบันทึกออเดอร์ว่าง
     const subtotal = cartSubtotal(lines)
@@ -118,11 +120,16 @@ export default function PosPage() {
     await db.outbox_orders.put(outboxOrder)
 
     // อัปเดตสต็อกในแคชทันทีเพื่อให้หน้าสต็อก/POS เห็นยอดล่าสุดแบบออฟไลน์
-    for (const mov of stockMovements) {
-      const ing = await db.ingredients.get(mov.ingredient_id)
-      if (ing) {
-        await db.ingredients.put({ ...ing, stock_qty: round2(ing.stock_qty + mov.qty_delta) })
+    // ถ้า cache เครื่องมีปัญหา ให้ outbox ที่บันทึกแล้วเป็นตัวหลักและห้ามทำรายการซ้ำ
+    try {
+      for (const mov of stockMovements) {
+        const ing = await db.ingredients.get(mov.ingredient_id)
+        if (ing) {
+          await db.ingredients.put({ ...ing, stock_qty: round2(ing.stock_qty + mov.qty_delta) })
+        }
       }
+    } catch {
+      // syncOutbox จะส่ง stock movement จาก outbox ต่อเมื่อออนไลน์
     }
 
     // เงินสด: ใช้ยอดเงินที่รับมาจริงเพื่อคำนวณเงินทอน
@@ -140,22 +147,51 @@ export default function PosPage() {
       lines: [...lines], // snapshot ก่อน clear
       discount: effectiveDiscount,
     }
-    setReceiptOrder(receiptInfo)
+    const isQuickGrab = meta.source === 'grab' && meta.quickGrab === true
 
-    // Grab เปิดหน้าต่างพิมพ์ไว้ตั้งแต่ตอนกดยืนยัน เพื่อให้ Chrome อนุญาตการพิมพ์อัตโนมัติ
+    // One-click Grab: ไม่เปิด success modal ซ้ำถ้าพิมพ์อัตโนมัติสำเร็จ
+    // หาก popup ถูกบล็อกหรือเขียนหน้าต่างพิมพ์ไม่สำเร็จ ให้แสดงหน้าสำเร็จเพื่อกดพิมพ์ซ้ำได้
+    if (!isQuickGrab || !meta.printWindow) {
+      setReceiptOrder(receiptInfo)
+    }
     if (meta.source === 'grab' && meta.printWindow) {
-      writePrintWindow(
-        meta.printWindow,
-        buildPrintHTML(receiptInfo, {
-          header: settings?.receipt_header?.trim() || settings?.store_name?.trim() || 'MOOSTTIES',
-          footer: settings?.receipt_footer?.trim() || 'ขอบคุณที่ใช้บริการ',
-        }),
-      )
+      try {
+        writePrintWindow(
+          meta.printWindow,
+          buildPrintHTML(receiptInfo, {
+            header: settings?.receipt_header?.trim() || settings?.store_name?.trim() || 'MOOSTTIES',
+            footer: settings?.receipt_footer?.trim() || 'ขอบคุณที่ใช้บริการ',
+          }),
+        )
+      } catch {
+        setReceiptOrder(receiptInfo)
+      }
     }
 
     clear()
     setShowPayment(false)
     syncOutbox().catch(() => undefined)
+  }
+
+  async function handleQuickGrabCheckout() {
+    if (grabSubmitLockRef.current || lines.length === 0) return
+    grabSubmitLockRef.current = true
+    setGrabSubmitting(true)
+
+    const total = floorBaht(Math.max(0, round2(cartSubtotal(lines) - discount)))
+    const printWindow = window.open('', '_blank', 'width=420,height=700')
+
+    try {
+      await handleConfirmPayment(
+        [{ method: 'other', amount: total, ref: 'Grab' }],
+        { cashReceived: total, source: 'grab', printWindow, quickGrab: true },
+      )
+    } catch {
+      printWindow?.close()
+    } finally {
+      grabSubmitLockRef.current = false
+      setGrabSubmitting(false)
+    }
   }
 
   if (loading) {
@@ -176,7 +212,11 @@ export default function PosPage() {
   return (
     <div className="h-full min-h-0 flex flex-col overflow-hidden md:flex-row">
       <ProductGrid categories={categories} products={products} onSelect={handleSelectProduct} />
-      <CartPanel onCheckout={() => openPayment('store')} onGrabCheckout={() => openPayment('grab')} />
+      <CartPanel
+        onCheckout={() => openPayment('store')}
+        onGrabCheckout={handleQuickGrabCheckout}
+        grabSubmitting={grabSubmitting}
+      />
 
       {pickerProduct && (
         <OptionPickerModal

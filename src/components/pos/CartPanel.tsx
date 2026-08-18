@@ -171,9 +171,11 @@ function RecipeModal({ line, onClose }: { line: CartLine; onClose: () => void })
 export function CartPanel({
   onCheckout,
   onGrabCheckout,
+  grabSubmitting,
 }: {
   onCheckout: () => void
   onGrabCheckout: () => void
+  grabSubmitting: boolean
 }) {
   const lines = useCartStore((s) => s.lines)
   const discount = useCartStore((s) => s.discount)
@@ -314,12 +316,11 @@ export function CartPanel({
           ชำระเงิน {lines.length > 0 ? formatBahtSymbol(total) : ''}
         </button>
         <button
-          className="w-full h-12 rounded-[16px] bg-orange-500 text-sm font-extrabold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={lines.length === 0}
+          className="w-full h-11 rounded-[16px] bg-orange-500 text-sm font-extrabold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={lines.length === 0 || grabSubmitting}
           onClick={onGrabCheckout}
         >
-          🛵 คิดเงิน Grab
-          <span className="ml-1 text-xs font-semibold opacity-90">· พิมพ์ + ตัดสต็อก</span>
+          {grabSubmitting ? 'กำลังบันทึก Grab…' : '🛵 คิดเงิน Grab · พิมพ์ + ตัดสต็อก'}
         </button>
       </div>
     </aside>
