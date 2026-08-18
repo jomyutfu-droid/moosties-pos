@@ -29,8 +29,7 @@ export const THERMAL_BASE_CSS = `
  * เปิดหน้าต่างพิมพ์แล้วสั่งพิมพ์ พร้อมปิดหน้าต่างให้อัตโนมัติ
  * ปิดจากหน้าต่างแม่ เพราะ Chrome บล็อก window.close() ที่เรียกจากตัว popup เอง
  */
-export function openPrintWindow(html: string, width = 420, height = 700): void {
-  const win = window.open('', '_blank', `width=${width},height=${height}`)
+export function writePrintWindow(win: Window | null, html: string): void {
   if (!win) return
   win.document.write(html)
   win.document.close()
@@ -41,4 +40,9 @@ export function openPrintWindow(html: string, width = 420, height = 700): void {
       /* ปิดไม่ได้ก็ไม่เป็นไร */
     }
   }, 2500)
+}
+
+export function openPrintWindow(html: string, width = 420, height = 700): void {
+  const win = window.open('', '_blank', `width=${width},height=${height}`)
+  writePrintWindow(win, html)
 }
