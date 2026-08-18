@@ -168,7 +168,13 @@ function RecipeModal({ line, onClose }: { line: CartLine; onClose: () => void })
   )
 }
 
-export function CartPanel({ onCheckout }: { onCheckout: () => void }) {
+export function CartPanel({
+  onCheckout,
+  onGrabCheckout,
+}: {
+  onCheckout: () => void
+  onGrabCheckout: () => void
+}) {
   const lines = useCartStore((s) => s.lines)
   const discount = useCartStore((s) => s.discount)
   const discountMode = useCartStore((s) => s.discountMode)
@@ -306,6 +312,14 @@ export function CartPanel({ onCheckout }: { onCheckout: () => void }) {
           onClick={onCheckout}
         >
           ชำระเงิน {lines.length > 0 ? formatBahtSymbol(total) : ''}
+        </button>
+        <button
+          className="w-full h-12 rounded-[16px] bg-orange-500 text-sm font-extrabold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={lines.length === 0}
+          onClick={onGrabCheckout}
+        >
+          🛵 คิดเงิน Grab
+          <span className="ml-1 text-xs font-semibold opacity-90">· พิมพ์ + ตัดสต็อก</span>
         </button>
       </div>
     </aside>

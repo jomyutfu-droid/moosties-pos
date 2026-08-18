@@ -9,7 +9,7 @@ import { escapeHtml, openPrintWindow } from '@/lib/html'
 import { fromBaseQty } from '@/domain/units'
 import type { CartLine } from '@/types'
 
-interface ReceiptInfo {
+export interface ReceiptInfo {
   orderNo: string
   total: number
   paid: number
@@ -19,7 +19,7 @@ interface ReceiptInfo {
   discount?: number
 }
 
-interface ReceiptText {
+export interface ReceiptText {
   header: string
   footer: string
 }
@@ -31,7 +31,7 @@ const b = (n: number) => (n % 1 === 0 ? String(Math.round(n)) : n.toFixed(2))
 const esc = escapeHtml
 
 /** สร้าง HTML ใบเสร็จ + สติกเกอร์สำหรับพิมพ์ผ่าน window.open (80mm thermal) */
-function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
+export function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
   const dateStr = new Date(order.createdAt).toLocaleString('th-TH')
 
   // --- ใบเสร็จ: 4 คอลัมน์ (ชื่อ | จำนวน | ราคา | รวม) ---
