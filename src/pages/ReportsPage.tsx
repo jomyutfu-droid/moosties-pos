@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTodaySummary, useSalesByDateRange } from '@/hooks/useReports'
+import { useBillHistory, useVoidBill, type BillHistory } from '@/hooks/useBillManagement'
 import {
   useAddCashMovement,
   useCashMovements,
@@ -120,7 +121,84 @@ function ManagementReportsPage() {
           </div>
         )}
       </section>
+
+      <BillHistoryPanel />
     </div>
+  )
+}
+
+function BillHistoryPanel() {
+  const role = useSessionStore((s) => s.activeStaff?.role)
+  const { data: bills = [], isLoading, isError } = useBillHistory(50)
+  const voidBill = useVoidBill()
+  const [error, setError] = useState<string | null>(null)
+
+  if (role !== 'owner') return null
+
+  async function handleVoid(bill: BillHistory) {
+    const reason = window.prompt(
+      'ยกเลิกบิล ' + (bill.order_no ?? bill.id.slice(0, 8)) + '\nกรุณาระบุเหตุผล',
+      'ทดสอบระบบ',
+    )
+    if (reason === null) return
+    const normalizedReason = reason.trim()
+    if (!normalizedReason) {
+      setError('กรุณาระบุเหตุผลก่อนยกเลิกบิล')
+      return
+    }
+    if (!window.confirm(
+      'ยืนยันยกเลิกบิล ' + (bill.order_no ?? bill.id.slice(0, 8)) + ' ยอด ' + formatBahtSymbol(bill.total) + ' ?\nระบบจะคืนสต๊อกและไม่นับบิลนี้ในยอดขาย/เงินสด',
+    )) return
+
+    setError(null)
+    try {
+      await voidBill.mutateAsync({ orderId: bill.id, reason: normalizedReason })
+    } catch (err) {
+      setError(explainSupabaseError(err, 'ยกเลิกบิลไม่สำเร็จ'))
+    }
+  }
+
+  return (
+    <section className="card p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+        <div>
+          <h2 className="font-semibold">ยกเลิกบิล (เจ้าของร้าน)</h2>
+          <p className="text-xs text-gray-500 mt-1">บิลจะไม่ถูกลบ แต่จะไม่นับยอดขาย/เงินสด และคืนสต๊อกให้โดยอัตโนมัติ</p>
+        </div>
+        <span className="text-xs rounded-full bg-amber-100 text-amber-800 px-2 py-1">Owner เท่านั้น</span>
+      </div>
+      {error && <p className="text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2 mb-3">{error}</p>}
+      {isLoading && <p className="text-sm text-gray-500">กำลังโหลดบิล…</p>}
+      {isError && <p className="text-sm text-red-600">โหลดประวัติบิลไม่สำเร็จ กรุณาลองใหม่</p>}
+      {!isLoading && !isError && bills.length === 0 && <p className="text-sm text-gray-400">ยังไม่มีบิล</p>}
+      <div className="space-y-2">
+        {bills.map((bill) => (
+          <div
+            key={bill.id}
+            className={'rounded-lg border p-3 text-sm ' + (bill.status === 'void' ? 'border-gray-200 bg-gray-50 opacity-75' : 'border-amber-200 bg-amber-50/40')}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-semibold">{bill.order_no ?? bill.id.slice(0, 8)}</span>
+              <span className={bill.status === 'void' ? 'text-gray-500' : 'text-green-700'}>
+                {bill.status === 'void' ? 'ยกเลิกแล้ว' : 'บิลปกติ'}
+              </span>
+            </div>
+            <div className="text-xs text-gray-600 mt-1">
+              {new Date(bill.created_at).toLocaleString('th-TH')} · {bill.channel === 'delivery' ? 'Grab/Delivery' : 'หน้าร้าน'} · {formatBahtSymbol(bill.total)}
+            </div>
+            {bill.status === 'paid' && (
+              <button
+                className="btn-secondary text-xs mt-2 border-red-200 text-red-700"
+                disabled={voidBill.isPending}
+                onClick={() => handleVoid(bill)}
+              >
+                {voidBill.isPending ? 'กำลังยกเลิก…' : 'ยกเลิกบิล'}
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }
 
