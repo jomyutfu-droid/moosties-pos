@@ -24,9 +24,17 @@ export function errorMessage(err: unknown, fallback = 'เกิดข้อผ�
   return fallback
 }
 
+/** แปลง error เครือข่ายจาก Safari/มือถือให้เป็นข้อความที่ผู้ใช้ดำเนินการต่อได้ */
+function explainNetworkError(raw: string): string | null {
+  if (!/load failed|failed to fetch|networkerror|network request failed|connection reset/i.test(raw)) return null
+  return 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ — ระบบลองบันทึกซ้ำให้อัตโนมัติแล้ว หากยังไม่สำเร็จให้รีเฟรชและตรวจรายการก่อนกดบันทึกซ้ำ'
+}
+
 /** แปลงรหัส error ของ Postgres/Supabase ที่พบบ่อยเป็นคำอธิบายภาษาไทยที่ทำต่อได้ */
 export function explainSupabaseError(err: unknown, fallback = 'เกิดข้อผิดพลาด'): string {
   const raw = errorMessage(err, fallback)
+  const networkMessage = explainNetworkError(raw)
+  if (networkMessage) return networkMessage
   const code = (err as { code?: string } | null)?.code
 
   switch (code) {

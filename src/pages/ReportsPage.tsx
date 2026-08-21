@@ -685,6 +685,7 @@ function StaffRewardsPanel() {
   const totalClosingOt = summaryRows.reduce((sum, row) => sum + row.closingOt, 0)
 
   async function handleRecordGrab() {
+    if (recordGrab.isPending) return
     if (!grabUserId || grabQuantity < 1) { setMessage('กรุณาเลือกพนักงานและใส่จำนวนคอมเมนต์ที่ถูกต้อง'); return }
     setMessage(null)
     try {
