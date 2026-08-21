@@ -76,7 +76,7 @@ export function useRecordGrabReward() {
   }, onSuccess: () => qc.invalidateQueries({ queryKey: ['staff-rewards'] }), onError: () => {
     // รีโหลดรายการเพื่อกันกรณีคำขอสำเร็จ แต่การตอบกลับหายระหว่างทาง
     void qc.invalidateQueries({ queryKey: ['staff-rewards'] })
-  })
+  } })
 }
 export function useSubmitClosingOt() {
   const qc = useQueryClient()
