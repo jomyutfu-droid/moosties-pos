@@ -697,7 +697,7 @@ function StaffRewardsPanel() {
   async function handleReview(id: string, status: 'approved' | 'rejected') {
     setMessage(null)
     try { await reviewReward.mutateAsync({ id, status }) }
-    catch (err) { setMessage(explainSupabaseError(err, 'อนุมัติโบนั���/โอทีไม่สำเร็จ')) }
+    catch (err) { setMessage(explainSupabaseError(err, 'อนุมัติโบนัส/โอทีไม่สำเร็จ')) }
   }
 
   async function handleMarkPaid(userId?: string) {
