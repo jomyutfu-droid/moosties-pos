@@ -4,8 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { db } from '@/lib/db'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useSessionStore } from '@/store/session'
-import { useAutoCloseExpiredTimeLogs, usePendingOvertimeRequests } from '@/hooks/useTimeLogs'
-import { usePendingStaffRewards } from '@/hooks/useStaffRewards'
+import { useAutoCloseExpiredTimeLogs } from '@/hooks/useTimeLogs'
 
 type NavRole = 'owner' | 'manager' | 'staff'
 
@@ -22,10 +21,8 @@ const navItems: { to: string; label: string; roles?: NavRole[] }[] = [
 
 export function AppLayout() {
   useAutoCloseExpiredTimeLogs()
-  const { data: pendingOt = [] } = usePendingOvertimeRequests()
   const online = useOnlineStatus()
   const activeStaff = useSessionStore((s) => s.activeStaff)
-  const { data: pendingRewards = [] } = usePendingStaffRewards(activeStaff?.role === 'owner')
   const clearActiveStaff = useSessionStore((s) => s.clearActiveStaff)
   const logout = useSessionStore((s) => s.logout)
   const queryClient = useQueryClient()
@@ -143,15 +140,6 @@ export function AppLayout() {
               >
                 รอ sync {pendingCount}
               </span>
-            )}
-            {pendingOt.length > 0 && (activeStaff?.role === 'owner' || activeStaff?.role === 'manager') && (
-              <button
-                className="ml-auto text-[10.5px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700"
-                onClick={() => navigate('/reports')}
-                title="มีคำขอ OT รออนุมัติ"
-              >
-                OT รออนุมัติ {pendingOt.length}
-              </button>
             )}
           </div>
 

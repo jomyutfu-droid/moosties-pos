@@ -12,7 +12,6 @@ import {
   createDefaultBusinessHours,
   getBillableMinutes as getConfiguredBillableMinutes,
   getEffectiveBusinessHours,
-  getOvertimeStart,
   getWorkWindow as getConfiguredWorkWindow,
   isWithinWorkWindow as isConfiguredWithinWorkWindow,
 } from '@/lib/businessHours'
@@ -59,6 +58,8 @@ export interface TimeLogReport extends TimeLog {
   hourly_wage: number
 }
 
+// Legacy OT request shape is kept for historical database rows; new OT is submitted
+// only through staff_rewards/closing_ot and is not generated from clock-out.
 export interface OvertimeRequest {
   id: string
   time_log_id: string
@@ -80,27 +81,6 @@ function getNextMidnight(date: Date) {
   const next = new Date(date)
   next.setHours(24, 0, 0, 0)
   return next
-}
-
-/** บันทึก/ปรับปรุงคำขอ OT จากเวลาออกงานจริง โดยคิดเป็นรายนาที */
-export async function upsertOvertimeRequest(
-  log: TimeLog,
-  clockOut: Date,
-  settings: BusinessHoursSettings = createDefaultBusinessHours(),
-) {
-  const otStart = getOvertimeStart(log.clock_in, settings)
-  if (!otStart) return
-  const minutes = Math.max(0, Math.floor((clockOut.getTime() - otStart.getTime()) / 60_000))
-  if (minutes <= 0) return
-
-  const { error } = await supabase.rpc('submit_overtime_request', {
-    p_token: getPinSessionToken(),
-    p_time_log_id: log.id,
-    p_ot_start: otStart.toISOString(),
-    p_ot_end: clockOut.toISOString(),
-    p_note: null,
-  })
-  if (error) throw error
 }
 
 /** รายการเข้า–ออกงานตามช่วงวันที่ ใช้สำหรับคำนวณชั่วโมงและค่าแรง */
@@ -230,26 +210,21 @@ async function closeLog(logId: string, at: Date = new Date()): Promise<void> {
   if (error) throw error
 }
 
-/** เมื่อเลยเวลาปิดร้านให้เปิดกะต่อเพื่อเก็บ OT จนกว่าจะออกงานหรือถึงเที่ยงคืน */
-async function closeExpiredLogs(logs: TimeLog[], settings: BusinessHoursSettings) {
+/** ปิดกะค้างที่เที่ยงคืน โดยไม่สร้างคำขอ OT อัตโนมัติ */
+async function closeExpiredLogs(logs: TimeLog[]) {
   const now = new Date()
   for (const log of logs) {
     const workDate = new Date(log.clock_in)
-    const { end: regularEnd, is_open: isOpen } = getWorkWindow(workDate, settings)
     const midnight = getNextMidnight(workDate)
-    if ((!isOpen || now >= regularEnd) && now > new Date(log.clock_in)) {
-      await upsertOvertimeRequest(log, now >= midnight ? midnight : now, settings)
-    }
     if (now >= midnight) {
       await closeLog(log.id, midnight)
     }
   }
 }
 
-/** เรียกจากหน้าหลัก เพื่อปิดกะอัตโนมัติเมื่อถึง 20:30 */
+/** เรียกจากหน้าหลักเพื่อปิดกะที่ลืมค้างไว้เมื่อถึงเที่ยงคืน */
 export function useAutoCloseExpiredTimeLogs() {
   const { data: openLogs = [] } = useActiveTimeLogs()
-  const { data: settings } = useSettings()
   const qc = useQueryClient()
   const running = useRef(false)
 
@@ -257,7 +232,7 @@ export function useAutoCloseExpiredTimeLogs() {
     const run = () => {
       if (running.current || openLogs.length === 0) return
       running.current = true
-      closeExpiredLogs(openLogs, settings?.business_hours ?? createDefaultBusinessHours())
+      closeExpiredLogs(openLogs)
         .then(() => {
           qc.invalidateQueries({ queryKey: ['time-logs-today'] })
           qc.invalidateQueries({ queryKey: ['time-logs-active'] })
@@ -269,7 +244,7 @@ export function useAutoCloseExpiredTimeLogs() {
     run()
     const interval = window.setInterval(run, 30_000)
     return () => window.clearInterval(interval)
-  }, [openLogs, qc, settings?.business_hours])
+  }, [openLogs, qc])
 }
 
 /** Clock-in — force = ปิดกะที่ค้างอยู่ให้อัตโนมัติแล้วเข้างานใหม่ */
@@ -297,20 +272,16 @@ export function useClockIn() {
       const open = await findOpenLog(userId)
       if (open) {
         const openedAt = new Date(open.clock_in)
-        const { end: openedDayEnd, is_open: openedDayIsOpen } = getWorkWindow(openedAt, businessHours)
+        const { end: openedDayEnd } = getWorkWindow(openedAt, businessHours)
         const sameLocalDay = openedAt.toDateString() === now.toDateString()
 
         // PIN ซ้ำในวันเดียวกันไม่ควรสร้างกะซ้ำ
         if (automatic && sameLocalDay) return 'already-active' as const
 
-        // ปิดกะเก่า และเก็บ OT ที่เกิดขึ้นก่อนการเปิดกะใหม่/แก้กะค้าง
+        // ปิดกะเก่าเพื่อไม่ให้กะค้าง โดยไม่สร้างคำขอ OT อัตโนมัติ
         if (now >= openedDayEnd || !sameLocalDay) {
           const midnight = getNextMidnight(openedAt)
           const closeAt = sameLocalDay ? now : midnight
-          const oldLog = { ...open, user_id: userId, clock_out: null, note: null, created_at: open.clock_in } as TimeLog
-          if (closeAt > openedDayEnd || !openedDayIsOpen) {
-            await upsertOvertimeRequest(oldLog, closeAt > midnight ? midnight : closeAt, businessHours)
-          }
           await closeLog(open.id, closeAt > midnight ? midnight : closeAt)
         } else if (force) {
           await closeLog(open.id, now)
@@ -325,7 +296,7 @@ export function useClockIn() {
         }
       }
 
-      // หลัง 20:30 ยังเปิดกะไว้เพื่อเก็บเวลาส่วน OT จนกว่าจะออกงาน/เที่ยงคืน
+      // หลัง 19:00 ยังคงเปิดกะไว้เพื่อบันทึกเวลาออกจริง แต่ไม่สร้าง OT อัตโนมัติ
 
       const { data, error } = await supabase.rpc('create_time_log', {
         p_token: getPinSessionToken(), p_user_id: userId, p_note: note ?? null,
@@ -343,7 +314,6 @@ export function useClockIn() {
 
 /** Clock-out */
 export function useClockOut() {
-  const { data: settings } = useSettings()
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ userId }: { userId: string }) => {
@@ -352,12 +322,6 @@ export function useClockOut() {
       const now = new Date()
       const midnight = getNextMidnight(new Date(open.clock_in))
       const clockOutAt = now > midnight ? midnight : now
-      const log = { ...open, user_id: userId, clock_out: null, note: null, created_at: open.clock_in } as TimeLog
-      const businessHours = settings?.business_hours ?? createDefaultBusinessHours()
-      const window = getWorkWindow(new Date(open.clock_in), businessHours)
-      if (clockOutAt > window.end || !window.is_open) {
-        await upsertOvertimeRequest(log, clockOutAt, businessHours)
-      }
       await closeLog(open.id, clockOutAt)
     },
     onSuccess: () => {

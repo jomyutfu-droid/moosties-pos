@@ -8,8 +8,6 @@ import {
   useTodayTimeLogs,
   useMyTimeLogsByMonth,
   useTimeLogsByRange,
-  useApprovedOvertimeByRange,
-  usePendingOvertimeRequests,
   useActiveTimeLogs,
   useClockIn,
   useClockOut,
@@ -69,19 +67,12 @@ function formatMinutes(minutes: number) {
   return `${hours} ชม. ${remaining} นาที`
 }
 
-function isSameMonth(iso: string, month: string) {
-  const date = new Date(iso)
-  return getMonthInput(date) === month
-}
-
 type EmployeeSummary = {
   userId: string
   name: string
   workedDays: number
   shifts: number
   regularMinutes: number
-  otMinutes: number
-  pendingOtMinutes: number
   logs: TimeLogReport[]
 }
 
@@ -145,31 +136,12 @@ export default function TimePage() {
     isLoading: managementMonthLoading,
     error: managementMonthError,
   } = useTimeLogsByRange(selectedMonthFrom, selectedMonthTo, isManagementView)
-  const { data: approvedOvertime = [] } = useApprovedOvertimeByRange(
-    selectedMonthFrom,
-    selectedMonthTo,
-    isManagementView,
-  )
-  const { data: pendingOvertime = [] } = usePendingOvertimeRequests(isManagementView)
-
   const employeeLogs = useMemo(() => {
     const employeeIds = new Set(users.filter((user) => user.role !== 'owner').map((user) => user.id))
     return managementLogs.filter((log) => employeeIds.has(log.user_id))
   }, [managementLogs, users])
 
   const employeeSummaries = useMemo<EmployeeSummary[]>(() => {
-    const approvedByUser = new Map<string, number>()
-    for (const request of approvedOvertime) {
-      approvedByUser.set(request.user_id, (approvedByUser.get(request.user_id) ?? 0) + request.minutes)
-    }
-
-    const pendingByUser = new Map<string, number>()
-    for (const request of pendingOvertime) {
-      if (isSameMonth(request.ot_start, selectedMonth)) {
-        pendingByUser.set(request.user_id, (pendingByUser.get(request.user_id) ?? 0) + request.minutes)
-      }
-    }
-
     const grouped = new Map<string, EmployeeSummary>()
     for (const log of employeeLogs) {
       const current = grouped.get(log.user_id) ?? {
@@ -178,8 +150,6 @@ export default function TimePage() {
         workedDays: 0,
         shifts: 0,
         regularMinutes: 0,
-        otMinutes: approvedByUser.get(log.user_id) ?? 0,
-        pendingOtMinutes: pendingByUser.get(log.user_id) ?? 0,
         logs: [],
       }
       current.logs.push(log)
@@ -190,7 +160,7 @@ export default function TimePage() {
     }
 
     return Array.from(grouped.values()).sort((a, b) => a.name.localeCompare(b.name, 'th'))
-  }, [approvedOvertime, businessHours, employeeLogs, pendingOvertime, selectedMonth])
+  }, [businessHours, employeeLogs])
 
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('all')
   const [expandedEmployeeId, setExpandedEmployeeId] = useState<string | null>(null)
@@ -198,7 +168,6 @@ export default function TimePage() {
     ? employeeSummaries
     : employeeSummaries.filter((summary) => summary.userId === selectedEmployeeId)
   const employeeRegularMinutes = filteredEmployeeSummaries.reduce((sum, summary) => sum + summary.regularMinutes, 0)
-  const employeePendingOtMinutes = filteredEmployeeSummaries.reduce((sum, summary) => sum + summary.pendingOtMinutes, 0)
   const employeeShiftCount = filteredEmployeeSummaries.reduce((sum, summary) => sum + summary.shifts, 0)
 
   const workedDays = new Set(myMonthLogs.map((log) => getLocalDateKey(log.clock_in))).size
@@ -263,7 +232,7 @@ export default function TimePage() {
       <div className="card p-5 space-y-4">
         <h2 className="font-semibold text-gray-700">เข้า / ออกงาน</h2>
         <p className="text-xs text-gray-500">
-          หลังใส่ PIN ระบบเริ่มงานให้อัตโนมัติ คิดเวลาปกติตามเวลาทำการที่ตั้งไว้ และส่ง OT ให้ตรวจสอบเมื่อทำงานในช่วงที่อนุญาต
+          หลังใส่ PIN ระบบเริ่มงานให้อัตโนมัติ คิดเวลาปกติถึง 19:00 น. เวลาออกงานหลังจากนั้นเก็บไว้เป็นประวัติ และหากมีออเดอร์ช่วงปิดร้านให้ส่ง OT ผ่านแบบฟอร์มด้านล่าง
         </p>
 
         <div>
@@ -357,7 +326,7 @@ export default function TimePage() {
         <div className="px-4 py-4 border-b border-gray-100 space-y-3">
           <div>
             <h2 className="font-semibold text-gray-700">ประวัติการทำงานพนักงาน</h2>
-            <p className="text-xs text-gray-500 mt-1">สรุปเป็นรายคนและไม่รวมเวลาการทำงานของเจ้าของร้าน</p>
+            <p className="text-xs text-gray-500 mt-1">สรุปเป็นรายคน ไม่รวมเวลาของเจ้าของร้าน และไม่สร้าง OT จากเวลาออกงานอัตโนมัติ</p>
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -419,8 +388,8 @@ export default function TimePage() {
             <p className="text-xl font-bold text-purple-700">{formatMinutes(employeeRegularMinutes)}</p>
           </div>
           <div className="rounded-xl bg-amber-50 px-3 py-3">
-            <p className="text-xs text-gray-500">OT รอตรวจ</p>
-            <p className="text-xl font-bold text-amber-700">{formatMinutes(employeePendingOtMinutes)}</p>
+            <p className="text-xs text-gray-500">การส่ง OT</p>
+            <p className="text-sm font-bold text-amber-700 mt-1">ใช้แบบฟอร์ม OT ปิดร้าน</p>
           </div>
         </div>
 
@@ -445,8 +414,6 @@ export default function TimePage() {
                   <th className="p-3 font-semibold">วันที่มาทำงาน</th>
                   <th className="p-3 font-semibold">จำนวนกะ</th>
                   <th className="p-3 font-semibold">ชั่วโมงปกติ</th>
-                  <th className="p-3 font-semibold">OT</th>
-                  <th className="p-3 font-semibold">สถานะ</th>
                 </tr>
               </thead>
               <tbody>
@@ -473,23 +440,10 @@ export default function TimePage() {
                       <td className="p-3 text-gray-600">{summary.workedDays} วัน</td>
                       <td className="p-3 text-gray-600">{summary.shifts} กะ</td>
                       <td className="p-3 text-gray-600">{formatMinutes(summary.regularMinutes)}</td>
-                      <td className="p-3 text-gray-600">
-                        {formatMinutes(summary.otMinutes + summary.pendingOtMinutes)}
-                        {summary.pendingOtMinutes > 0 && <span className="block text-xs text-amber-600">รอตรวจ {formatMinutes(summary.pendingOtMinutes)}</span>}
-                      </td>
-                      <td className="p-3">
-                        {summary.pendingOtMinutes > 0 ? (
-                          <span className="inline-flex rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-700">มี OT รอตรวจ</span>
-                        ) : summary.otMinutes > 0 ? (
-                          <span className="inline-flex rounded-full bg-green-100 px-2 py-1 text-xs text-green-700">OT อนุมัติแล้ว</span>
-                        ) : (
-                          <span className="inline-flex rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600">ปกติ</span>
-                        )}
-                      </td>
                     </tr>
                     {expandedEmployeeId === summary.userId && (
                       <tr className="border-t border-gray-100 bg-gray-50">
-                        <td colSpan={6} className="p-3">
+                        <td colSpan={4} className="p-3">
                           <div className="rounded-lg border border-gray-200 bg-white overflow-x-auto">
                             <table className="w-full min-w-[560px] text-xs">
                               <thead className="text-left text-gray-500">

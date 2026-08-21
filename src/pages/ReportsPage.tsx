@@ -13,10 +13,9 @@ import type { CashCloseResult, CashMovementType } from '@/hooks/useCashSession'
 import { formatBahtSymbol, round2 } from '@/lib/money'
 import { explainSupabaseError } from '@/lib/errors'
 import { useSessionStore } from '@/store/session'
-import { useCurrentAppUser } from '@/hooks/useAuth'
 import { parseUnsignedNumber } from '@/lib/forms'
 import { NumberField } from '@/components/NumberField'
-import { getBillableMinutes, useTimeLogsByRange, usePendingOvertimeRequests, useReviewOvertime, useApprovedOvertimeByRange } from '@/hooks/useTimeLogs'
+import { getBillableMinutes, useTimeLogsByRange } from '@/hooks/useTimeLogs'
 import { useSettings } from '@/hooks/useSettings'
 import { useUsers } from '@/hooks/useUsers'
 import { useMarkStaffRewardsPaid, usePendingStaffRewards, useRecordGrabReward, useReviewStaffReward, useStaffRewards } from '@/hooks/useStaffRewards'
@@ -97,8 +96,6 @@ function ManagementReportsPage() {
       </section>
 
       <StaffTimeReport />
-
-      <OvertimeApprovalPanel />
 
       <CashSessionPanel />
 
@@ -206,51 +203,6 @@ function BillHistoryPanel() {
   )
 }
 
-function OvertimeApprovalPanel() {
-  const activeStaff = useSessionStore((s) => s.activeStaff)
-  const { data: authUser } = useCurrentAppUser()
-  const { data: requests = [], isLoading, isError } = usePendingOvertimeRequests()
-  const review = useReviewOvertime()
-  if (activeStaff?.role !== 'owner' && activeStaff?.role !== 'manager') return null
-
-  return (
-    <section className="card p-4">
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <div>
-          <h2 className="font-semibold flex items-center gap-2">
-            คำขอทำงานล่วงเวลา
-            {requests.length > 0 && <span className="rounded-full bg-red-100 text-red-700 px-2 py-0.5 text-xs">OT รออนุมัติ {requests.length}</span>}
-          </h2>
-          <p className="text-xs text-gray-500 mt-1">ค่า OT คิดตามนาทีจากค่าแรงรายชั่วโมง และยังไม่รวมในเงินเดือนจนกว่าจะอนุมัติ</p>
-        </div>
-      </div>
-      {isLoading && <p className="text-sm text-gray-500">กำลังโหลด…</p>}
-      {isError && <p className="text-sm text-red-600">โหลดคำขอ OT ไม่สำเร็จ กรุณาลองใหม่</p>}
-      {!isLoading && !isError && requests.length === 0 && <p className="text-sm text-gray-400">ไม่มี OT รออนุมัติ</p>}
-      <div className="space-y-2">
-        {requests.map((request) => (
-          <div key={request.id} className="rounded-lg border border-red-100 bg-red-50/50 p-3 text-sm">
-            <div className="flex flex-wrap justify-between gap-2">
-              <strong>{request.user_name}</strong>
-              <span className="font-semibold text-red-700">OT รออนุมัติ</span>
-            </div>
-            <div className="text-gray-600 mt-1">
-              {new Date(request.ot_start).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-              {' – '}
-              {new Date(request.ot_end).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
-              {' · '}{request.minutes} นาที · {formatBahtSymbol(request.amount)}
-            </div>
-            <div className="flex gap-2 mt-2">
-              <button className="btn-primary text-xs" disabled={review.isPending || !authUser} onClick={() => authUser && review.mutate({ id: request.id, status: 'approved', reviewerId: authUser.id })}>อนุมัติ OT</button>
-              <button className="btn-secondary text-xs" disabled={review.isPending || !authUser} onClick={() => authUser && review.mutate({ id: request.id, status: 'rejected', reviewerId: authUser.id })}>ไม่อนุมัติ</button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}
-
 function localDateString(date: Date) {
   const m = String(date.getMonth() + 1).padStart(2, '0')
   const d = String(date.getDate()).padStart(2, '0')
@@ -263,7 +215,6 @@ function StaffTimeReport() {
   const [from, setFrom] = useState(() => localDateString(new Date(now.getFullYear(), now.getMonth(), 1)))
   const [to, setTo] = useState(() => localDateString(now))
   const { data: logs = [], isLoading, isError } = useTimeLogsByRange(from, to)
-  const { data: approvedOt = [] } = useApprovedOvertimeByRange(from, to)
   const { data: settings } = useSettings()
   const businessHours = settings?.business_hours
 
@@ -277,23 +228,17 @@ function StaffTimeReport() {
     setTo(localDateString(today))
   }
 
-  const summary = new Map<string, { name: string; wage: number; minutes: number; shifts: number; otMinutes: number; otPay: number }>()
+  const summary = new Map<string, { name: string; wage: number; minutes: number; shifts: number }>()
   for (const log of logs) {
     const minutes = getBillableMinutes(log.clock_in, log.clock_out, businessHours)
-    const row = summary.get(log.user_id) ?? { name: log.user_name, wage: log.hourly_wage, minutes: 0, shifts: 0, otMinutes: 0, otPay: 0 }
+    const row = summary.get(log.user_id) ?? { name: log.user_name, wage: log.hourly_wage, minutes: 0, shifts: 0 }
     row.minutes += minutes
     row.shifts += 1
     summary.set(log.user_id, row)
   }
-  for (const ot of approvedOt) {
-    const row = summary.get(ot.user_id) ?? { name: ot.user_name, wage: ot.hourly_wage, minutes: 0, shifts: 0, otMinutes: 0, otPay: 0 }
-    row.otMinutes += ot.minutes
-    row.otPay += ot.amount
-    summary.set(ot.user_id, row)
-  }
   const rows = Array.from(summary.values())
   const totalMinutes = rows.reduce((sum, row) => sum + row.minutes, 0)
-  const totalPay = rows.reduce((sum, row) => sum + (row.minutes / 60) * row.wage + row.otPay, 0)
+  const totalPay = rows.reduce((sum, row) => sum + (row.minutes / 60) * row.wage, 0)
 
   return (
     <section className="card p-4">
@@ -318,19 +263,19 @@ function StaffTimeReport() {
         <Stat label="จำนวนกะ" value={logs.length.toString()} />
         <Stat label="ชั่วโมงรวม" value={`${Math.floor(totalMinutes / 60)} ชม. ${totalMinutes % 60} นาที`} />
         <Stat label="พนักงาน" value={rows.length.toString()} />
-        <Stat label="ค่าแรงรวม + OT อนุมัติ" value={formatBahtSymbol(totalPay)} highlight />
+        <Stat label="ค่าแรงตามเวลาปกติ" value={formatBahtSymbol(totalPay)} highlight />
       </div>
       {isLoading && <p className="text-sm text-gray-500">กำลังโหลดข้อมูลเวลา…</p>}
       {isError && <p className="text-sm text-red-600">โหลดรายงานเวลาไม่สำเร็จ กรุณาลองใหม่</p>}
       {!isLoading && !isError && (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead><tr className="text-left border-b border-gray-200"><th className="py-2">พนักงาน</th><th className="py-2 text-right">จำนวนกะ</th><th className="py-2 text-right">เวลาปกติ</th><th className="py-2 text-right">OT อนุมัติ</th><th className="py-2 text-right">ค่าแรงรวม</th></tr></thead>
+            <thead><tr className="text-left border-b border-gray-200"><th className="py-2">พนักงาน</th><th className="py-2 text-right">จำนวนกะ</th><th className="py-2 text-right">เวลาปกติ</th><th className="py-2 text-right">ค่าแรงรวม</th></tr></thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.name} className="border-b border-gray-100"><td className="py-2">{row.name}</td><td className="py-2 text-right">{row.shifts}</td><td className="py-2 text-right">{Math.floor(row.minutes / 60)} ชม. {row.minutes % 60} นาที</td><td className="py-2 text-right">{row.otMinutes ? `${row.otMinutes} นาที · ${formatBahtSymbol(row.otPay)}` : '-'}</td><td className="py-2 text-right font-semibold">{formatBahtSymbol((row.minutes / 60) * row.wage + row.otPay)}</td></tr>
+                <tr key={row.name} className="border-b border-gray-100"><td className="py-2">{row.name}</td><td className="py-2 text-right">{row.shifts}</td><td className="py-2 text-right">{Math.floor(row.minutes / 60)} ชม. {row.minutes % 60} นาที</td><td className="py-2 text-right font-semibold">{formatBahtSymbol((row.minutes / 60) * row.wage)}</td></tr>
               ))}
-              {rows.length === 0 && <tr><td colSpan={5} className="py-6 text-center text-gray-400">ยังไม่มีข้อมูลการเข้างานในช่วงนี้</td></tr>}
+              {rows.length === 0 && <tr><td colSpan={4} className="py-6 text-center text-gray-400">ยังไม่มีข้อมูลการเข้างานในช่วงนี้</td></tr>}
             </tbody>
           </table>
         </div>
@@ -817,4 +762,3 @@ function StaffRewardsPanel() {
     </section>
   )
 }
-
