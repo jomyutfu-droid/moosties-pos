@@ -129,7 +129,6 @@ export function useAddCashMovement() {
         p_type: params.type,
         p_amount: params.amount,
         p_note: params.note,
-        p_cups_sold: params.cupsSold,
       })
       if (error) throw error
       return firstRow<CashMovement>(data)
@@ -155,6 +154,7 @@ export function useCloseSession() {
         p_session_id: params.session.id,
         p_counted_cash: params.countedCash,
         p_note: params.note,
+        p_cups_sold: params.cupsSold,
       })
       if (error) throw error
       return firstRow<CashCloseResult>(data)
