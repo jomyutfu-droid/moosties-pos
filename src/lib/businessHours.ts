@@ -15,7 +15,7 @@ export const BUSINESS_DAY_LABELS = [
 ] as const
 
 export const DEFAULT_OPEN_TIME = '10:00'
-export const DEFAULT_CLOSE_TIME = '20:30'
+export const DEFAULT_CLOSE_TIME = '19:00'
 
 export function createDefaultBusinessHours(): BusinessHoursSettings {
   return {

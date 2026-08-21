@@ -70,7 +70,7 @@ export default function SettingsPage() {
       label: 'วันหยุดพิเศษ',
       mode: 'closed',
       open_time: '10:00',
-      close_time: '20:30',
+      close_time: '19:00',
       allow_ot: true,
     }
     updateBusinessHours((hours) => ({ ...hours, special_dates: [...hours.special_dates, next] }))
@@ -190,7 +190,7 @@ export default function SettingsPage() {
           <h2 className="font-semibold">เวลาทำการและกฎ OT</h2>
           <p className="text-xs text-gray-500 mt-1">
             กำหนดวันเปิดร้านและช่วงเวลางานปกติ ส่วนเวลาหลังปิดร้านหรือวันที่ปิดแต่อนุญาต OT
-            จะส่งคำขอให้เจ้าของ/ผู้จัดการอนุมัติ
+            การขอ OT ปิดร้านให้พนักงานส่งผ่านแบบฟอร์ม OT ปิดร้าน ส่วนเวลาออกงานใช้เก็บประวัติเท่านั้น
           </p>
         </div>
 
