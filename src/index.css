@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Sarabun', 'Noto Sans Thai', Tahoma, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  /* Glassmorphism background — fixed so it doesn't scroll */
+  background:
+    radial-gradient(circle at 12% 8%, #DCFCE7, transparent 45%),
+    radial-gradient(circle at 90% 0%, #C7E6FF, transparent 40%),
+    radial-gradient(circle at 50% 105%, #F0FDF4, transparent 55%),
+    linear-gradient(160deg, #F6FBF8, #F1F6FF);
+  background-attachment: fixed;
+}
+
+/* ─── Buttons ─────────────────────────────────────── */
+.btn {
+  @apply inline-flex items-center justify-center rounded-xl font-semibold select-none
+    transition-all active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none
+    px-4 py-3 text-sm;
+}
+
+.btn-primary {
+  @apply btn text-white;
+  background: linear-gradient(135deg, #16a34a, #4ade80);
+  box-shadow: inset 0 1px 2px rgba(255,255,255,.45), 0 8px 18px rgba(22,163,74,.32);
+  border: none;
+}
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.92;
+  box-shadow: inset 0 1px 2px rgba(255,255,255,.45), 0 12px 24px rgba(22,163,74,.42);
+}
+
+.btn-secondary {
+  @apply btn;
+  background: rgba(255,255,255,.65);
+  border: 1px solid rgba(255,255,255,.9);
+  color: #123524;
+}
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(255,255,255,.85);
+}
+
+.btn-danger {
+  @apply btn text-white bg-red-600 hover:bg-red-700;
+}
+
+.btn-ghost {
+  @apply btn text-brand-950 hover:bg-white/40;
+}
+
+/* ─── Card ────────────────────────────────────────── */
+.card {
+  background: rgba(255,255,255,.55);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255,255,255,.82);
+  border-radius: 1.25rem;         /* 20px */
+  box-shadow: 0 6px 18px rgba(0,0,0,.06);
+}
+
+/* ─── Input / Label ───────────────────────────────── */
+.input {
+  @apply w-full px-3 py-2 text-sm;
+  background: rgba(255,255,255,.94);
+  border: 2px solid rgba(75,112,89,.34);
+  border-radius: 0.75rem;         /* 12px */
+  color: #123524;
+  outline: none;
+  box-shadow: inset 0 1px 2px rgba(18,53,36,.04);
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+.input:hover:not(:disabled) {
+  border-color: rgba(75,112,89,.55);
+}
+.input:focus {
+  border-color: rgba(22,163,74,.9);
+  box-shadow: 0 0 0 3px rgba(22,163,74,.16), inset 0 1px 2px rgba(18,53,36,.04);
+}
+.input:disabled {
+  background: rgba(243,246,244,.9);
+  border-color: rgba(75,112,89,.2);
+}
+.input::placeholder {
+  color: #5c7466;
+  opacity: 1;
+}
+
+.label { @apply block text-xs font-semibold mb-1; color: #5c7466; }
+
+/* ─── Sidebar nav item ────────────────────────────── */
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  padding: 11px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #4a6356;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  text-decoration: none;
+}
+.sidebar-nav-item:hover {
+  background: rgba(255,255,255,.45);
+}
+.sidebar-nav-item.active {
+  background: rgba(255,255,255,.72);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.9), 0 3px 10px rgba(22,163,74,.15);
+  font-weight: 700;
+  color: #123524;
+}
+
+/* ─── Queue card left-border helpers ─────────────── */
+.queue-border-amber { border-left: 5px solid #F59E0B; }
+.queue-border-green  { border-left: 5px solid #16a34a; }
+.queue-border-gray   { border-left: 5px solid #d1d5db; }
+
+/* ─── Pulse dot for queue live indicator ─────────── */
+@keyframes moo-pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+.moo-pulse { animation: moo-pulse 1.6s infinite; }
