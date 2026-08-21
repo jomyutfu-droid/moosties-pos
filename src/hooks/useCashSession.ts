@@ -129,6 +129,7 @@ export function useAddCashMovement() {
         p_type: params.type,
         p_amount: params.amount,
         p_note: params.note,
+        p_cups_sold: params.cupsSold,
       })
       if (error) throw error
       return firstRow<CashMovement>(data)
@@ -147,8 +148,9 @@ export function useCloseSession() {
       session: CashSession
       countedCash: number
       note: string | null
+      cupsSold: number
     }): Promise<CashCloseResult> => {
-      const { data, error } = await supabase.rpc('close_cash_session', {
+      const { data, error } = await supabase.rpc('close_cash_session_with_cups', {
         p_token: getPinSessionToken(),
         p_session_id: params.session.id,
         p_counted_cash: params.countedCash,
