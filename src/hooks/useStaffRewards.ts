@@ -42,13 +42,41 @@ export function useMyStaffRewards(from: string | null, to: string | null, enable
   const query = useStaffRewards(from, to, null, enabled)
   return { ...query, data: query.data?.filter((reward) => reward.user_id === activeStaffId) }
 }
+function isRetryableNetworkError(err: unknown) {
+  const message = err instanceof Error
+    ? err.message
+    : typeof err === 'object' && err !== null && 'message' in err
+    ? String((err as { message?: unknown }).message ?? '')
+    : String(err ?? '')
+  return /load failed|failed to fetch|networkerror|network request failed|connection reset/i.test(message)
+}
+
+function waitForRetry() {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, 500))
+}
+
 export function useRecordGrabReward() {
   const qc = useQueryClient()
   return useMutation({ mutationFn: async (p: { userId: string; rewardDate: string; quantity: number }) => {
-    const { data, error } = await supabase.rpc('record_grab_reward', { p_token: getPinSessionToken(), p_user_id: p.userId, p_reward_date: p.rewardDate, p_quantity: p.quantity })
-    if (error) throw error
-    return (Array.isArray(data) ? data[0] : data) as StaffReward
-  }, onSuccess: () => qc.invalidateQueries({ queryKey: ['staff-rewards'] }) })
+    const save = async () => {
+      const { data, error } = await supabase.rpc('record_grab_reward', { p_token: getPinSessionToken(), p_user_id: p.userId, p_reward_date: p.rewardDate, p_quantity: p.quantity })
+      if (error) throw error
+      return (Array.isArray(data) ? data[0] : data) as StaffReward
+    }
+
+    try {
+      return await save()
+    } catch (err) {
+      // Safari บางครั้งตัดการเชื่อมต่อระหว่างส่งคำขอ แม้ฐานข้อมูลจะยังไม่ได้รับคำขอ
+      // RPC นี้เป็นการบันทึกยอดรวมของวัน จึงลองซ้ำด้วยค่าเดิมได้โดยไม่บวกโบนัสซ้ำ
+      if (!isRetryableNetworkError(err)) throw err
+      await waitForRetry()
+      return save()
+    }
+  }, onSuccess: () => qc.invalidateQueries({ queryKey: ['staff-rewards'] }), onError: () => {
+    // รีโหลดรายการเพื่อกันกรณีคำขอสำเร็จ แต่การตอบกลับหายระหว่างทาง
+    void qc.invalidateQueries({ queryKey: ['staff-rewards'] })
+  } })
 }
 export function useSubmitClosingOt() {
   const qc = useQueryClient()
