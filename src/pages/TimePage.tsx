@@ -19,6 +19,7 @@ import type { TimeLogReport } from '@/hooks/useTimeLogs'
 import { useUsers } from '@/hooks/useUsers'
 import { explainSupabaseError } from '@/lib/errors'
 import { useSettings } from '@/hooks/useSettings'
+import { useMyStaffRewards, useSubmitClosingOt } from '@/hooks/useStaffRewards'
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
@@ -33,6 +34,10 @@ function formatDuration(clockIn: string, clockOut: string | null, businessHours?
 
 function getMonthInput(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
+function getDateInput(date = new Date()) {
+  return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0')
 }
 
 function shiftMonth(month: string, amount: number) {
@@ -83,6 +88,38 @@ type EmployeeSummary = {
 function getLocalDateKey(iso: string) {
   const date = new Date(iso)
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
+}
+
+
+function ClosingOtForm() {
+  const [rewardDate, setRewardDate] = useState(getDateInput())
+  const [orderTime, setOrderTime] = useState('18:45')
+  const [leftTime, setLeftTime] = useState('')
+  const [note, setNote] = useState('')
+  const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+  const submitOt = useSubmitClosingOt()
+  const { data: myRewards = [] } = useMyStaffRewards(rewardDate, rewardDate)
+  const existing = myRewards.find((reward) => reward.reward_type === 'closing_ot')
+  async function handleSubmit() {
+    if (!orderTime || !leftTime) { setMessage({ type: 'err', text: 'กรุณาระบุเวลาออเดอร์เข้าและเวลาออกจากร้าน' }); return }
+    const orderAt = new Date(rewardDate + 'T' + orderTime + ':00')
+    const leftAt = new Date(rewardDate + 'T' + leftTime + ':00')
+    if (Number.isNaN(orderAt.getTime()) || Number.isNaN(leftAt.getTime()) || leftAt <= orderAt) { setMessage({ type: 'err', text: 'เวลาออกจากร้านต้องมากกว่าเวลาออเดอร์เข้า และอยู่ในวันเดียวกัน' }); return }
+    setMessage(null)
+    try {
+      await submitOt.mutateAsync({ rewardDate, orderAt: orderAt.toISOString(), leftAt: leftAt.toISOString(), note: note.trim() || null })
+      setMessage({ type: 'ok', text: 'ส่งคำขอ OT ปิดร้านให้เจ้าของร้านอนุมัติแล้ว' }); setLeftTime(''); setNote('')
+    } catch (err) { setMessage({ type: 'err', text: explainSupabaseError(err, 'ส่งคำขอ OT ไม่สำเร็จ') }) }
+  }
+  return (
+    <div className="card p-5 space-y-4"><div><h2 className="font-semibold text-gray-700">ส่งคำขอ OT ปิดร้าน</h2><p className="text-xs text-gray-500 mt-1">กรอกเมื่อมีออเดอร์เข้าช่วงใกล้ปิดร้าน ระบบส่งให้เจ้าของอนุมัติเป็นเงิน 50 บาท</p></div>
+      <div className="flex flex-wrap gap-2 items-end"><div><label className="label">วันที่</label><input type="date" className="input" value={rewardDate} onChange={(e) => setRewardDate(e.target.value)} /></div><div><label className="label">เวลาออเดอร์เข้า</label><input type="time" className="input" value={orderTime} onChange={(e) => setOrderTime(e.target.value)} /></div><div><label className="label">เวลาออกจากร้านจริง</label><input type="time" className="input" value={leftTime} onChange={(e) => setLeftTime(e.target.value)} /></div></div>
+      <div><label className="label">หมายเหตุ (ถ้ามี)</label><input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="เช่น ออเดอร์ Grab เข้ามา 18:45 น." /></div>
+      {existing && <p className="text-xs rounded-lg bg-gray-50 text-gray-600 px-3 py-2">วันนี้มีคำขอแล้ว: {existing.status === 'pending' ? 'รอเจ้าของอนุมัติ' : existing.status === 'approved' ? 'อนุมัติแล้ว รอจ่ายวันอาทิตย์' : existing.status === 'paid' ? 'จ่ายแล้ว' : 'ไม่อนุมัติ'}</p>}
+      {message && <p className={'text-sm px-3 py-2 rounded-lg ' + (message.type === 'ok' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700')}>{message.text}</p>}
+      <button className="btn-primary w-full sm:w-auto" disabled={submitOt.isPending || Boolean(existing && existing.status !== 'rejected')} onClick={handleSubmit}>{submitOt.isPending ? 'กำลังส่ง…' : 'ส่งขอ OT 50 บาท'}</button>
+    </div>
+  )
 }
 
 export default function TimePage() {
@@ -287,6 +324,8 @@ export default function TimePage() {
           </button>
         </div>
       </div>
+
+      {activeStaff?.role !== 'owner' && <ClosingOtForm />}
 
       {/* รายการวันนี้ */}
       <div className="card overflow-hidden">

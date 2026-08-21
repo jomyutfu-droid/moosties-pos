@@ -18,6 +18,8 @@ import { parseUnsignedNumber } from '@/lib/forms'
 import { NumberField } from '@/components/NumberField'
 import { getBillableMinutes, useTimeLogsByRange, usePendingOvertimeRequests, useReviewOvertime, useApprovedOvertimeByRange } from '@/hooks/useTimeLogs'
 import { useSettings } from '@/hooks/useSettings'
+import { useUsers } from '@/hooks/useUsers'
+import { useMarkStaffRewardsPaid, usePendingStaffRewards, useRecordGrabReward, useReviewStaffReward, useStaffRewards } from '@/hooks/useStaffRewards'
 
 /** วันที่ "วันนี้" ตามเวลาเครื่อง — toISOString() ให้วันที่ UTC ซึ่งก่อน 07:00 น. ไทยจะเป็นเมื่อวาน */
 function todayStr() {
@@ -99,6 +101,8 @@ function ManagementReportsPage() {
       <OvertimeApprovalPanel />
 
       <CashSessionPanel />
+
+      <StaffRewardsPanel />
 
       <section className="card p-4">
         <h2 className="font-semibold mb-3">ยอดขายตามช่วงวันที่</h2>
@@ -344,6 +348,21 @@ function Stat({ label, value, highlight }: { label: string; value: string; highl
   )
 }
 
+function getWeeklyRange(date = new Date()) {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const day = start.getDay()
+  start.setDate(start.getDate() + (day === 0 ? -6 : 1 - day))
+  const end = new Date(start)
+  end.setDate(end.getDate() + 6)
+  return { from: formatLocalDate(start), to: formatLocalDate(end) }
+}
+
+function formatLocalDate(date: Date) {
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return date.getFullYear() + '-' + month + '-' + day
+}
+
 function CashSessionPanel() {
   const { data: session, isLoading, error: sessionError } = useOpenCashSession()
   const { data: history = [] } = useCashSessionSummaries(50)
@@ -355,6 +374,7 @@ function CashSessionPanel() {
 
   const [openingCash, setOpeningCash] = useState(0)
   const [countedCash, setCountedCash] = useState(0)
+  const [cupsSold, setCupsSold] = useState(0)
   const [closeNote, setCloseNote] = useState('')
   const [movementType, setMovementType] = useState<CashMovementType>('cash_out')
   const [movementAmount, setMovementAmount] = useState(0)
@@ -410,10 +430,11 @@ function CashSessionPanel() {
     if (!session) return
     setError(null)
     try {
-      const closed = await closeSession.mutateAsync({ session, countedCash, note: closeNote.trim() || null })
+      const closed = await closeSession.mutateAsync({ session, countedCash, cupsSold, note: closeNote.trim() || null })
       setResult({ ...closed, counted: countedCash })
       setConfirming(false)
       setCountedCash(0)
+      setCupsSold(0)
       setCloseNote('')
     } catch (err) {
       setError(explainSupabaseError(err, 'ปิดกะไม่สำเร็จ'))
@@ -546,6 +567,7 @@ function CashSessionPanel() {
         <h3 className="font-semibold mb-2">รวมเงินตอนปิดกะ</h3>
         <div className="flex flex-wrap gap-2 items-end">
           <div className="flex-1 min-w-[140px]"><label className="label">นับเงินสดได้จริง (บาท)</label><NumberField className="input" value={countedCash} parse={parseUnsignedNumber} onChange={(n) => { setCountedCash(n); setConfirming(false) }} /></div>
+          <div className="flex-1 min-w-[140px]"><label className="label">จำนวนแก้วที่ขายวันนี้</label><NumberField className="input" value={cupsSold} parse={parseUnsignedNumber} onChange={(n) => { setCupsSold(n); setConfirming(false) }} /><p className="text-[11px] text-gray-500 mt-1">เกิน 25 แก้ว ระบบส่งโบนัส 50 บาทให้เจ้าของร้านอนุมัติ</p></div>
           <div className="flex-1 min-w-[140px]"><label className="label">หมายเหตุปิดกะ</label><input className="input" value={closeNote} onChange={(e) => setCloseNote(e.target.value)} /></div>
         </div>
         {countedCash > 0 && (
@@ -567,5 +589,68 @@ function CashSessionPanel() {
       </section>
       {historyCard}
     </>
+  )
+}
+
+function StaffRewardsPanel() {
+  const isOwner = useSessionStore((s) => s.activeStaff?.role === 'owner')
+  const weekly = getWeeklyRange()
+  const { data: users = [] } = useUsers(isOwner)
+  const { data: weeklyRewards = [], isLoading: weeklyLoading, error: weeklyError } = useStaffRewards(weekly.from, weekly.to, null, isOwner)
+  const { data: pendingRewards = [], isLoading: pendingLoading } = usePendingStaffRewards(isOwner)
+  const recordGrab = useRecordGrabReward()
+  const reviewReward = useReviewStaffReward()
+  const markPaid = useMarkStaffRewardsPaid()
+  const [grabDate, setGrabDate] = useState(todayStr())
+  const [grabUserId, setGrabUserId] = useState('')
+  const [grabQuantity, setGrabQuantity] = useState(1)
+  const [message, setMessage] = useState<string | null>(null)
+  if (!isOwner) return null
+
+  const summaries = new Map<string, { userId: string; name: string; amount: number; pending: number }>()
+  for (const reward of weeklyRewards) {
+    if (reward.status !== 'approved' && reward.status !== 'paid') continue
+    const current = summaries.get(reward.user_id) ?? { userId: reward.user_id, name: reward.user_name, amount: 0, pending: 0 }
+    current.amount += reward.amount
+    if (reward.status === 'approved') current.pending += reward.amount
+    summaries.set(reward.user_id, current)
+  }
+
+  async function handleRecordGrab() {
+    if (!grabUserId || grabQuantity < 1) { setMessage('กรุณาเลือกพนักงานและใส่จำนวนคอมเมนต์ที่ถูกต้อง'); return }
+    setMessage(null)
+    try {
+      await recordGrab.mutateAsync({ userId: grabUserId, rewardDate: grabDate, quantity: Math.floor(grabQuantity) })
+      setMessage('บันทึกโบนัสคอมเมนต์ Grab แล้ว')
+      setGrabQuantity(1)
+    } catch (err) { setMessage(explainSupabaseError(err, 'บันทึกโบนัส Grab ไม่สำเร็จ')) }
+  }
+  async function handleReview(id: string, status: 'approved' | 'rejected') {
+    setMessage(null)
+    try { await reviewReward.mutateAsync({ id, status }) }
+    catch (err) { setMessage(explainSupabaseError(err, 'อนุมัติโบนัส/โอทีไม่สำเร็จ')) }
+  }
+  async function handleMarkPaid(userId?: string) {
+    setMessage(null)
+    try {
+      const result = await markPaid.mutateAsync({ from: weekly.from, to: weekly.to, userId: userId ?? null })
+      setMessage('บันทึกจ่ายแล้ว ' + result.updatedCount + ' รายการ รวม ' + formatBahtSymbol(result.totalAmount))
+    } catch (err) { setMessage(explainSupabaseError(err, 'บันทึกการจ่ายโบนัส/โอทีไม่สำเร็จ')) }
+  }
+  function rewardLabel(reward: { reward_type: string; quantity: number; details_json: Record<string, unknown> }) {
+    if (reward.reward_type === 'grab_review') return 'Grab คอมเมนต์ชื่นชม ' + String(reward.details_json.comment_count ?? reward.quantity) + ' ครั้ง'
+    if (reward.reward_type === 'sales_volume') return 'โบนัสยอดขาย ' + String(reward.details_json.cups_sold ?? reward.quantity) + ' แก้ว'
+    const orderAt = reward.details_json.order_at ? new Date(String(reward.details_json.order_at)).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-'
+    const leftAt = reward.details_json.left_at ? new Date(String(reward.details_json.left_at)).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-'
+    return 'OT ปิดร้าน ' + orderAt + '–' + leftAt
+  }
+  return (
+    <section className="card p-4 space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold">โบนัสและ OT เหมาจ่าย 50 บาท (เจ้าของร้าน)</h2><p className="text-xs text-gray-500 mt-1">สัปดาห์นี้ {weekly.from} ถึง {weekly.to} · จ่ายรวมวันอาทิตย์</p></div><span className="text-xs rounded-full bg-purple-100 text-purple-800 px-2 py-1">Owner เท่านั้น</span></div>
+      <div className="rounded-xl border border-purple-100 bg-purple-50/50 p-3 space-y-3"><div><h3 className="font-semibold text-sm">บันทึกคอมเมนต์ชื่นชม GrabFood</h3><p className="text-xs text-gray-500 mt-1">เจ้าของร้านเป็นผู้บันทึกโดยตรง คิดครั้งละ 50 บาท</p></div><div className="flex flex-wrap gap-2 items-end"><div className="min-w-[150px] flex-1"><label className="label">พนักงาน</label><select className="input" value={grabUserId} onChange={(e) => setGrabUserId(e.target.value)}><option value="">เลือกพนักงาน</option>{users.filter((user) => user.role !== 'owner' && user.is_active).map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}</select></div><div><label className="label">วันที่</label><input type="date" className="input" value={grabDate} onChange={(e) => setGrabDate(e.target.value)} /></div><div className="w-32"><label className="label">จำนวนครั้ง</label><NumberField className="input" value={grabQuantity} parse={parseUnsignedNumber} onChange={setGrabQuantity} /></div><button className="btn-primary" disabled={recordGrab.isPending} onClick={handleRecordGrab}>{recordGrab.isPending ? 'กำลังบันทึก…' : 'บันทึก Grab'}</button></div></div>
+      <div><div className="flex items-center justify-between gap-2 mb-2"><div><h3 className="font-semibold text-sm">รายการรออนุมัติ</h3><p className="text-xs text-gray-500">โบนัสยอดขายและ OT ปิดร้านที่พนักงานส่งมา</p></div>{pendingRewards.length > 0 && <span className="text-xs rounded-full bg-red-100 text-red-700 px-2 py-1">{pendingRewards.length} รายการ</span>}</div>{pendingLoading && <p className="text-sm text-gray-400">กำลังโหลด…</p>}{!pendingLoading && pendingRewards.length === 0 && <p className="text-sm text-gray-400">ไม่มีรายการรออนุมัติ</p>}<div className="space-y-2">{pendingRewards.map((reward) => <div key={reward.id} className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 text-sm"><div className="flex flex-wrap items-center justify-between gap-2"><span className="font-semibold">{reward.user_name} · {reward.reward_date}</span><span className="text-amber-800">{formatBahtSymbol(reward.amount)}</span></div><p className="text-xs text-gray-600 mt-1">{rewardLabel(reward)}</p><div className="flex gap-2 mt-2"><button className="btn-primary text-xs" disabled={reviewReward.isPending} onClick={() => handleReview(reward.id, 'approved')}>อนุมัติ</button><button className="btn-secondary text-xs text-red-700 border-red-200" disabled={reviewReward.isPending} onClick={() => handleReview(reward.id, 'rejected')}>ไม่อนุมัติ</button></div></div>)}</div></div>
+      <div><div className="flex flex-wrap items-center justify-between gap-2 mb-2"><div><h3 className="font-semibold text-sm">สรุปจ่ายรายสัปดาห์</h3><p className="text-xs text-gray-500">รวมเฉพาะรายการที่อนุมัติแล้วหรือบันทึกจ่ายแล้ว</p></div><button className="btn-secondary text-xs" disabled={markPaid.isPending} onClick={() => handleMarkPaid()}>บันทึกจ่ายทั้งหมด</button></div>{weeklyLoading && <p className="text-sm text-gray-400">กำลังโหลด…</p>}{weeklyError && <p className="text-sm text-red-600">{explainSupabaseError(weeklyError, 'โหลดสรุปโบนัสไม่สำเร็จ')}</p>}{!weeklyLoading && summaries.size === 0 && <p className="text-sm text-gray-400">สัปดาห์นี้ยังไม่มีโบนัสหรือ OT</p>}<div className="space-y-2">{Array.from(summaries.values()).sort((a, b) => a.name.localeCompare(b.name, 'th')).map((summary) => <div key={summary.userId} className="rounded-lg border border-gray-200 p-3 text-sm"><div className="flex flex-wrap items-center justify-between gap-2"><span className="font-medium">{summary.name}</span><span className="font-bold text-brand-700">{formatBahtSymbol(summary.amount)}</span></div><div className="flex flex-wrap justify-between gap-2 mt-1 text-xs text-gray-500"><span>{summary.pending > 0 ? 'รอจ่าย ' + formatBahtSymbol(summary.pending) : 'จ่ายแล้ว'}</span><button className="btn-secondary text-xs py-1" disabled={summary.pending <= 0 || markPaid.isPending} onClick={() => handleMarkPaid(summary.userId)}>บันทึกจ่ายคนนี้</button></div></div>)}</div></div>
+      {message && <p className="text-sm rounded-lg bg-blue-50 text-blue-700 px-3 py-2">{message}</p>}
+    </section>
   )
 }

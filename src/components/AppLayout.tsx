@@ -5,6 +5,7 @@ import { db } from '@/lib/db'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useSessionStore } from '@/store/session'
 import { useAutoCloseExpiredTimeLogs, usePendingOvertimeRequests } from '@/hooks/useTimeLogs'
+import { usePendingStaffRewards } from '@/hooks/useStaffRewards'
 
 type NavRole = 'owner' | 'manager' | 'staff'
 
@@ -24,6 +25,7 @@ export function AppLayout() {
   const { data: pendingOt = [] } = usePendingOvertimeRequests()
   const online = useOnlineStatus()
   const activeStaff = useSessionStore((s) => s.activeStaff)
+  const { data: pendingRewards = [] } = usePendingStaffRewards(activeStaff?.role === 'owner')
   const clearActiveStaff = useSessionStore((s) => s.clearActiveStaff)
   const logout = useSessionStore((s) => s.logout)
   const queryClient = useQueryClient()
