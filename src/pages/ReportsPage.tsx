@@ -669,6 +669,14 @@ function StaffRewardsPanel() {
     bonusTotal: number
     total: number
     pendingBonus: number
+    dailyDetails: Map<string, {
+      date: string
+      dailyWage: number
+      grab: number
+      salesVolume: number
+      closingOt: number
+      total: number
+    }>
   }
 
   const summaries = new Map<string, PayrollSummary>()
@@ -686,17 +694,33 @@ function StaffRewardsPanel() {
       bonusTotal: 0,
       total: 0,
       pendingBonus: 0,
+      dailyDetails: new Map(),
     }
     if (!current.name || current.name === current.userId) current.name = name
     summaries.set(userId, current)
     return current
   }
 
+  function getDailyDetail(current: PayrollSummary, date: string) {
+    const detail = current.dailyDetails.get(date) ?? {
+      date,
+      dailyWage: 0,
+      grab: 0,
+      salesVolume: 0,
+      closingOt: 0,
+      total: 0,
+    }
+    current.dailyDetails.set(date, detail)
+    return detail
+  }
+
   for (const log of weeklyLogs) {
     const user = users.find((item) => item.id === log.user_id)
     if (log.user_id === ownerId || user?.role === 'owner') continue
     const current = getSummary(log.user_id, log.user_name)
-    current.workDates.add(localDateKey(log.clock_in))
+    const date = localDateKey(log.clock_in)
+    current.workDates.add(date)
+    getDailyDetail(current, date).dailyWage = DAILY_WAGE
   }
 
   for (const reward of weeklyRewards) {
@@ -704,9 +728,10 @@ function StaffRewardsPanel() {
     const user = users.find((item) => item.id === reward.user_id)
     if (reward.user_id === ownerId || user?.role === 'owner') continue
     const current = getSummary(reward.user_id, reward.user_name)
-    if (reward.reward_type === 'grab_review') current.grab += reward.amount
-    if (reward.reward_type === 'sales_volume') current.salesVolume += reward.amount
-    if (reward.reward_type === 'closing_ot') current.closingOt += reward.amount
+    const detail = getDailyDetail(current, reward.reward_date)
+    if (reward.reward_type === 'grab_review') { current.grab += reward.amount; detail.grab += reward.amount }
+    if (reward.reward_type === 'sales_volume') { current.salesVolume += reward.amount; detail.salesVolume += reward.amount }
+    if (reward.reward_type === 'closing_ot') { current.closingOt += reward.amount; detail.closingOt += reward.amount }
     if (reward.status === 'approved') current.pendingBonus += reward.amount
   }
 
@@ -715,6 +740,9 @@ function StaffRewardsPanel() {
     current.dailyWage = current.workDays * DAILY_WAGE
     current.bonusTotal = current.grab + current.salesVolume + current.closingOt
     current.total = current.dailyWage + current.bonusTotal
+    for (const detail of current.dailyDetails.values()) {
+      detail.total = detail.dailyWage + detail.grab + detail.salesVolume + detail.closingOt
+    }
   }
 
   const summaryRows = Array.from(summaries.values()).sort((a, b) => a.name.localeCompare(b.name, 'th'))
@@ -827,6 +855,23 @@ function StaffRewardsPanel() {
                   <span>โบนัสยอดขาย 25 แก้วขึ้นไป: {formatBahtSymbol(summary.salesVolume)}</span>
                   <span>OT ปิดร้าน: {formatBahtSymbol(summary.closingOt)}</span>
                 </div>
+                <div className="mt-3 border-t border-gray-100 pt-2 space-y-2">
+                  <p className="text-xs font-semibold text-gray-700">รายละเอียดรายวัน</p>
+                  {Array.from(summary.dailyDetails.values()).sort((a, b) => a.date.localeCompare(b.date)).map((day) => (
+                    <div key={day.date} className="rounded-lg bg-gray-50 p-2 text-xs">
+                      <div className="flex items-center justify-between gap-2 font-semibold">
+                        <span>{formatThaiDate(day.date)}</span>
+                        <span className="text-brand-700">รวม {formatBahtSymbol(day.total)}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-1 text-gray-600">
+                        <span>ค่าแรง: {formatBahtSymbol(day.dailyWage)}</span>
+                        <span>โบนัสยอดขาย: {formatBahtSymbol(day.salesVolume)}</span>
+                        <span>โบนัส Grab: {formatBahtSymbol(day.grab)}</span>
+                        <span>OT ปิดร้าน: {formatBahtSymbol(day.closingOt)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
                 <div className="flex items-center justify-between mt-2 text-xs">
                   <span>{summary.pendingBonus > 0 ? 'โบนัส/OT รอจ่าย' : 'พร้อมจ่าย'}</span>
                   {summary.pendingBonus > 0 && <button className="btn-secondary text-xs py-1" disabled={markPaid.isPending} onClick={() => handleMarkPaid(summary.userId)}>บันทึกจ่าย</button>}
@@ -873,6 +918,25 @@ function StaffRewardsPanel() {
                 </tr>
               </tfoot>
             </table>
+          </div>
+          <div className="mt-3 space-y-2">
+            <h4 className="text-sm font-semibold">รายละเอียดรายวัน</h4>
+            {summaryRows.map((summary) => (
+              <div key={summary.userId} className="rounded-lg border border-gray-200 bg-white/60 p-3 text-sm">
+                <div className="font-semibold mb-2">{summary.name}</div>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                  {Array.from(summary.dailyDetails.values()).sort((a, b) => a.date.localeCompare(b.date)).map((day) => (
+                    <div key={day.date} className="rounded-lg bg-gray-50 p-2">
+                      <div className="flex justify-between gap-2 font-semibold"><span>{formatThaiDate(day.date)}</span><span className="text-brand-700">{formatBahtSymbol(day.total)}</span></div>
+                      <div className="text-xs text-gray-600 mt-1 space-y-0.5">
+                        <div>ค่าแรง {formatBahtSymbol(day.dailyWage)} · โบนัสยอดขาย {formatBahtSymbol(day.salesVolume)}</div>
+                        <div>Grab {formatBahtSymbol(day.grab)} · OT {formatBahtSymbol(day.closingOt)}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
           </>
         )}
