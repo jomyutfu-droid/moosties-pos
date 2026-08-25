@@ -919,25 +919,6 @@ function StaffRewardsPanel() {
               </tfoot>
             </table>
           </div>
-          <div className="mt-3 space-y-2">
-            <h4 className="text-sm font-semibold">รายละเอียดรายวัน</h4>
-            {summaryRows.map((summary) => (
-              <div key={summary.userId} className="rounded-lg border border-gray-200 bg-white/60 p-3 text-sm">
-                <div className="font-semibold mb-2">{summary.name}</div>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                  {Array.from(summary.dailyDetails.values()).sort((a, b) => a.date.localeCompare(b.date)).map((day) => (
-                    <div key={day.date} className="rounded-lg bg-gray-50 p-2">
-                      <div className="flex justify-between gap-2 font-semibold"><span>{formatThaiDate(day.date)}</span><span className="text-brand-700">{formatBahtSymbol(day.total)}</span></div>
-                      <div className="text-xs text-gray-600 mt-1 space-y-0.5">
-                        <div>ค่าแรง {formatBahtSymbol(day.dailyWage)} · โบนัสยอดขาย {formatBahtSymbol(day.salesVolume)}</div>
-                        <div>Grab {formatBahtSymbol(day.grab)} · OT {formatBahtSymbol(day.closingOt)}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
           </>
         )}
       </div>
