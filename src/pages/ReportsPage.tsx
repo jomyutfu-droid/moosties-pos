@@ -612,7 +612,7 @@ function CashSessionPanel() {
         <h3 className="font-semibold mb-2">รวมเงินตอนปิดกะ</h3>
         <div className="flex flex-wrap gap-2 items-end">
           <div className="flex-1 min-w-[140px]"><label className="label">นับเงินสดได้จริง (บาท)</label><NumberField className="input" value={countedCash} parse={parseUnsignedNumber} onChange={(n) => { setCountedCash(n); setConfirming(false) }} /></div>
-          <div className="flex-1 min-w-[140px]"><label className="label">จำนวนแก้วที่ขายวันนี้</label><NumberField className="input" value={cupsSold} parse={parseUnsignedNumber} onChange={(n) => { setCupsSold(n); setConfirming(false) }} /><p className="text-[11px] text-gray-500 mt-1">ถ้าเกิน 25 แก้ว ให้กด “ยืนยันปิดกะ” ระบบจึงจะส่งโบนัส 50 บาทให้เจ้าของร้านอนุมัติ</p></div>
+          <div className="flex-1 min-w-[140px]"><label className="label">จำนวนแก้วที่ขายวันนี้</label><NumberField className="input" value={cupsSold} parse={parseUnsignedNumber} onChange={(n) => { setCupsSold(n); setConfirming(false) }} /><p className="text-[11px] text-gray-500 mt-1">ถ้าได้ 25 แก้วขึ้นไป ให้กด “ยืนยันปิดกะ” ระบบจึงจะส่งโบนัส 50 บาทให้เจ้าของร้านอนุมัติ</p></div>
           <div className="flex-1 min-w-[140px]"><label className="label">หมายเหตุปิดกะ</label><input className="input" value={closeNote} onChange={(e) => setCloseNote(e.target.value)} /></div>
         </div>
         {countedCash > 0 && (
@@ -824,7 +824,7 @@ function StaffRewardsPanel() {
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600 mt-2">
                   <span>ค่าแรง: {summary.workDays} วัน × 350 = {formatBahtSymbol(summary.dailyWage)}</span>
                   <span>Grab: {formatBahtSymbol(summary.grab)}</span>
-                  <span>โบนัสเกิน 25 แก้ว: {formatBahtSymbol(summary.salesVolume)}</span>
+                  <span>โบนัสยอดขาย 25 แก้วขึ้นไป: {formatBahtSymbol(summary.salesVolume)}</span>
                   <span>OT ปิดร้าน: {formatBahtSymbol(summary.closingOt)}</span>
                 </div>
                 <div className="flex items-center justify-between mt-2 text-xs">
@@ -842,7 +842,7 @@ function StaffRewardsPanel() {
                   <th className="p-3 font-semibold">พนักงาน</th>
                   <th className="p-3 font-semibold text-right">ค่าแรงรายวัน</th>
                   <th className="p-3 font-semibold text-right">Grab</th>
-                  <th className="p-3 font-semibold text-right">โบนัสเกิน 25 แก้ว</th>
+                  <th className="p-3 font-semibold text-right">โบนัสยอดขาย 25 แก้วขึ้นไป</th>
                   <th className="p-3 font-semibold text-right">OT ปิดร้าน</th>
                   <th className="p-3 font-semibold text-right">รวมต้องจ่าย</th>
                   <th className="p-3 font-semibold">สถานะ</th>
