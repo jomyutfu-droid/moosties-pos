@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useTodaySummary, useSalesByDateRange } from '@/hooks/useReports'
+import { useTodaySummary, useSalesByDateRange, useDailySalesByDateRange } from '@/hooks/useReports'
 import { useBillHistory, useVoidBill, type BillHistory } from '@/hooks/useBillManagement'
 import {
   useAddCashMovement,
@@ -123,8 +123,103 @@ function ManagementReportsPage() {
         )}
       </section>
 
+      <DailySalesReport from={from} to={to} />
+
       <BillHistoryPanel />
     </div>
+  )
+}
+
+function formatThaiDate(date: string) {
+  return new Date(`${date}T00:00:00`).toLocaleDateString('th-TH', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  })
+}
+
+function DailySalesReport({ from, to }: { from: string; to: string }) {
+  const { data: days = [], isLoading, isError } = useDailySalesByDateRange(from, to)
+  const totalSales = days.reduce((sum, day) => sum + day.total, 0)
+  const totalCash = days.reduce((sum, day) => sum + day.paymentBreakdown.cash, 0)
+  const totalPromptPay = days.reduce((sum, day) => sum + day.paymentBreakdown.promptpay, 0)
+  const totalGrab = days.reduce((sum, day) => sum + day.grabTotal, 0)
+  const totalOther = days.reduce((sum, day) => sum + day.paymentBreakdown.stored_value + day.paymentBreakdown.card + day.paymentBreakdown.other, 0)
+
+  return (
+    <section className="card p-4">
+      <div className="mb-3">
+        <h2 className="font-semibold">ยอดขายรายวันและรายละเอียดการรับเงิน</h2>
+        <p className="text-xs text-gray-500 mt-1">แสดงเฉพาะบิลที่ชำระแล้ว · Grab คือช่องทางที่บันทึกใน POS ไม่ใช่การดึงออเดอร์จาก Grab อัตโนมัติ</p>
+      </div>
+      {isLoading && <p className="text-sm text-gray-500">กำลังโหลดสรุปรายวัน…</p>}
+      {isError && <p className="text-sm text-red-600">โหลดสรุปรายวันไม่สำเร็จ กรุณาลองใหม่</p>}
+      {!isLoading && !isError && days.length === 0 && <p className="text-sm text-gray-400">ช่วงนี้ยังไม่มียอดขาย</p>}
+
+      <div className="space-y-3 md:hidden">
+        {days.map((day) => (
+          <div key={day.date} className="rounded-xl border border-gray-200 bg-white/60 p-3">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <strong>{formatThaiDate(day.date)}</strong>
+              <span className="font-bold text-brand-700">{formatBahtSymbol(day.total)}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600">
+              <span>จำนวนบิล: {day.orderCount}</span>
+              <span>ส่วนลด: {formatBahtSymbol(day.discount)}</span>
+              <span>เงินสด: {formatBahtSymbol(day.paymentBreakdown.cash)}</span>
+              <span>PromptPay: {formatBahtSymbol(day.paymentBreakdown.promptpay)}</span>
+              <span>Grab/Delivery: {formatBahtSymbol(day.grabTotal)}</span>
+              <span>อื่น ๆ: {formatBahtSymbol(day.paymentBreakdown.stored_value + day.paymentBreakdown.card + day.paymentBreakdown.other)}</span>
+            </div>
+          </div>
+        ))}
+        {days.length > 0 && (
+          <div className="rounded-xl bg-green-50 border border-green-200 p-3 text-sm font-semibold">
+            <div className="flex justify-between"><span>รวมช่วงวันที่</span><span>{formatBahtSymbol(totalSales)}</span></div>
+            <div className="grid grid-cols-2 gap-1 mt-2 text-xs font-normal text-gray-700">
+              <span>เงินสด {formatBahtSymbol(totalCash)}</span><span>PromptPay {formatBahtSymbol(totalPromptPay)}</span>
+              <span>Grab {formatBahtSymbol(totalGrab)}</span><span>อื่น ๆ {formatBahtSymbol(totalOther)}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {!isLoading && !isError && days.length > 0 && (
+        <div className="hidden md:block overflow-x-auto rounded-lg border border-gray-200">
+          <table className="w-full min-w-[900px] text-sm">
+            <thead className="bg-gray-50 text-left text-xs text-gray-500">
+              <tr>
+                <th className="p-3 font-semibold">วันที่</th>
+                <th className="p-3 font-semibold text-right">บิล</th>
+                <th className="p-3 font-semibold text-right">ยอดขาย</th>
+                <th className="p-3 font-semibold text-right">เงินสด</th>
+                <th className="p-3 font-semibold text-right">PromptPay</th>
+                <th className="p-3 font-semibold text-right">Grab/Delivery</th>
+                <th className="p-3 font-semibold text-right">อื่น ๆ</th>
+                <th className="p-3 font-semibold text-right">ส่วนลด</th>
+              </tr>
+            </thead>
+            <tbody>
+              {days.map((day) => (
+                <tr key={day.date} className="border-t border-gray-100">
+                  <td className="p-3 font-medium">{formatThaiDate(day.date)}</td>
+                  <td className="p-3 text-right">{day.orderCount}</td>
+                  <td className="p-3 text-right font-semibold">{formatBahtSymbol(day.total)}</td>
+                  <td className="p-3 text-right">{formatBahtSymbol(day.paymentBreakdown.cash)}</td>
+                  <td className="p-3 text-right">{formatBahtSymbol(day.paymentBreakdown.promptpay)}</td>
+                  <td className="p-3 text-right">{formatBahtSymbol(day.grabTotal)}</td>
+                  <td className="p-3 text-right">{formatBahtSymbol(day.paymentBreakdown.stored_value + day.paymentBreakdown.card + day.paymentBreakdown.other)}</td>
+                  <td className="p-3 text-right">{formatBahtSymbol(day.discount)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-green-50 font-semibold">
+              <tr className="border-t border-green-200">
+                <td className="p-3">รวมทั้งหมด</td><td className="p-3 text-right">{days.reduce((sum, day) => sum + day.orderCount, 0)}</td><td className="p-3 text-right text-brand-700">{formatBahtSymbol(totalSales)}</td><td className="p-3 text-right">{formatBahtSymbol(totalCash)}</td><td className="p-3 text-right">{formatBahtSymbol(totalPromptPay)}</td><td className="p-3 text-right">{formatBahtSymbol(totalGrab)}</td><td className="p-3 text-right">{formatBahtSymbol(totalOther)}</td><td className="p-3 text-right">{formatBahtSymbol(days.reduce((sum, day) => sum + day.discount, 0))}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -548,7 +643,7 @@ function StaffRewardsPanel() {
   const isOwner = useSessionStore((s) => s.activeStaff?.role === 'owner')
   const ownerId = useSessionStore((s) => s.activeStaff?.id)
   const weekly = getWeeklyRange()
-  const { data: users = [] } = useUsers(isOwner)
+  const { data: users = [], isLoading: usersLoading, error: usersError } = useUsers(isOwner)
   const { data: weeklyLogs = [], isLoading: workDaysLoading, error: workDaysError } = useTimeLogsByRange(weekly.from, weekly.to, isOwner)
   const { data: weeklyRewards = [], isLoading: weeklyLoading, error: weeklyError } = useStaffRewards(weekly.from, weekly.to, null, isOwner)
   const { data: pendingRewards = [], isLoading: pendingLoading } = usePendingStaffRewards(isOwner)
@@ -674,11 +769,12 @@ function StaffRewardsPanel() {
 
       <div className="rounded-xl border border-purple-100 bg-purple-50/50 p-3 space-y-3">
         <div>
-          <h3 className="font-semibold text-sm">บันทึกคอมเมนต์ชื่นชม GrabFood</h3>
-          <p className="text-xs text-gray-500 mt-1">เจ้าของร้านเป็นผู้บันทึกโดยตรง คิดครั้งละ 50 บาท</p>
+          <h3 className="font-semibold text-sm">โบนัสคอมเมนต์ชื่นชม GrabFood (บันทึกด้วยมือ)</h3>
+          <p className="text-xs text-gray-500 mt-1">ระบบไม่ได้ดึงข้อมูล Grab อัตโนมัติ เจ้าของร้านบันทึกจากคอมเมนต์ที่ตรวจแล้ว คิดครั้งละ 50 บาท</p>
         </div>
+        {usersError && <p className="text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2">โหลดรายชื่อพนักงานไม่สำเร็จ กรุณาออกแล้วเข้า PIN ใหม่</p>}
         <div className="flex flex-wrap gap-2 items-end">
-          <div className="min-w-[150px] flex-1"><label className="label">พนักงาน</label><select className="input" value={grabUserId} onChange={(e) => setGrabUserId(e.target.value)}><option value="">เลือกพนักงาน</option>{users.filter((user) => user.role !== 'owner' && user.is_active).map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}</select></div>
+          <div className="min-w-[150px] flex-1"><label className="label">พนักงาน</label><select className="input" disabled={usersLoading || Boolean(usersError)} value={grabUserId} onChange={(e) => setGrabUserId(e.target.value)}><option value="">{usersLoading ? 'กำลังโหลดรายชื่อ…' : 'เลือกพนักงาน'}</option>{users.filter((user) => user.role !== 'owner' && user.is_active).map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}</select></div>
           <div><label className="label">วันที่</label><input type="date" className="input" value={grabDate} onChange={(e) => setGrabDate(e.target.value)} /></div>
           <div className="w-32"><label className="label">จำนวนครั้ง</label><NumberField className="input" value={grabQuantity} parse={parseUnsignedNumber} onChange={setGrabQuantity} /></div>
           <button className="btn-primary" disabled={recordGrab.isPending} onClick={handleRecordGrab}>{recordGrab.isPending ? 'กำลังบันทึก…' : 'บันทึก Grab'}</button>
@@ -716,7 +812,30 @@ function StaffRewardsPanel() {
         {weeklyError && <p className="text-sm text-red-600">{explainSupabaseError(weeklyError, 'โหลดสรุปโบนัสไม่สำเร็จ')}</p>}
         {!workDaysLoading && !weeklyLoading && summaryRows.length === 0 && <p className="text-sm text-gray-400">สัปดาห์นี้ยังไม่มีวันทำงาน โบนัส หรือ OT</p>}
         {summaryRows.length > 0 && (
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
+          <>
+          <div className="space-y-3 md:hidden">
+            {summaryRows.map((summary) => (
+              <div key={summary.userId} className="rounded-xl border border-gray-200 bg-white/60 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <strong>{summary.name}</strong>
+                  <span className="font-bold text-brand-700">{formatBahtSymbol(summary.total)}</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">วันที่ทำงาน: {Array.from(summary.workDates).sort().map(formatThaiDate).join(', ') || 'ไม่มีบันทึกเข้างาน'}</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600 mt-2">
+                  <span>ค่าแรง: {summary.workDays} วัน × 350 = {formatBahtSymbol(summary.dailyWage)}</span>
+                  <span>Grab: {formatBahtSymbol(summary.grab)}</span>
+                  <span>โบนัสเกิน 25 แก้ว: {formatBahtSymbol(summary.salesVolume)}</span>
+                  <span>OT ปิดร้าน: {formatBahtSymbol(summary.closingOt)}</span>
+                </div>
+                <div className="flex items-center justify-between mt-2 text-xs">
+                  <span>{summary.pendingBonus > 0 ? 'โบนัส/OT รอจ่าย' : 'พร้อมจ่าย'}</span>
+                  {summary.pendingBonus > 0 && <button className="btn-secondary text-xs py-1" disabled={markPaid.isPending} onClick={() => handleMarkPaid(summary.userId)}>บันทึกจ่าย</button>}
+                </div>
+              </div>
+            ))}
+            <div className="rounded-xl bg-green-50 border border-green-200 p-3 text-sm font-semibold flex justify-between"><span>รวมทั้งหมด</span><span>{formatBahtSymbol(grandTotal)}</span></div>
+          </div>
+          <div className="hidden md:block overflow-x-auto rounded-lg border border-gray-200">
             <table className="w-full min-w-[920px] text-sm">
               <thead className="bg-gray-50 text-left text-xs text-gray-500">
                 <tr>
@@ -733,7 +852,7 @@ function StaffRewardsPanel() {
                 {summaryRows.map((summary) => (
                   <tr key={summary.userId} className="border-t border-gray-100">
                     <td className="p-3 font-medium">{summary.name}</td>
-                    <td className="p-3 text-right"><div>{summary.workDays} วัน × {DAILY_WAGE}</div><div className="font-semibold">{formatBahtSymbol(summary.dailyWage)}</div></td>
+                    <td className="p-3 text-right"><div>{summary.workDays} วัน × {DAILY_WAGE}</div><div className="text-xs text-gray-500">{Array.from(summary.workDates).sort().map(formatThaiDate).join(', ') || '-'}</div><div className="font-semibold">{formatBahtSymbol(summary.dailyWage)}</div></td>
                     <td className="p-3 text-right">{formatBahtSymbol(summary.grab)}</td>
                     <td className="p-3 text-right">{formatBahtSymbol(summary.salesVolume)}</td>
                     <td className="p-3 text-right">{formatBahtSymbol(summary.closingOt)}</td>
@@ -755,6 +874,7 @@ function StaffRewardsPanel() {
               </tfoot>
             </table>
           </div>
+          </>
         )}
       </div>
 
