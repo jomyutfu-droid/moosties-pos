@@ -228,6 +228,11 @@ function BillHistoryPanel() {
   const { data: bills = [], isLoading, isError } = useBillHistory(50)
   const voidBill = useVoidBill()
   const [error, setError] = useState<string | null>(null)
+  const [billPage, setBillPage] = useState(1)
+  const billsPerPage = 5
+  const totalBillPages = Math.max(1, Math.ceil(bills.length / billsPerPage))
+  const currentBillPage = Math.min(billPage, totalBillPages)
+  const visibleBills = bills.slice((currentBillPage - 1) * billsPerPage, currentBillPage * billsPerPage)
 
   if (role !== 'owner') return null
 
@@ -268,7 +273,7 @@ function BillHistoryPanel() {
       {isError && <p className="text-sm text-red-600">โหลดประวัติบิลไม่สำเร็จ กรุณาลองใหม่</p>}
       {!isLoading && !isError && bills.length === 0 && <p className="text-sm text-gray-400">ยังไม่มีบิล</p>}
       <div className="space-y-2">
-        {bills.map((bill) => (
+        {visibleBills.map((bill) => (
           <div
             key={bill.id}
             className={'rounded-lg border p-3 text-sm ' + (bill.status === 'void' ? 'border-gray-200 bg-gray-50 opacity-75' : 'border-amber-200 bg-amber-50/40')}
@@ -294,6 +299,25 @@ function BillHistoryPanel() {
           </div>
         ))}
       </div>
+      {!isLoading && !isError && bills.length > billsPerPage && (
+        <div className="flex items-center justify-between gap-2 mt-3 text-sm">
+          <button
+            className="btn-secondary text-xs"
+            disabled={currentBillPage === 1}
+            onClick={() => setBillPage((page) => Math.max(1, page - 1))}
+          >
+            ก่อนหน้า
+          </button>
+          <span className="text-xs text-gray-500">หน้า {currentBillPage} / {totalBillPages}</span>
+          <button
+            className="btn-secondary text-xs"
+            disabled={currentBillPage === totalBillPages}
+            onClick={() => setBillPage((page) => Math.min(totalBillPages, page + 1))}
+          >
+            ถัดไป
+          </button>
+        </div>
+      )}
     </section>
   )
 }
