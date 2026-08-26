@@ -943,6 +943,33 @@ function StaffRewardsPanel() {
               </tfoot>
             </table>
           </div>
+          <div className="hidden md:block mt-3 space-y-2">
+            <h4 className="text-sm font-semibold">รายละเอียดรายวัน</h4>
+            {summaryRows.map((summary) => (
+              <div key={summary.userId} className="rounded-lg border border-gray-200 bg-white/60 p-3 text-sm">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="font-semibold">{summary.name}</span>
+                  <span className="font-bold text-brand-700">รวม {formatBahtSymbol(summary.total)}</span>
+                </div>
+                <div className="grid grid-cols-2 xl:grid-cols-4 gap-2">
+                  {Array.from(summary.dailyDetails.values()).sort((a, b) => a.date.localeCompare(b.date)).map((day) => (
+                    <div key={day.date} className="rounded-lg bg-gray-50 p-2">
+                      <div className="flex items-center justify-between gap-2 font-semibold">
+                        <span>{formatThaiDate(day.date)}</span>
+                        <span className="text-brand-700">{formatBahtSymbol(day.total)}</span>
+                      </div>
+                      <div className="text-xs text-gray-600 mt-1 space-y-0.5">
+                        <div>ค่าแรง {formatBahtSymbol(day.dailyWage)}</div>
+                        <div>โบนัสยอดขาย {formatBahtSymbol(day.salesVolume)}</div>
+                        <div>โบนัส Grab {formatBahtSymbol(day.grab)}</div>
+                        <div>OT ปิดร้าน {formatBahtSymbol(day.closingOt)}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
           </>
         )}
       </div>
