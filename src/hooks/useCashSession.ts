@@ -162,7 +162,7 @@ export function useCloseSession() {
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ['cash-sessions'] })
       qc.invalidateQueries({ queryKey: ['cash-movements', variables.session.id] })
-      // ปิดกะแล้ว RPC จะสร้าง sales_volume reward เมื่อได้ 25 แก้วขึ้นไป
+      // ปิดกะแล้ว RPC จะสร้าง sales_volume reward ทุกครบ 25 แก้ว
       // ให้หน้ารายงานเจ้าของร้านเห็นรายการใหม่ทันที ไม่ค้างค่าเดิมเป็น 0
       qc.invalidateQueries({ queryKey: ['staff-rewards'] })
     },

@@ -178,6 +178,17 @@ export function getBillableMinutes(
   return Math.max(0, Math.floor((billableEnd.getTime() - billableStart.getTime()) / 60_000))
 }
 
+/** นาทีที่เข้างานช้ากว่าเวลาเปิดงานปกติ โดยไม่นับกะที่เริ่มหลังเวลาปิด (เช่น OT) */
+export function getLateMinutes(
+  clockIn: string,
+  settings: BusinessHoursSettings = createDefaultBusinessHours(),
+) {
+  const started = new Date(clockIn)
+  const window = getWorkWindow(started, settings)
+  if (!window.is_open || window.end <= window.start || started >= window.end) return 0
+  return Math.max(0, Math.floor((started.getTime() - window.start.getTime()) / 60_000))
+}
+
 export function getOvertimeStart(
   clockIn: string,
   settings: BusinessHoursSettings = createDefaultBusinessHours(),

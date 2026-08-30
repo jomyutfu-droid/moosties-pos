@@ -16,6 +16,7 @@ import { useSessionStore } from '@/store/session'
 import { parseUnsignedNumber } from '@/lib/forms'
 import { NumberField } from '@/components/NumberField'
 import { getBillableMinutes, useTimeLogsByRange } from '@/hooks/useTimeLogs'
+import { getLateMinutes } from '@/lib/businessHours'
 import { useSettings } from '@/hooks/useSettings'
 import { useUsers } from '@/hooks/useUsers'
 import { useMarkStaffRewardsPaid, usePendingStaffRewards, useRecordGrabReward, useReviewStaffReward, useStaffRewards } from '@/hooks/useStaffRewards'
@@ -636,7 +637,7 @@ function CashSessionPanel() {
         <h3 className="font-semibold mb-2">รวมเงินตอนปิดกะ</h3>
         <div className="flex flex-wrap gap-2 items-end">
           <div className="flex-1 min-w-[140px]"><label className="label">นับเงินสดได้จริง (บาท)</label><NumberField className="input" value={countedCash} parse={parseUnsignedNumber} onChange={(n) => { setCountedCash(n); setConfirming(false) }} /></div>
-          <div className="flex-1 min-w-[140px]"><label className="label">จำนวนแก้วที่ขายวันนี้</label><NumberField className="input" value={cupsSold} parse={parseUnsignedNumber} onChange={(n) => { setCupsSold(n); setConfirming(false) }} /><p className="text-[11px] text-gray-500 mt-1">ถ้าได้ 25 แก้วขึ้นไป ให้กด “ยืนยันปิดกะ” ระบบจึงจะส่งโบนัส 50 บาทให้เจ้าของร้านอนุมัติ</p></div>
+          <div className="flex-1 min-w-[140px]"><label className="label">จำนวนแก้วที่ขายวันนี้</label><NumberField className="input" value={cupsSold} parse={parseUnsignedNumber} onChange={(n) => { setCupsSold(n); setConfirming(false) }} /><p className="text-[11px] text-gray-500 mt-1">ครบทุก 25 แก้ว ได้โบนัส 50 บาท (เช่น 51 แก้ว = 100 บาท) จากนั้นกด “ยืนยันปิดกะ” เพื่อส่งให้เจ้าของร้านอนุมัติ</p></div>
           <div className="flex-1 min-w-[140px]"><label className="label">หมายเหตุปิดกะ</label><input className="input" value={closeNote} onChange={(e) => setCloseNote(e.target.value)} /></div>
         </div>
         {countedCash > 0 && (
@@ -668,6 +669,7 @@ function StaffRewardsPanel() {
   const ownerId = useSessionStore((s) => s.activeStaff?.id)
   const weekly = getWeeklyRange()
   const { data: users = [], isLoading: usersLoading, error: usersError } = useUsers(isOwner)
+  const { data: settings } = useSettings()
   const { data: weeklyLogs = [], isLoading: workDaysLoading, error: workDaysError } = useTimeLogsByRange(weekly.from, weekly.to, isOwner)
   const { data: weeklyRewards = [], isLoading: weeklyLoading, error: weeklyError } = useStaffRewards(weekly.from, weekly.to, null, isOwner)
   const { data: pendingRewards = [], isLoading: pendingLoading } = usePendingStaffRewards(isOwner)
@@ -686,6 +688,7 @@ function StaffRewardsPanel() {
     name: string
     workDates: Set<string>
     workDays: number
+    lateMinutes: number
     dailyWage: number
     grab: number
     salesVolume: number
@@ -711,6 +714,7 @@ function StaffRewardsPanel() {
       name,
       workDates: new Set<string>(),
       workDays: 0,
+      lateMinutes: 0,
       dailyWage: 0,
       grab: 0,
       salesVolume: 0,
@@ -738,6 +742,7 @@ function StaffRewardsPanel() {
     return detail
   }
 
+  const firstClockIns = new Map<string, string>()
   for (const log of weeklyLogs) {
     const user = users.find((item) => item.id === log.user_id)
     if (log.user_id === ownerId || user?.role === 'owner') continue
@@ -745,6 +750,18 @@ function StaffRewardsPanel() {
     const date = localDateKey(log.clock_in)
     current.workDates.add(date)
     getDailyDetail(current, date).dailyWage = DAILY_WAGE
+    const key = `${log.user_id}|${date}`
+    const firstClockIn = firstClockIns.get(key)
+    if (!firstClockIn || new Date(log.clock_in).getTime() < new Date(firstClockIn).getTime()) {
+      firstClockIns.set(key, log.clock_in)
+    }
+  }
+
+  for (const [key, clockIn] of firstClockIns) {
+    const separator = key.lastIndexOf('|')
+    const userId = key.slice(0, separator)
+    const current = summaries.get(userId)
+    if (current) current.lateMinutes += getLateMinutes(clockIn, settings?.business_hours)
   }
 
   for (const reward of weeklyRewards) {
@@ -875,8 +892,9 @@ function StaffRewardsPanel() {
                 <p className="text-xs text-gray-500 mt-1">วันที่ทำงาน: {Array.from(summary.workDates).sort().map(formatThaiDate).join(', ') || 'ไม่มีบันทึกเข้างาน'}</p>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600 mt-2">
                   <span>ค่าแรง: {summary.workDays} วัน × 350 = {formatBahtSymbol(summary.dailyWage)}</span>
+                  <span>มาสายรวม: {summary.lateMinutes} นาที</span>
                   <span>Grab: {formatBahtSymbol(summary.grab)}</span>
-                  <span>โบนัสยอดขาย 25 แก้วขึ้นไป: {formatBahtSymbol(summary.salesVolume)}</span>
+                  <span>โบนัสยอดขายทุก 25 แก้ว: {formatBahtSymbol(summary.salesVolume)}</span>
                   <span>OT ปิดร้าน: {formatBahtSymbol(summary.closingOt)}</span>
                 </div>
                 <div className="mt-3 border-t border-gray-100 pt-2 space-y-2">
@@ -905,13 +923,14 @@ function StaffRewardsPanel() {
             <div className="rounded-xl bg-green-50 border border-green-200 p-3 text-sm font-semibold flex justify-between"><span>รวมทั้งหมด</span><span>{formatBahtSymbol(grandTotal)}</span></div>
           </div>
           <div className="hidden md:block overflow-x-auto rounded-lg border border-gray-200">
-            <table className="w-full min-w-[920px] text-sm">
+            <table className="w-full min-w-[1000px] text-sm">
               <thead className="bg-gray-50 text-left text-xs text-gray-500">
                 <tr>
                   <th className="p-3 font-semibold">พนักงาน</th>
                   <th className="p-3 font-semibold text-right">ค่าแรงรายวัน</th>
+                  <th className="p-3 font-semibold text-right">มาสายรวม</th>
                   <th className="p-3 font-semibold text-right">Grab</th>
-                  <th className="p-3 font-semibold text-right">โบนัสยอดขาย 25 แก้วขึ้นไป</th>
+                  <th className="p-3 font-semibold text-right">โบนัสยอดขายทุก 25 แก้ว</th>
                   <th className="p-3 font-semibold text-right">OT ปิดร้าน</th>
                   <th className="p-3 font-semibold text-right">รวมต้องจ่าย</th>
                   <th className="p-3 font-semibold">สถานะ</th>
@@ -922,6 +941,7 @@ function StaffRewardsPanel() {
                   <tr key={summary.userId} className="border-t border-gray-100">
                     <td className="p-3 font-medium">{summary.name}</td>
                     <td className="p-3 text-right"><div>{summary.workDays} วัน × {DAILY_WAGE}</div><div className="text-xs text-gray-500">{Array.from(summary.workDates).sort().map(formatThaiDate).join(', ') || '-'}</div><div className="font-semibold">{formatBahtSymbol(summary.dailyWage)}</div></td>
+                    <td className="p-3 text-right">{summary.lateMinutes} นาที</td>
                     <td className="p-3 text-right">{formatBahtSymbol(summary.grab)}</td>
                     <td className="p-3 text-right">{formatBahtSymbol(summary.salesVolume)}</td>
                     <td className="p-3 text-right">{formatBahtSymbol(summary.closingOt)}</td>
