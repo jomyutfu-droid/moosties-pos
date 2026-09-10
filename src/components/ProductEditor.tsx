@@ -314,11 +314,11 @@ export function ProductEditor({
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="p-5 border-b border-gray-200">
+      <div className="bg-white rounded-2xl shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto max-sm:max-h-[100dvh] max-sm:rounded-none">
+        <div className="p-5 max-sm:p-4 border-b border-gray-200 sticky top-0 bg-white/95 backdrop-blur z-10">
           <h2 className="text-lg font-bold">{productId ? 'แก้ไขเมนู' : 'เพิ่มเมนูใหม่'}</h2>
         </div>
-        <div className="p-5 space-y-5">
+        <div className="p-5 max-sm:p-4 space-y-5">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
               <label className="label">ชื่อเมนู</label>
@@ -368,13 +368,16 @@ export function ProductEditor({
               </button>
             </div>
             <div className="space-y-2">
-              {recipeRows.map((row) => {
+              {recipeRows.map((row, index) => {
                 const ing = ingredientsById.get(row.ingredient_id)
                 const unitChoices = usageUnitsForIngredient(ing)
                 return (
-                  <div key={row._key} className="flex gap-2 items-center">
+                  <div key={row._key} className="flex gap-2 items-center max-sm:grid max-sm:grid-cols-[minmax(0,1fr)_auto] max-sm:gap-2 max-sm:p-3 max-sm:rounded-xl max-sm:border max-sm:border-gray-200 max-sm:bg-gray-50/60">
+                    <span className="hidden max-sm:block col-span-2 text-xs font-semibold text-gray-500">
+                      วัตถุดิบที่ {index + 1}
+                    </span>
                     <select
-                      className="input"
+                      className="input max-sm:col-span-2"
                       style={{ flex: '3 1 0', minWidth: 0 }}
                       value={row.ingredient_id}
                       onChange={(e) => changeRecipeIngredient(row._key, e.target.value)}
@@ -387,7 +390,7 @@ export function ProductEditor({
                       ))}
                     </select>
                     <NumberField
-                      className="input"
+                      className="input max-sm:w-full"
                       style={{ width: '80px', flexShrink: 0 }}
                       value={row.qty}
                       parse={parseUnsignedNumber}
@@ -398,7 +401,7 @@ export function ProductEditor({
                       }
                     />
                     <select
-                      className="input text-xs"
+                      className="input text-xs max-sm:w-full"
                       style={{ width: '92px', flexShrink: 0 }}
                       value={row.unit_name ?? ing?.unit ?? ''}
                       disabled={!ing}
@@ -412,7 +415,7 @@ export function ProductEditor({
                       ))}
                     </select>
                     <input
-                      className="input"
+                      className="input max-sm:col-span-2"
                       style={{ flex: '1 1 0', minWidth: 0 }}
                       placeholder="หมายเหตุ"
                       value={row.note ?? ''}
@@ -440,10 +443,13 @@ export function ProductEditor({
               </button>
             </div>
             <div className="space-y-2">
-              {optionRows.map((row) => (
-                <div key={row._key} className="flex gap-2 items-center">
+              {optionRows.map((row, index) => (
+                <div key={row._key} className="flex gap-2 items-center max-sm:grid max-sm:grid-cols-[minmax(0,1fr)_auto] max-sm:gap-2 max-sm:p-3 max-sm:rounded-xl max-sm:border max-sm:border-gray-200 max-sm:bg-gray-50/60">
+                  <span className="hidden max-sm:block col-span-2 text-xs font-semibold text-gray-500">
+                    ตัวเลือกที่ {index + 1}
+                  </span>
                   <input
-                    className="input"
+                    className="input max-sm:col-span-2"
                     style={{ flex: '2 1 0', minWidth: 0 }}
                     placeholder="ชื่อตัวเลือก เช่น เพิ่มไข่มุก"
                     value={row.name}
@@ -452,7 +458,7 @@ export function ProductEditor({
                     }
                   />
                   <NumberField
-                    className="input"
+                    className="input max-sm:w-full"
                     style={{ width: '72px', flexShrink: 0 }}
                     placeholder="+ราคา"
                     value={row.price_delta}
@@ -464,7 +470,7 @@ export function ProductEditor({
                     }
                   />
                   <select
-                    className="input"
+                    className="input max-sm:col-span-2"
                     style={{ flex: '2 1 0', minWidth: 0 }}
                     value={row.linked_ingredient_id ?? ''}
                     onChange={(e) =>
@@ -483,7 +489,7 @@ export function ProductEditor({
                     ))}
                   </select>
                   <NumberField
-                    className="input"
+                    className="input max-sm:w-full"
                     style={{ width: '72px', flexShrink: 0 }}
                     placeholder="+ปริมาณ"
                     value={row.qty_delta}
@@ -505,7 +511,7 @@ export function ProductEditor({
 
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
-        <div className="p-5 border-t border-gray-200 flex justify-end gap-2">
+        <div className="p-5 max-sm:p-4 border-t border-gray-200 flex justify-end gap-2 sticky bottom-0 bg-white/95 backdrop-blur z-10">
           <button className="btn-ghost" onClick={onClose}>
             ยกเลิก
           </button>
