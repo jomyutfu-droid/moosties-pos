@@ -1,3 +1,5 @@
+import { adjustedRecipe } from '@/domain/recipe'
+import { optionLabel } from '@/domain/sweetness'
 /**
  * Feature 2: ReceiptModal — ใบเสร็จ + สติกเกอร์ต่อแก้ว
  * - ใบเสร็จ: รายการสินค้า, ส่วนลด, ยอดรวม, ยอดรับ, เงินทอน
@@ -6,7 +8,6 @@
 import { formatBahtSymbol } from '@/lib/money'
 import { useSettings } from '@/hooks/useSettings'
 import { escapeHtml, openPrintWindow } from '@/lib/html'
-import { fromBaseQty } from '@/domain/units'
 import type { CartLine } from '@/types'
 
 export interface ReceiptInfo {
@@ -31,6 +32,7 @@ const b = (n: number) => (n % 1 === 0 ? String(Math.round(n)) : n.toFixed(2))
 const esc = escapeHtml
 
 /** สร้าง HTML ใบเสร็จ + สติกเกอร์สำหรับพิมพ์ผ่าน window.open (80mm thermal) */
+// eslint-disable-next-line react-refresh/only-export-components
 export function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
   const dateStr = new Date(order.createdAt).toLocaleString('th-TH')
 
@@ -41,7 +43,7 @@ export function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
         `<tr>
           <td class="item-name">${esc(l.product.name)}${
             l.selectedOptions.length
-              ? '<br><small>' + esc(l.selectedOptions.map((o) => o.name).join(', ')) + '</small>'
+              ? '<br><small>' + esc(optionLabel(l.selectedOptions)) + '</small>'
               : ''
           }</td>
           <td class="r">x${l.qty}</td>
@@ -76,50 +78,14 @@ export function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
 
   // --- สติกเกอร์: 1 หน้าต่อแก้ว — ตัดกระดาษหลังทุกหน้า ---
   const stickerPages = (order.lines ?? []).flatMap((l) => {
-    const recipeItems = (l.product.recipe_items ?? []).filter(
-      (ri) => ri.ingredient?.category?.trim() !== 'บรรจุภัณฑ์',
-    )
-    const optLabel = l.selectedOptions.map((o) => o.name).join(', ')
-
-    // ตัวเลือกที่ปรับปริมาณวัตถุดิบ (เช่น "หวานมาก" = +น้ำเชื่อม) ต้องรวมเข้าสูตร
-    // ไม่งั้นพนักงานจะชั่ง/ตวงตามปริมาณสูตรพื้นฐาน ซึ่งไม่ตรงกับที่ตัดสต็อกจริง
-    const optDeltaById = new Map<string, number>()
-    for (const opt of l.selectedOptions) {
-      if (!opt.linked_ingredient_id || !opt.qty_delta) continue
-      optDeltaById.set(
-        opt.linked_ingredient_id,
-        (optDeltaById.get(opt.linked_ingredient_id) ?? 0) + opt.qty_delta,
-      )
-    }
-
-    const adjusted = recipeItems.map((ri) => {
-      const delta = optDeltaById.get(ri.ingredient_id) ?? 0
-      if (delta) optDeltaById.delete(ri.ingredient_id) // ใช้แล้ว ไม่ต้องแสดงเป็นแถวแยก
-      return {
-        ri,
-        qty: fromBaseQty(ri.qty + delta, Number(ri.unit_factor) || 1),
-        adjusted: delta !== 0,
-      }
-    })
-
-    // วัตถุดิบที่มาจากตัวเลือกล้วน ๆ (ไม่มีในสูตรพื้นฐาน)
-    const extraRows = Array.from(optDeltaById.entries()).map(([ingId, qty]) => {
-      const optName = l.selectedOptions.find((o) => o.linked_ingredient_id === ingId)?.name ?? 'ตัวเลือก'
-      return `<tr><td>${esc(optName)} <small>(ตัวเลือก)</small></td><td class="r">${qty}</td><td class="r unit">-</td></tr>`
-    })
+    const optLabel = optionLabel(l.selectedOptions)
+    const recipe = adjustedRecipe(l)
 
     return Array.from({ length: l.qty }, (_, i) => {
-      const rows = [
-        ...adjusted.map(
-          ({ ri, qty, adjusted: isAdj }) =>
-            `<tr>
-                  <td>${esc(ri.ingredient.name)}${isAdj ? ' <small>(ปรับตามตัวเลือก)</small>' : ''}${ri.note ? `<br><small>${esc(ri.note)}</small>` : ''}</td>
-                  <td class="r">${qty}</td>
-                  <td class="r unit">${esc(ri.unit_name ?? ri.ingredient.unit)}</td>
-                </tr>`,
-        ),
-        ...extraRows,
-      ]
+      const rows = recipe.map(row => `<tr>
+        <td>${esc(row.name)}${row.adjusted ? ' <small>(ปรับตามตัวเลือก)</small>' : ''}${row.note ? `<br><small>${esc(row.note)}</small>` : ''}</td>
+        <td class="r">${row.qty}</td><td class="r unit">${esc(row.unit)}</td>
+      </tr>`)
       const ingRows = rows.length
         ? rows.join('')
         : `<tr><td colspan="3" class="muted">ไม่มีสูตรวัตถุดิบ</td></tr>`

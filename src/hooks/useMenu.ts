@@ -105,7 +105,7 @@ export function useProductDetail(productId: string | null) {
 
 export type ProductInput = Pick<
   Product,
-  'name' | 'price' | 'category_id' | 'sku' | 'prep_steps' | 'is_active' | 'sort_order'
+  'name' | 'price' | 'category_id' | 'sku' | 'prep_steps' | 'is_active' | 'sort_order' | 'sweetness_config'
 > & { id?: string }
 
 export function useSaveProduct() {

@@ -1,3 +1,4 @@
+import { optionLabel } from '@/domain/sweetness'
 /**
  * Feature 6: QueuePage — Dashboard คิวออเดอร์ (poll ทุก 5 วินาที)
  * แสดงออเดอร์ที่ status='paid' และ prep_status != 'served' ย้อนหลัง 4 ชั่วโมง
@@ -118,7 +119,7 @@ export default function QueuePage() {
                           (item) =>
                             `${item.name_snapshot} x${item.qty}${
                               item.options_json?.length
-                                ? ` (${item.options_json.map((o) => o.name).join(', ')})`
+                                ? ` (${optionLabel(item.options_json)})`
                                 : ''
                             }`,
                         )

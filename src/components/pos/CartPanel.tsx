@@ -1,3 +1,5 @@
+import { adjustedRecipe } from '@/domain/recipe'
+import { optionLabel } from '@/domain/sweetness'
 import { useState } from 'react'
 import { cartSubtotal, useCartStore } from '@/store/cart'
 import { floorBaht, formatBahtSymbol } from '@/lib/money'
@@ -6,7 +8,6 @@ import { useSessionStore } from '@/store/session'
 import { parseUnsignedNumber } from '@/lib/forms'
 import { escapeHtml, openPrintWindow, THERMAL_BASE_CSS } from '@/lib/html'
 import { NumberField } from '@/components/NumberField'
-import { fromBaseQty } from '@/domain/units'
 import type { CartLine } from '@/types'
 
 /**
@@ -16,34 +17,14 @@ import type { CartLine } from '@/types'
  * ทำให้ผู้ใช้เปิดดู "สูตร" แล้วเห็นปริมาณน้ำเชื่อมไม่ลดตามที่ตั้งค่าไว้ (แม้ใบพิมพ์จริงจะถูกต้อง)
  */
 function computeAdjustedRecipe(line: CartLine) {
-  const recipeItems = line.product.recipe_items.filter(
-    (r) => r.ingredient?.category?.trim() !== 'บรรจุภัณฑ์',
-  )
-  const optDeltaById = new Map<string, number>()
-  for (const opt of line.selectedOptions) {
-    if (!opt.linked_ingredient_id || !opt.qty_delta) continue
-    optDeltaById.set(
-      opt.linked_ingredient_id,
-      (optDeltaById.get(opt.linked_ingredient_id) ?? 0) + opt.qty_delta,
-    )
+  return {
+    adjusted: adjustedRecipe(line).map(row => ({
+      r: { id: row.ingredient_id, ingredient: { name: row.name, unit: row.unit }, unit_name: row.unit, note: row.note },
+      qty: row.qty,
+      isAdjusted: row.adjusted,
+    })),
+    extra: [] as { name: string; qty: number }[],
   }
-
-  const adjusted = recipeItems.map((r) => {
-    const delta = optDeltaById.get(r.ingredient_id) ?? 0
-    if (delta) optDeltaById.delete(r.ingredient_id)
-    return {
-      r,
-      qty: fromBaseQty(r.qty + delta, Number(r.unit_factor) || 1),
-      isAdjusted: delta !== 0,
-    }
-  })
-
-  const extra = Array.from(optDeltaById.entries()).map(([ingId, qty]) => ({
-    name: line.selectedOptions.find((o) => o.linked_ingredient_id === ingId)?.name ?? 'ตัวเลือก',
-    qty,
-  }))
-
-  return { adjusted, extra }
 }
 
 function RecipeModal({ line, onClose }: { line: CartLine; onClose: () => void }) {
@@ -69,7 +50,7 @@ function RecipeModal({ line, onClose }: { line: CartLine; onClose: () => void })
       )
     }
 
-    const optLabel = line.selectedOptions.map((o) => o.name).join(', ')
+    const optLabel = optionLabel(line.selectedOptions)
     openPrintWindow(
       `<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"/>
       <title>สูตร</title>
@@ -112,7 +93,7 @@ function RecipeModal({ line, onClose }: { line: CartLine; onClose: () => void })
             <h3 className="font-bold text-base" style={{ color: '#123524' }}>{line.product.name}</h3>
             {line.selectedOptions.length > 0 && (
               <p className="text-xs mt-0.5" style={{ color: '#5c7466' }}>
-                {line.selectedOptions.map((o) => o.name).join(', ')}
+                {optionLabel(line.selectedOptions)}
               </p>
             )}
           </div>
@@ -243,7 +224,7 @@ export function CartPanel({
                 </div>
                 {line.selectedOptions.length > 0 && (
                   <div className="text-xs mt-0.5" style={{ color: '#5c7466' }}>
-                    {line.selectedOptions.map((o) => o.name).join(', ')}
+                    {optionLabel(line.selectedOptions)}
                   </div>
                 )}
               </div>
