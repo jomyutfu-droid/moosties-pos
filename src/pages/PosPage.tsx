@@ -47,11 +47,7 @@ export default function PosPage() {
   } | null>(null)
 
   function handleSelectProduct(product: ProductWithRecipe) {
-    if (product.options.length > 0) {
-      setPickerProduct(product)
-    } else {
-      addLine(product, [], ingredientsById)
-    }
+    setPickerProduct(product)
   }
 
   function handleConfirmOptions(options: SelectedOption[]) {
@@ -221,6 +217,7 @@ export default function PosPage() {
       {pickerProduct && (
         <OptionPickerModal
           product={pickerProduct}
+          ingredientsById={ingredientsById}
           onConfirm={handleConfirmOptions}
           onClose={() => setPickerProduct(null)}
         />

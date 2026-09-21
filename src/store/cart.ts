@@ -1,3 +1,4 @@
+import { optionLabel } from '@/domain/sweetness'
 import { create } from 'zustand'
 import { unitCost, unitPrice } from '@/domain/cogs'
 import { floorBaht } from '@/lib/money'
@@ -31,6 +32,7 @@ function optionSignature(options: SelectedOption[]): string {
     options
       .map((o) => ({
         option_id: o.option_id,
+        recipe_snapshot: o.recipe_snapshot,
         name: o.name,
         price_delta: o.price_delta,
         qty_delta: o.qty_delta,
@@ -68,9 +70,9 @@ export const useCartStore = create<CartState>((set) => ({
       }
       const line: CartLine = {
         uid: nextUid(),
-        product,
+        product: structuredClone(product),
         qty: 1,
-        selectedOptions: options,
+        selectedOptions: structuredClone(options),
         unitPrice: price,
         unitCogs: cost,
       }
@@ -118,7 +120,7 @@ useCartStore.subscribe((state) => {
         name: l.product.name,
         qty: l.qty,
         unitPrice: l.unitPrice,
-        options: l.selectedOptions.map((o) => o.name).join(', '),
+        options: optionLabel(l.selectedOptions),
       })),
       discount: state.discount,
       subtotal: cartSubtotal(state.lines),

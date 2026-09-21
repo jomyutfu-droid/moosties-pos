@@ -3,6 +3,7 @@
  * ใช้ refetchInterval แทน Supabase Realtime (polling ทุก 5 วินาที)
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { SelectedOption } from '@/types'
 import { supabase } from '@/lib/supabase'
 
 export interface OrderItem {
@@ -12,7 +13,7 @@ export interface OrderItem {
   qty: number
   unit_price: number
   line_total: number
-  options_json: { name: string }[] | null
+  options_json: SelectedOption[] | null
 }
 
 export interface QueueOrder {
@@ -44,7 +45,7 @@ export function useQueueOrders() {
         .order('created_at', { ascending: true })
       if (error) throw error
 
-      return (data ?? []).map((o: any) => ({
+      return (data ?? []).map((o) => ({
         id: o.id,
         order_no: o.order_no,
         client_uuid: o.client_uuid,

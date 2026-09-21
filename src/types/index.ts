@@ -68,7 +68,24 @@ export interface Ingredient {
   updated_at: string
 }
 
+export type SweetnessLevel = 'less' | 'normal' | 'more'
+export interface SweetnessIngredient {
+  ingredient_id: UUID
+  /** Absolute amounts in the ingredient base unit; null means not configured. */
+  less: number | null
+  more: number | null
+}
+export interface PrintedRecipeRow {
+  ingredient_id: UUID
+  name: string
+  qty: number
+  unit: string
+  note: string | null
+  adjusted: boolean
+}
+
 export interface Product {
+  sweetness_config?: SweetnessIngredient[] | null
   id: UUID
   category_id: UUID | null
   name: string
@@ -138,6 +155,12 @@ export interface Order {
 }
 
 export interface SelectedOption {
+  sweetness_level?: SweetnessLevel
+  ingredient_name?: string
+  ingredient_unit?: string
+  ingredient_category?: string | null
+  hidden_label?: boolean
+  recipe_snapshot?: PrintedRecipeRow[]
   option_id: UUID
   name: string
   price_delta: number

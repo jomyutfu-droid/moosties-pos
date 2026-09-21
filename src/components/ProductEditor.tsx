@@ -1,3 +1,6 @@
+import { SweetnessEditor } from '@/components/SweetnessEditor'
+import { legacySweetnessLevel, sweetnessIngredients } from '@/domain/sweetness'
+import type { SweetnessIngredient } from '@/types'
 import { useEffect, useState } from 'react'
 import {
   useCategories,
@@ -60,6 +63,7 @@ export function ProductEditor({
   const saveRecipe = useSaveRecipeItems(productId ?? '')
   const saveOptions = useSaveProductOptions(productId ?? '')
 
+  const [sweetnessConfig, setSweetnessConfig] = useState<SweetnessIngredient[]>([])
   const [name, setName] = useState('')
   const [price, setPrice] = useState(0)
   const [categoryId, setCategoryId] = useState<string>('')
@@ -74,6 +78,7 @@ export function ProductEditor({
 
   useEffect(() => {
     if (detail) {
+      setSweetnessConfig(sweetnessIngredients(detail))
       setName(detail.name)
       setPrice(detail.price)
       setCategoryId(detail.category_id ?? '')
@@ -103,6 +108,7 @@ export function ProductEditor({
         })),
       )
     } else if (productId === null) {
+      setSweetnessConfig([])
       setName('')
       setPrice(0)
       setCategoryId(categories?.[0]?.id ?? '')
@@ -206,6 +212,12 @@ export function ProductEditor({
     setSaving(true)
     setError(null)
     try {
+      for (const row of sweetnessConfig) {
+        const normal = recipeRows.filter(r => r.ingredient_id === row.ingredient_id).reduce((sum, r) => sum + baseQtyForRow(r), 0)
+        if (!ingredientsById.has(row.ingredient_id) || (row.less != null && (!Number.isFinite(row.less) || row.less < 0 || row.less > normal)) || (row.more != null && (!Number.isFinite(row.more) || row.more < normal))) {
+          throw new Error('กรุณาตรวจปริมาณความหวาน: น้อย ≤ ปกติ ≤ มาก และต้องไม่ติดลบ')
+        }
+      }
       const saved = await saveProduct.mutateAsync({
         id: productId ?? undefined,
         name,
@@ -213,6 +225,7 @@ export function ProductEditor({
         category_id: categoryId || null,
         sku: sku || null,
         prep_steps: prepSteps || null,
+        sweetness_config: sweetnessConfig,
         // อย่าบังคับ true — ไม่งั้นการแก้ไขเมนูที่ถูกปิดไว้จะเปิดใช้งานกลับมาเงียบ ๆ
         is_active: detail?.is_active ?? true,
         sort_order: detail?.sort_order ?? 0,
@@ -435,15 +448,22 @@ export function ProductEditor({
             </div>
           </div>
 
+          <SweetnessEditor
+            value={sweetnessConfig}
+            onChange={setSweetnessConfig}
+            ingredients={ingredients ?? []}
+            baseQuantities={new Map(recipeRows.map(r => [r.ingredient_id, recipeRows.filter(i => i.ingredient_id === r.ingredient_id).reduce((sum, i) => sum + baseQtyForRow(i), 0)]))}
+          />
+
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold">ตัวเลือกเพิ่มเติม</h3>
+              <h3 className="font-semibold">ท็อปปิ้งและตัวเลือกอื่น</h3>
               <button className="btn-secondary text-sm" onClick={addOptionRow}>
                 + ตัวเลือก
               </button>
             </div>
             <div className="space-y-2">
-              {optionRows.map((row, index) => (
+              {optionRows.filter(row => !legacySweetnessLevel(row.name) && row.name.trim() !== 'ไม่เพิ่ม').map((row, index) => (
                 <div key={row._key} className="flex gap-2 items-center max-sm:grid max-sm:grid-cols-[minmax(0,1fr)_auto] max-sm:gap-2 max-sm:p-3 max-sm:rounded-xl max-sm:border max-sm:border-gray-200 max-sm:bg-gray-50/60">
                   <span className="hidden max-sm:block col-span-2 text-xs font-semibold text-gray-500">
                     ตัวเลือกที่ {index + 1}
