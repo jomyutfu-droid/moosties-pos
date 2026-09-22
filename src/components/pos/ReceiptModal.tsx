@@ -11,6 +11,8 @@ import { escapeHtml, openPrintWindow } from '@/lib/html'
 import type { CartLine } from '@/types'
 
 export interface ReceiptInfo {
+  source?: 'line_man'
+  lineManOrderId?: string
   orderNo: string
   total: number
   paid: number
@@ -34,7 +36,9 @@ const esc = escapeHtml
 /** สร้าง HTML ใบเสร็จ + สติกเกอร์สำหรับพิมพ์ผ่าน window.open (80mm thermal) */
 // eslint-disable-next-line react-refresh/only-export-components
 export function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
-  const dateStr = new Date(order.createdAt).toLocaleString('th-TH')
+  const dateStr = new Date(order.createdAt).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })
+  const isLineMan = order.source === 'line_man'
+  const orderBadge = isLineMan ? `<div class="lm-badge">LINE MAN</div><div class="meta">เลขคำสั่งซื้อ</div><div class="lm-ref">${esc(order.lineManOrderId ?? '')}</div>` : ''
 
   // --- ใบเสร็จ: 4 คอลัมน์ (ชื่อ | จำนวน | ราคา | รวม) ---
   const lineRows = (order.lines ?? [])
@@ -58,6 +62,8 @@ export function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
   const receiptSection = `
     <div class="receipt">
       <div class="store">${esc(text.header)}</div>
+      ${orderBadge}
+      ${isLineMan ? `<div class="meta">บิล ${esc(order.orderNo)}</div>` : ''}
       <div class="meta">${dateStr}</div>
       <div class="dash"></div>
       <table>
@@ -67,12 +73,13 @@ export function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
       <div class="dash"></div>
       <table class="totals">
         <tr><td>ยอดรวม</td><td class="r">${b(subtotal)}</td></tr>
-        ${order.discount ? `<tr><td>ส่วนลด</td><td class="r">-${b(order.discount ?? 0)}</td></tr>` : ''}
+        ${order.discount ? `<tr><td>${isLineMan ? 'ส่วนลดร้านค้า' : 'ส่วนลด'}</td><td class="r">-${b(order.discount ?? 0)}</td></tr>` : ''}
         <tr class="grand"><td>ยอดสุทธิ</td><td class="r">${b(order.total)}</td></tr>
-        <tr><td>รับเงิน</td><td class="r">${b(order.paid)}</td></tr>
+        ${isLineMan ? `<tr><td>จำนวนรวม</td><td class="r">${(order.lines ?? []).reduce((sum, l) => sum + l.qty, 0)} แก้ว</td></tr>` : `<tr><td>รับเงิน</td><td class="r">${b(order.paid)}</td></tr>`}
         ${order.change > 0 ? `<tr><td>เงินทอน</td><td class="r">${b(order.change)}</td></tr>` : ''}
       </table>
       <div class="dash"></div>
+      ${isLineMan ? '<div class="meta">ช่องทางขาย: LINE MAN<br>ไม่รวมค่าจัดส่ง / ไม่ใช่ยอดโอนสุทธิหลังหักค่าธรรมเนียม<br>ใบสรุปรายการจาก POS — ไม่ใช่ใบกำกับภาษี</div><div class="dash"></div>' : ''}
       <div class="thank">${esc(text.footer)}</div>
     </div>`
 
@@ -92,6 +99,7 @@ export function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
 
       return `
         <div class="sticker">
+          ${isLineMan ? `<div class="lm-badge">LINE MAN · ใบชง</div><div class="lm-ref">${esc(order.lineManOrderId ?? '')}</div>` : ''}
           <div class="shead">
             <span class="sname">${esc(l.product.name)}${l.qty > 1 ? ` (${i + 1}/${l.qty})` : ''}</span>
           </div>
@@ -107,7 +115,7 @@ export function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
 
   return `<!DOCTYPE html><html lang="th"><head>
     <meta charset="UTF-8"/>
-    <title>ใบเสร็จ ${order.orderNo}</title>
+    <title>ใบเสร็จ ${esc(order.orderNo)}</title>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet"/>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; color: #000 !important; }
@@ -116,6 +124,8 @@ export function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
       /* ── ใบเสร็จ ── */
       .receipt { width: 76mm; padding: 4px 2mm 2px; }
       .store   { text-align: center; font-size: 20px; font-weight: 800; margin-bottom: 2px; }
+      .lm-badge { text-align: center; border: 2px solid #000; border-radius: 6px; padding: 5px; margin: 6px 0; font-size: 19px; font-weight: 800; letter-spacing: 2px; }
+      .lm-ref { text-align: center; font-size: 23px; font-weight: 800; overflow-wrap: anywhere; margin: 4px 0 8px; line-height: 1.25; }
       .meta    { text-align: center; font-size: 12px; font-weight: 600; line-height: 1.4; }
       .dash    { border-top: 1px dashed #000; margin: 5px 0; }
       table    { width: 100%; border-collapse: collapse; }
@@ -173,7 +183,8 @@ export function ReceiptModal({ order, onClose }: { order: ReceiptInfo; onClose: 
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-2xl shadow-lg w-full max-w-sm text-center p-6">
         <div className="text-4xl mb-2">✅</div>
-        <h2 className="text-lg font-bold">รับชำระเงินสำเร็จ</h2>
+        <h2 className="text-lg font-bold">{order.source === 'line_man' ? 'บันทึกยอดขาย LINE MAN แล้ว' : 'รับชำระเงินสำเร็จ'}</h2>
+        {order.lineManOrderId && <p className="text-xl font-bold text-green-900 break-all mt-2">{order.lineManOrderId}</p>}
         <p className="text-sm text-gray-500 mt-1">เลขบิล {order.orderNo}</p>
         <p className="text-xs text-gray-400">{new Date(order.createdAt).toLocaleString('th-TH')}</p>
 
@@ -183,7 +194,7 @@ export function ReceiptModal({ order, onClose }: { order: ReceiptInfo; onClose: 
             <span className="font-medium">{formatBahtSymbol(order.total)}</span>
           </div>
           <div className="flex justify-between">
-            <span>รับเงิน</span>
+            <span>{order.source === 'line_man' ? 'ยอดขายผ่าน LINE MAN' : 'รับเงิน'}</span>
             <span>{formatBahtSymbol(order.paid)}</span>
           </div>
           {order.change > 0 && (

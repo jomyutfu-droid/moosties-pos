@@ -17,7 +17,7 @@ export function OptionPickerModal({ product, ingredientsById, onConfirm, onClose
   const chosen: SelectedOption[] = toppings.filter(o => (quantities[o.id] ?? 0) > 0).map(o => {
     const qty = quantities[o.id]
     const ing = o.linked_ingredient_id ? ingredientsById.get(o.linked_ingredient_id) : undefined
-    return { option_id: o.id, name: qty > 1 ? `${o.name} ×${qty}` : o.name, price_delta: o.price_delta * qty, qty_delta: o.qty_delta * qty, linked_ingredient_id: o.linked_ingredient_id, ingredient_name: ing?.name, ingredient_unit: ing?.unit, ingredient_category: ing?.category }
+    return { option_id: o.id, quantity: qty, name: qty > 1 ? `${o.name} ×${qty}` : o.name, price_delta: o.price_delta * qty, qty_delta: o.qty_delta * qty, linked_ingredient_id: o.linked_ingredient_id, ingredient_name: ing?.name, ingredient_unit: ing?.unit, ingredient_category: ing?.category }
   })
   const options = error ? chosen : [...sweetnessOptions(product, sweetness, ingredientsById), ...chosen]
   const recipe = error ? [] : adjustedRecipe({ product, selectedOptions: options })

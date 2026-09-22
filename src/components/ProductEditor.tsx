@@ -31,6 +31,7 @@ interface RecipeRow extends Partial<Pick<RecipeItem, 'id'>> {
 }
 
 interface OptionRow extends Partial<Pick<ProductOption, 'id'>> {
+  line_man_price: number | null
   name: string
   price_delta: number
   linked_ingredient_id: string | null
@@ -66,6 +67,7 @@ export function ProductEditor({
   const [sweetnessConfig, setSweetnessConfig] = useState<SweetnessIngredient[]>([])
   const [name, setName] = useState('')
   const [price, setPrice] = useState(0)
+  const [lineManPrice, setLineManPrice] = useState<number | null>(null)
   const [categoryId, setCategoryId] = useState<string>('')
   const [sku, setSku] = useState('')
   const [prepSteps, setPrepSteps] = useState('')
@@ -81,6 +83,7 @@ export function ProductEditor({
       setSweetnessConfig(sweetnessIngredients(detail))
       setName(detail.name)
       setPrice(detail.price)
+      setLineManPrice(detail.line_man_price ?? null)
       setCategoryId(detail.category_id ?? '')
       setSku(detail.sku ?? '')
       setPrepSteps(detail.prep_steps ?? '')
@@ -101,6 +104,7 @@ export function ProductEditor({
           id: o.id,
           name: o.name,
           price_delta: o.price_delta,
+          line_man_price: o.line_man_price ?? null,
           linked_ingredient_id: o.linked_ingredient_id,
           qty_delta: o.qty_delta,
           sort_order: o.sort_order,
@@ -111,6 +115,7 @@ export function ProductEditor({
       setSweetnessConfig([])
       setName('')
       setPrice(0)
+      setLineManPrice(null)
       setCategoryId(categories?.[0]?.id ?? '')
       setSku('')
       setPrepSteps('')
@@ -159,6 +164,7 @@ export function ProductEditor({
       {
         name: '',
         price_delta: 0,
+        line_man_price: null,
         linked_ingredient_id: null,
         qty_delta: 0,
         sort_order: rows.length,
@@ -212,6 +218,9 @@ export function ProductEditor({
     setSaving(true)
     setError(null)
     try {
+      if ([lineManPrice, ...optionRows.map(o => o.line_man_price)].some(p => p != null && (!Number.isFinite(p) || p < 0 || Math.round(p * 100) / 100 !== p))) {
+        throw new Error('ราคา LINE MAN ต้องไม่ติดลบ และมีทศนิยมไม่เกิน 2 ตำแหน่ง')
+      }
       for (const row of sweetnessConfig) {
         const normal = recipeRows.filter(r => r.ingredient_id === row.ingredient_id).reduce((sum, r) => sum + baseQtyForRow(r), 0)
         if (!ingredientsById.has(row.ingredient_id) || (row.less != null && (!Number.isFinite(row.less) || row.less < 0 || row.less > normal)) || (row.more != null && (!Number.isFinite(row.more) || row.more < normal))) {
@@ -222,6 +231,7 @@ export function ProductEditor({
         id: productId ?? undefined,
         name,
         price,
+        line_man_price: lineManPrice,
         category_id: categoryId || null,
         sku: sku || null,
         prep_steps: prepSteps || null,
@@ -298,6 +308,7 @@ export function ProductEditor({
         id: o.id,
         name: o.name,
         price_delta: o.price_delta,
+        line_man_price: o.line_man_price,
         linked_ingredient_id: o.linked_ingredient_id,
         qty_delta: o.qty_delta,
         sort_order: o.sort_order,
@@ -315,6 +326,7 @@ export function ProductEditor({
           product_id: targetId,
           name: u.name,
           price_delta: u.price_delta,
+          line_man_price: u.line_man_price,
           linked_ingredient_id: u.linked_ingredient_id,
           qty_delta: u.qty_delta,
           sort_order: u.sort_order,
@@ -338,9 +350,14 @@ export function ProductEditor({
               <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div>
-              <label className="label">ราคา (บาท)</label>
+              <label className="label">ราคาหน้าร้าน (บาท)</label>
               <NumberField className="input" value={price} parse={parseUnsignedNumber} onChange={setPrice} />
             </div>
+            <label>
+              <span className="label text-green-800">ราคา LINE MAN (บาท)</span>
+              <input aria-label="ราคา LINE MAN" className="input" type="number" min="0" step="0.01" placeholder="ยังไม่ตั้งราคา" value={lineManPrice ?? ''} onChange={e => setLineManPrice(e.target.value === '' ? null : Number(e.target.value))} />
+              <span className="text-xs text-gray-500">เว้นว่าง = ยังขายผ่าน LINE MAN ไม่ได้ · 0 = ฟรี</span>
+            </label>
             <div>
               <label className="label">หมวด</label>
               <select className="input" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
@@ -489,6 +506,10 @@ export function ProductEditor({
                       )
                     }
                   />
+                  <label className="max-sm:col-span-2 text-xs text-green-800" style={{ width: '100px', flexShrink: 0 }}>
+                    LINE MAN / ส่วน
+                    <input aria-label={`ราคา LINE MAN ${row.name}`} className="input" type="number" min="0" step="0.01" placeholder="ยังไม่ตั้ง" value={row.line_man_price ?? ''} onChange={e => setOptionRows(rows => rows.map(r => r._key === row._key ? { ...r, line_man_price: e.target.value === '' ? null : Number(e.target.value) } : r))} />
+                  </label>
                   <select
                     className="input max-sm:col-span-2"
                     style={{ flex: '2 1 0', minWidth: 0 }}
