@@ -4,11 +4,13 @@ import { ProductGrid } from '@/components/pos/ProductGrid'
 import { CartPanel } from '@/components/pos/CartPanel'
 import { OptionPickerModal } from '@/components/pos/OptionPickerModal'
 import { PaymentModal } from '@/components/pos/PaymentModal'
-import { buildPrintHTML, ReceiptModal } from '@/components/pos/ReceiptModal'
+import { buildPrintHTML, ReceiptModal, type ReceiptInfo } from '@/components/pos/ReceiptModal'
+import { LineManCheckoutModal } from '@/components/pos/LineManCheckoutModal'
+import { LineManHistoryModal } from '@/components/pos/LineManHistoryModal'
 import { cartCogsTotal, cartSubtotal, useCartStore } from '@/store/cart'
 import { stockMovementsForOrder } from '@/domain/stock'
 import { db, type OutboxOrder, type OutboxOrderItemInput, type OutboxPaymentInput } from '@/lib/db'
-import { syncOutbox } from '@/lib/sync'
+import { refreshReferenceData, syncOutbox } from '@/lib/sync'
 import { writePrintWindow } from '@/lib/html'
 import { useSessionStore } from '@/store/session'
 import { useSettings } from '@/hooks/useSettings'
@@ -35,16 +37,10 @@ export default function PosPage() {
   const [showPayment, setShowPayment] = useState(false)
   const [paymentSource, setPaymentSource] = useState<CheckoutSource>('store')
   const [grabSubmitting, setGrabSubmitting] = useState(false)
+  const [showLineMan, setShowLineMan] = useState(false)
+  const [showLineManHistory, setShowLineManHistory] = useState(false)
   const grabSubmitLockRef = useRef(false)
-  const [receiptOrder, setReceiptOrder] = useState<{
-    orderNo: string
-    total: number
-    paid: number
-    change: number
-    createdAt: string
-    lines: typeof lines
-    discount: number
-  } | null>(null)
+  const [receiptOrder, setReceiptOrder] = useState<ReceiptInfo | null>(null)
 
   function handleSelectProduct(product: ProductWithRecipe) {
     setPickerProduct(product)
@@ -212,7 +208,18 @@ export default function PosPage() {
         onCheckout={() => openPayment('store')}
         onGrabCheckout={handleQuickGrabCheckout}
         grabSubmitting={grabSubmitting}
+        onLineManCheckout={() => setShowLineMan(true)}
+        onLineManHistory={() => setShowLineManHistory(true)}
       />
+
+      {showLineMan && <LineManCheckoutModal lines={lines} note={note} onClose={() => setShowLineMan(false)} onSuccess={receipt => {
+        // Server already committed atomically. Cache/printing errors must not re-submit a sale.
+        setShowLineMan(false)
+        clear()
+        setReceiptOrder(receipt)
+        refreshReferenceData().catch(() => undefined)
+      }} />}
+      {showLineManHistory && <LineManHistoryModal onClose={() => setShowLineManHistory(false)} onReceipt={receipt => { setShowLineManHistory(false); setReceiptOrder(receipt) }} />}
 
       {pickerProduct && (
         <OptionPickerModal

@@ -153,10 +153,14 @@ export function CartPanel({
   onCheckout,
   onGrabCheckout,
   grabSubmitting,
+  onLineManCheckout,
+  onLineManHistory,
 }: {
   onCheckout: () => void
   onGrabCheckout: () => void
   grabSubmitting: boolean
+  onLineManCheckout: () => void
+  onLineManHistory: () => void
 }) {
   const lines = useCartStore((s) => s.lines)
   const discount = useCartStore((s) => s.discount)
@@ -182,7 +186,7 @@ export function CartPanel({
 
   return (
     <aside
-      className="flex h-[min(46vh,520px)] min-h-0 w-full flex-none flex-col overflow-hidden md:h-full md:w-80"
+      className="flex h-[min(58vh,620px)] min-h-0 w-full flex-none flex-col overflow-y-auto md:h-full md:w-80"
       style={{
         background: 'rgba(255,255,255,.52)',
         backdropFilter: 'blur(22px) saturate(180%)',
@@ -204,7 +208,7 @@ export function CartPanel({
       </div>
 
       {/* Cart lines */}
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+      <div className="min-h-24 flex-1 space-y-3 overflow-y-auto p-4">
         {lines.length === 0 && (
           <p className="text-sm text-center py-10" style={{ color: '#5c7466' }}>ยังไม่มีรายการ</p>
         )}
@@ -250,7 +254,7 @@ export function CartPanel({
       </div>
 
       {/* Footer */}
-      <div className="flex-none space-y-3 p-4" style={{ borderTop: '1px solid rgba(255,255,255,.6)' }}>
+      <div className="flex-none space-y-2 p-3" style={{ borderTop: '1px solid rgba(255,255,255,.6)' }}>
         <div className="flex justify-between text-sm" style={{ color: '#5c7466' }}>
           <span>ยอดรวม</span>
           <span>{formatBahtSymbol(subtotal)}</span>
@@ -303,6 +307,8 @@ export function CartPanel({
         >
           {grabSubmitting ? 'กำลังบันทึก Grab…' : '🛵 คิดเงิน Grab · พิมพ์ + ตัดสต็อก'}
         </button>
+        <button className="w-full min-h-11 rounded-2xl bg-green-700 hover:bg-green-800 text-white text-sm font-bold disabled:opacity-50" disabled={lines.length === 0 || grabSubmitting} onClick={onLineManCheckout}>คิดเงิน LINE MAN · ใช้ราคาแยก</button>
+        <button className="w-full min-h-9 text-xs text-green-900 underline" onClick={onLineManHistory}>ประวัติ LINE MAN / พิมพ์ซ้ำ</button>
       </div>
     </aside>
   )
