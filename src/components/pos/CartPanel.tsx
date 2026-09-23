@@ -307,8 +307,8 @@ export function CartPanel({
         >
           {grabSubmitting ? 'กำลังบันทึก Grab…' : '🛵 คิดเงิน Grab · พิมพ์ + ตัดสต็อก'}
         </button>
-        <button className="w-full min-h-11 rounded-2xl bg-green-700 hover:bg-green-800 text-white text-sm font-bold disabled:opacity-50" disabled={lines.length === 0 || grabSubmitting} onClick={onLineManCheckout}>คิดเงิน LINE MAN · ใช้ราคาแยก</button>
-        <button className="w-full min-h-9 text-xs text-green-900 underline" onClick={onLineManHistory}>ประวัติ LINE MAN / พิมพ์ซ้ำ</button>
+        <button className="w-full min-h-11 rounded-2xl bg-green-700 hover:bg-green-800 text-white text-sm font-bold disabled:opacity-50" disabled={lines.length === 0 || grabSubmitting} onClick={onLineManCheckout}>บันทึกออเดอร์ LINE MAN · ตัดสต็อก</button>
+        <button className="w-full min-h-9 text-xs text-green-900 underline" onClick={onLineManHistory}>ประวัติออเดอร์ LINE MAN / พิมพ์ซ้ำ</button>
       </div>
     </aside>
   )

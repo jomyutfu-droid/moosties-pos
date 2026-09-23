@@ -105,7 +105,7 @@ export function useProductDetail(productId: string | null) {
 
 export type ProductInput = Pick<
   Product,
-  'name' | 'price' | 'line_man_price' | 'category_id' | 'sku' | 'prep_steps' | 'is_active' | 'sort_order' | 'sweetness_config'
+  'name' | 'price' | 'category_id' | 'sku' | 'prep_steps' | 'is_active' | 'sort_order' | 'sweetness_config'
 > & { id?: string }
 
 export function useSaveProduct() {
@@ -268,7 +268,7 @@ export function useSaveProductOptions(productId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (params: {
-      upserts: (Pick<ProductOption, 'name' | 'price_delta' | 'line_man_price' | 'linked_ingredient_id' | 'qty_delta' | 'sort_order'> & {
+      upserts: (Pick<ProductOption, 'name' | 'price_delta' | 'linked_ingredient_id' | 'qty_delta' | 'sort_order'> & {
         id?: string
       })[]
       deleteIds: string[]
@@ -287,7 +287,6 @@ export function useSaveProductOptions(productId: string) {
           product_id: productId,
           name: r.name,
           price_delta: r.price_delta,
-          line_man_price: r.line_man_price ?? null,
           linked_ingredient_id: r.linked_ingredient_id,
           qty_delta: r.qty_delta,
           sort_order: r.sort_order,
@@ -298,7 +297,6 @@ export function useSaveProductOptions(productId: string) {
           product_id: productId,
           name: r.name,
           price_delta: r.price_delta,
-          line_man_price: r.line_man_price ?? null,
           linked_ingredient_id: r.linked_ingredient_id,
           qty_delta: r.qty_delta,
           sort_order: r.sort_order,

@@ -7,6 +7,7 @@ import { PaymentModal } from '@/components/pos/PaymentModal'
 import { buildPrintHTML, ReceiptModal, type ReceiptInfo } from '@/components/pos/ReceiptModal'
 import { LineManCheckoutModal } from '@/components/pos/LineManCheckoutModal'
 import { LineManHistoryModal } from '@/components/pos/LineManHistoryModal'
+import { LineManReceiptModal, type LineManReceiptInfo } from '@/components/pos/LineManReceiptModal'
 import { cartCogsTotal, cartSubtotal, useCartStore } from '@/store/cart'
 import { stockMovementsForOrder } from '@/domain/stock'
 import { db, type OutboxOrder, type OutboxOrderItemInput, type OutboxPaymentInput } from '@/lib/db'
@@ -41,6 +42,7 @@ export default function PosPage() {
   const [showLineManHistory, setShowLineManHistory] = useState(false)
   const grabSubmitLockRef = useRef(false)
   const [receiptOrder, setReceiptOrder] = useState<ReceiptInfo | null>(null)
+  const [lineManReceipt, setLineManReceipt] = useState<LineManReceiptInfo | null>(null)
 
   function handleSelectProduct(product: ProductWithRecipe) {
     setPickerProduct(product)
@@ -216,10 +218,10 @@ export default function PosPage() {
         // Server already committed atomically. Cache/printing errors must not re-submit a sale.
         setShowLineMan(false)
         clear()
-        setReceiptOrder(receipt)
+        setLineManReceipt(receipt)
         refreshReferenceData().catch(() => undefined)
       }} />}
-      {showLineManHistory && <LineManHistoryModal onClose={() => setShowLineManHistory(false)} onReceipt={receipt => { setShowLineManHistory(false); setReceiptOrder(receipt) }} />}
+      {showLineManHistory && <LineManHistoryModal onClose={() => setShowLineManHistory(false)} onReceipt={receipt => { setShowLineManHistory(false); setLineManReceipt(receipt) }} />}
 
       {pickerProduct && (
         <OptionPickerModal
@@ -240,6 +242,7 @@ export default function PosPage() {
       )}
 
       {receiptOrder && <ReceiptModal order={receiptOrder} onClose={() => setReceiptOrder(null)} />}
+      {lineManReceipt && <LineManReceiptModal order={lineManReceipt} onClose={() => setLineManReceipt(null)} />}
     </div>
   )
 }

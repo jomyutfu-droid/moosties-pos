@@ -85,7 +85,6 @@ export interface PrintedRecipeRow {
 }
 
 export interface Product {
-  line_man_price?: number | null
   sweetness_config?: SweetnessIngredient[] | null
   id: UUID
   category_id: UUID | null
@@ -105,7 +104,6 @@ export interface Product {
 }
 
 export interface ProductOption {
-  line_man_price?: number | null
   id: UUID
   product_id: UUID
   name: string
