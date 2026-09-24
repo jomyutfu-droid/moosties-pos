@@ -50,6 +50,9 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
+      '@/lib/production': path.resolve(__dirname, 'qa/production-api.ts'),
+      '@/hooks/useInventory': path.resolve(__dirname, 'qa/production-inventory.ts'),
+      '@/store/session': path.resolve(__dirname, 'qa/line-man-session.ts'),
       '@': path.resolve(__dirname, './src'),
     },
   },

@@ -10,6 +10,7 @@ import PinPage from '@/pages/PinPage'
 import PosPage from '@/pages/PosPage'
 import MenuPage from '@/pages/MenuPage'
 import InventoryPage from '@/pages/InventoryPage'
+import ProductionPage from '@/pages/ProductionPage'
 import ReportsPage from '@/pages/ReportsPage'
 import UsersPage from '@/pages/UsersPage'
 import SettingsPage from '@/pages/SettingsPage'
@@ -78,6 +79,7 @@ function App() {
           }
         />
         <Route path="/inventory" element={<InventoryPage />} />
+        <Route path="/production" element={<ProductionPage />} />
         <Route
           path="/reports"
           element={
