@@ -9,7 +9,15 @@ import type { Category, Ingredient, Product, ProductOption, RecipeItem } from '@
  * - syncOutbox(): ส่งออเดอร์ที่ค้างใน outbox ขึ้น Supabase โดยใช้ client_uuid กันส่งซ้ำ
  */
 
-export async function refreshReferenceData(): Promise<void> {
+// Serialize refreshes: an older request must never overwrite a post-save catalog.
+let referenceRefreshQueue: Promise<void> = Promise.resolve()
+export function refreshReferenceData(): Promise<void> {
+  const refresh = referenceRefreshQueue.then(loadReferenceData)
+  referenceRefreshQueue = refresh.catch(() => undefined)
+  return refresh
+}
+
+async function loadReferenceData(): Promise<void> {
   const [categories, ingredients, products, options, recipeItems] = await Promise.all([
     supabase.from('categories').select('*').order('sort_order'),
     supabase.from('ingredients').select('*, units:ingredient_units(*)'),

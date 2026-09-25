@@ -1,4 +1,5 @@
 import { SweetnessEditor } from '@/components/SweetnessEditor'
+import { recipeUnitIsValid, recipeUnitSelectValue } from '@/domain/recipeUnits'
 import { legacySweetnessLevel, sweetnessIngredients } from '@/domain/sweetness'
 import type { SweetnessIngredient } from '@/types'
 import { useEffect, useState } from 'react'
@@ -212,6 +213,11 @@ export function ProductEditor({
     setSaving(true)
     setError(null)
     try {
+      const invalid = recipeRows.find(row => row.ingredient_id && row.qty > 0 &&
+        !recipeUnitIsValid(ingredientsById.get(row.ingredient_id), row.unit_name, row.unit_factor))
+      if (invalid) {
+        throw new Error(`กรุณายืนยันหน่วยของ ${ingredientsById.get(invalid.ingredient_id)?.name ?? 'วัตถุดิบ'}: หน่วยเดิม “${invalid.unit_name ?? 'ไม่ระบุ'}” หรืออัตราแปลงไม่ตรงกับการตั้งค่าปัจจุบัน เลือกหน่วยและตรวจปริมาณก่อนบันทึก`)
+      }
       for (const row of sweetnessConfig) {
         const normal = recipeRows.filter(r => r.ingredient_id === row.ingredient_id).reduce((sum, r) => sum + baseQtyForRow(r), 0)
         if (!ingredientsById.has(row.ingredient_id) || (row.less != null && (!Number.isFinite(row.less) || row.less < 0 || row.less > normal)) || (row.more != null && (!Number.isFinite(row.more) || row.more < normal))) {
@@ -241,7 +247,11 @@ export function ProductEditor({
       }
 
       // แคชเมนูของหน้าขายอ่านจาก Dexie — ต้องดึงใหม่ ไม่งั้นหน้าขายยังใช้ราคา/สูตรเดิม
-      await refreshReferenceData().catch(() => undefined)
+      try {
+        await refreshReferenceData()
+      } catch {
+        throw new Error('บันทึกสูตรแล้ว แต่โหลดข้อมูลหน้าขายไม่สำเร็จ กรุณาเชื่อมต่ออินเทอร์เน็ตและโหลดหน้าใหม่ก่อนขาย ไม่ต้องสร้างเมนูซ้ำ')
+      }
       onClose()
     } catch (err) {
       setError(explainSupabaseError(err, 'บันทึกไม่สำเร็จ'))
@@ -381,6 +391,11 @@ export function ProductEditor({
               </button>
             </div>
             <div className="space-y-2">
+              {ingredients && recipeRows.some(row => row.ingredient_id && !recipeUnitIsValid(ingredientsById.get(row.ingredient_id), row.unit_name, row.unit_factor)) && (
+                <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                  พบหน่วยเดิมที่ไม่ตรงกับการตั้งค่าปัจจุบัน ช่องที่ขึ้น “ต้องยืนยัน” แสดงค่าที่บันทึกจริง กรุณาเลือกหน่วยและตรวจจำนวนใหม่ก่อนบันทึก การเปลี่ยนหน่วยจะคงปริมาณตัดสต๊อกเดิม หากไม่มีหน่วยที่ต้องการ ให้ตั้งค่าหน่วยวัตถุดิบก่อน
+                </p>
+              )}
               {recipeRows.map((row, index) => {
                 const ing = ingredientsById.get(row.ingredient_id)
                 const unitChoices = usageUnitsForIngredient(ing)
@@ -416,11 +431,17 @@ export function ProductEditor({
                     <select
                       className="input text-xs max-sm:w-full"
                       style={{ width: '92px', flexShrink: 0 }}
-                      value={row.unit_name ?? ing?.unit ?? ''}
+                      value={recipeUnitSelectValue(ing, row.unit_name, row.unit_factor)}
+                      aria-label={`หน่วย ${ing?.name ?? 'วัตถุดิบ'}`}
+                      title="การเปลี่ยนหน่วยคงปริมาณตัดสต๊อกเดิม กรุณาตรวจจำนวนและอัตราแปลงก่อนบันทึก"
                       disabled={!ing}
                       onChange={(e) => changeRecipeUnit(row, e.target.value)}
                     >
-                      {!ing && <option value="">หน่วย</option>}
+                      {!recipeUnitIsValid(ing, row.unit_name, row.unit_factor) && (
+                        <option value="__legacy_recipe_unit__" disabled>
+                          {row.unit_name ?? 'ไม่ระบุหน่วย'} — ต้องยืนยัน
+                        </option>
+                      )}
                       {unitChoices.map((unit) => (
                         <option key={unit.id} value={unit.name}>
                           {unit.name}
