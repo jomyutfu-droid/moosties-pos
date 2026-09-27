@@ -259,7 +259,7 @@ export function CartPanel({
           <span>ยอดรวม</span>
           <span>{formatBahtSymbol(subtotal)}</span>
         </div>
-        <div className="flex justify-between text-sm items-center gap-2">
+        <div className="flex flex-wrap justify-between text-sm items-center gap-2">
           <span style={{ color: '#5c7466' }}>
             ส่วนลด
             {!isManagerUp && discountCap > 0 && (
@@ -280,7 +280,7 @@ export function CartPanel({
               <option value="percent">%</option>
             </select>
             <NumberField
-            className="input w-20 text-right"
+            className="input w-32 shrink-0 text-right"
             value={discountValue}
             parse={parseUnsignedNumber}
             disabled={discountBlocked}

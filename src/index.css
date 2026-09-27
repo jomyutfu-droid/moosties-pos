@@ -71,8 +71,11 @@ body {
 }
 
 /* ─── Input / Label ───────────────────────────────── */
+/* Component defaults must precede Tailwind utilities, so w-*/
+@layer components {
 .input {
-  @apply w-full px-3 py-2 text-sm;
+  @apply w-full min-w-0 max-w-full px-3 py-2 text-base sm:text-sm;
+  min-height: 44px;
   background: rgba(255,255,255,.94);
   border: 2px solid rgba(75,112,89,.34);
   border-radius: 0.75rem;         /* 12px */
@@ -95,6 +98,37 @@ body {
 .input::placeholder {
   color: #5c7466;
   opacity: 1;
+}
+}
+
+.quantity-unit-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr));
+  gap: 12px;
+}
+.quantity-unit-row > label { min-width: 0; }
+.production-quantity { grid-template-columns: minmax(0, 1fr) 140px; }
+@media (max-width: 480px) {
+  .production-quantity { grid-template-columns: minmax(0, 1fr); }
+}
+.recipe-form-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(110px, .8fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+}
+.recipe-form-row > * { min-width: 0; }
+.recipe-form-row > select:first-of-type,
+.recipe-form-row > input[placeholder="ชื่อตัวเลือก เช่น เพิ่มไข่มุก"],
+.recipe-form-row > input[placeholder="หมายเหตุ"] { grid-column: 1 / -1; }
+.recipe-form-row > button { justify-self: end; grid-column: 2; }
+@media (min-width: 640px) {
+  .recipe-form-row { grid-template-columns: minmax(0, 1fr) 150px 150px; }
+  .recipe-form-row > select:first-of-type { grid-column: 1 / -1; }
+  .recipe-form-row > button { grid-column: 3; }
 }
 
 .label { @apply block text-xs font-semibold mb-1; color: #5c7466; }

@@ -192,8 +192,8 @@ export function IngredientEditor({
           </p>
         </div>
         <div className="p-5 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="sm:col-span-2">
               <label className="label">ชื่อวัตถุดิบ</label>
               <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
@@ -233,23 +233,23 @@ export function IngredientEditor({
               </div>
               <button className="btn-secondary text-xs" onClick={addUnit}>+ เพิ่มหน่วย</button>
             </div>
-            <div className="hidden md:grid grid-cols-[1.4fr_1fr_1fr_1.3fr_1.3fr_45px] gap-2 px-3 py-2 text-xs text-gray-400">
+            <div className="hidden">
               <span>ชื่อหน่วย</span><span>เท่ากับหน่วยกลาง</span><span>ประเภท</span>
               <span>หน่วยซื้อเริ่มต้น</span><span>หน่วยใช้ในสูตรเริ่มต้น</span><span />
             </div>
             <div className="divide-y">
               {unitRows.map((row) => (
-                <div key={row._key} className="grid md:grid-cols-[1.4fr_1fr_1fr_1.3fr_1.3fr_45px] gap-2 items-center p-3">
+                <div key={row._key} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center p-3">
                   <div>
-                    <label className="md:hidden text-xs text-gray-400">ชื่อหน่วย</label>
+                    <label className="block text-xs text-gray-600 mb-1">ชื่อหน่วย</label>
                     <input className="input" value={row.name} onChange={(e) => setRow(row._key, { name: e.target.value })} placeholder="เช่น กระปุก" />
                   </div>
                   <div>
-                    <label className="md:hidden text-xs text-gray-400">เท่ากับหน่วยกลาง</label>
+                    <label className="block text-xs text-gray-600 mb-1">เท่ากับหน่วยกลาง</label>
                     <NumberField className="input" value={row.factor_to_base} parse={parseUnsignedNumber} onChange={(n) => setRow(row._key, { factor_to_base: n })} />
                   </div>
                   <div>
-                    <label className="md:hidden text-xs text-gray-400">ประเภท</label>
+                    <label className="block text-xs text-gray-600 mb-1">ประเภท</label>
                     <select className="input" value={row.kind} onChange={(e) => changeUnitKind(row, e.target.value as IngredientUnitKind)}>
                       <option value="purchase">ซื้อเข้า</option>
                       <option value="usage">ใช้ในสูตร</option>
