@@ -107,6 +107,10 @@ body {
   gap: 12px;
 }
 .quantity-unit-row > label { min-width: 0; }
+.production-quantity { grid-template-columns: minmax(0, 1fr) 140px; }
+@media (max-width: 480px) {
+  .production-quantity { grid-template-columns: minmax(0, 1fr); }
+}
 .recipe-form-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(110px, .8fr);
