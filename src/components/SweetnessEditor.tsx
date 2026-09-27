@@ -16,7 +16,7 @@ export function SweetnessEditor({ value, onChange, ingredients, baseQuantities }
       const normal = baseQuantities.get(row.ingredient_id) ?? 0
       return <div key={row.ingredient_id} className="bg-white border rounded-xl p-3 space-y-2">
         <div className="flex justify-between items-center gap-2"><strong className="text-sm">{ing?.name ?? 'ไม่พบวัตถุดิบ'} ({ing?.unit ?? '-'})</strong><button type="button" className="btn-ghost text-red-600" onClick={() => onChange(value.filter((_, i) => i !== index))}>ลบ</button></div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="quantity-unit-row">
           {(['less', 'normal', 'more'] as const).map(level => <label key={level} className="text-xs text-gray-600">{level === 'less' ? 'น้อย' : level === 'normal' ? 'ปกติ (BOM)' : 'มาก'}
             {level === 'normal' ? <div className="input bg-gray-100 mt-1">{normal}</div> : <input type="number" min={level === 'less' ? 0 : normal} max={level === 'less' ? normal : undefined} step="any" inputMode="decimal" className="input mt-1" aria-label={`${ing?.name} หวาน${level === 'less' ? 'น้อย' : 'มาก'}`} placeholder="ยังไม่ตั้ง" value={row[level] ?? ''} onChange={e => onChange(value.map((r, i) => i === index ? { ...r, [level]: e.target.value === '' ? null : Number(e.target.value) } : r))} />}
           </label>)}

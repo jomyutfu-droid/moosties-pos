@@ -400,7 +400,7 @@ export function ProductEditor({
                 const ing = ingredientsById.get(row.ingredient_id)
                 const unitChoices = usageUnitsForIngredient(ing)
                 return (
-                  <div key={row._key} className="flex gap-2 items-center max-sm:grid max-sm:grid-cols-[minmax(0,1fr)_auto] max-sm:gap-2 max-sm:p-3 max-sm:rounded-xl max-sm:border max-sm:border-gray-200 max-sm:bg-gray-50/60">
+                  <div key={row._key} className="recipe-form-row">
                     <span className="hidden max-sm:block col-span-2 text-xs font-semibold text-gray-500">
                       วัตถุดิบที่ {index + 1}
                     </span>
@@ -418,8 +418,8 @@ export function ProductEditor({
                       ))}
                     </select>
                     <NumberField
-                      className="input max-sm:w-full"
-                      style={{ width: '80px', flexShrink: 0 }}
+                      className="input"
+                      title="จำนวนวัตถุดิบต่อแก้ว"
                       value={row.qty}
                       parse={parseUnsignedNumber}
                       onChange={(n) =>
@@ -429,8 +429,7 @@ export function ProductEditor({
                       }
                     />
                     <select
-                      className="input text-xs max-sm:w-full"
-                      style={{ width: '92px', flexShrink: 0 }}
+                      className="input"
                       value={recipeUnitSelectValue(ing, row.unit_name, row.unit_factor)}
                       aria-label={`หน่วย ${ing?.name ?? 'วัตถุดิบ'}`}
                       title="การเปลี่ยนหน่วยคงปริมาณตัดสต๊อกเดิม กรุณาตรวจจำนวนและอัตราแปลงก่อนบันทึก"
@@ -485,7 +484,7 @@ export function ProductEditor({
             </div>
             <div className="space-y-2">
               {optionRows.filter(row => !legacySweetnessLevel(row.name) && row.name.trim() !== 'ไม่เพิ่ม').map((row, index) => (
-                <div key={row._key} className="flex gap-2 items-center max-sm:grid max-sm:grid-cols-[minmax(0,1fr)_auto] max-sm:gap-2 max-sm:p-3 max-sm:rounded-xl max-sm:border max-sm:border-gray-200 max-sm:bg-gray-50/60">
+                <div key={row._key} className="recipe-form-row">
                   <span className="hidden max-sm:block col-span-2 text-xs font-semibold text-gray-500">
                     ตัวเลือกที่ {index + 1}
                   </span>
@@ -499,8 +498,8 @@ export function ProductEditor({
                     }
                   />
                   <NumberField
-                    className="input max-sm:w-full"
-                    style={{ width: '72px', flexShrink: 0 }}
+                    className="input"
+                    title="ราคาเพิ่มหรือลด (บาท)"
                     placeholder="+ราคา"
                     value={row.price_delta}
                     parse={parseSignedNumber}
@@ -530,8 +529,8 @@ export function ProductEditor({
                     ))}
                   </select>
                   <NumberField
-                    className="input max-sm:w-full"
-                    style={{ width: '72px', flexShrink: 0 }}
+                    className="input"
+                    title="ปริมาณวัตถุดิบเพิ่มหรือลด"
                     placeholder="+ปริมาณ"
                     value={row.qty_delta}
                     parse={parseSignedNumber}
