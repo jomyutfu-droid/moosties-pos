@@ -104,6 +104,8 @@ export interface Product {
 }
 
 export interface ProductOption {
+  is_active?: boolean
+  is_available?: boolean
   id: UUID
   product_id: UUID
   name: string
@@ -113,6 +115,12 @@ export interface ProductOption {
   sort_order: number
   created_at: string
   updated_at: string
+}
+
+export interface StoreTopping extends Omit<ProductOption, 'product_id' | 'is_active' | 'is_available'> {
+  is_active: boolean
+  is_available: boolean
+  revision: number
 }
 
 export interface RecipeItem {

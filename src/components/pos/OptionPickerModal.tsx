@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { formatBahtSymbol } from '@/lib/money'
+import { selectedToppings, toppingIsAvailable } from '@/domain/toppings'
 import { adjustedRecipe } from '@/domain/recipe'
 import { legacySweetnessLevel, optionLabel, sweetnessError, sweetnessLabels, sweetnessOptions } from '@/domain/sweetness'
 import type { Ingredient, ProductWithRecipe, SelectedOption, SweetnessLevel } from '@/types'
@@ -14,18 +15,15 @@ export function OptionPickerModal({ product, ingredientsById, onConfirm, onClose
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const toppings = product.options.filter(o => !legacySweetnessLevel(o.name) && o.name.trim() !== 'ไม่เพิ่ม')
   const error = sweetnessError(product, sweetness, ingredientsById)
-  const chosen: SelectedOption[] = toppings.filter(o => (quantities[o.id] ?? 0) > 0).map(o => {
-    const qty = quantities[o.id]
-    const ing = o.linked_ingredient_id ? ingredientsById.get(o.linked_ingredient_id) : undefined
-    return { option_id: o.id, quantity: qty, name: qty > 1 ? `${o.name} ×${qty}` : o.name, price_delta: o.price_delta * qty, qty_delta: o.qty_delta * qty, linked_ingredient_id: o.linked_ingredient_id, ingredient_name: ing?.name, ingredient_unit: ing?.unit, ingredient_category: ing?.category }
-  })
+  const unavailableSelection = toppings.some(o => (quantities[o.id] ?? 0) > 0 && !toppingIsAvailable(o, ingredientsById))
+  const chosen = unavailableSelection ? [] : selectedToppings(toppings, quantities, ingredientsById)
   const options = error ? chosen : [...sweetnessOptions(product, sweetness, ingredientsById), ...chosen]
   const recipe = error ? [] : adjustedRecipe({ product, selectedOptions: options })
   const total = Number(product.price) + options.reduce((sum, o) => sum + o.price_delta, 0)
   const invalidRecipe = recipe.some(r => r.qty < 0 || !Number.isFinite(r.qty))
   function setQuantity(id: string, qty: number) { setQuantities(prev => ({ ...prev, [id]: Math.max(0, Math.min(99, qty)) })) }
   function confirm() {
-    if (error || invalidRecipe) return
+    if (error || invalidRecipe || unavailableSelection) return
     options[0] = { ...options[0], recipe_snapshot: recipe }
     onConfirm(options)
   }
@@ -49,12 +47,14 @@ export function OptionPickerModal({ product, ingredientsById, onConfirm, onClose
             <h3 className="font-semibold mb-2">2. ท็อปปิ้ง <span className="text-xs font-normal text-gray-500">เลือกได้หลายชนิด</span></h3>
             <div className="space-y-2">{toppings.map(opt => {
               const qty = quantities[opt.id] ?? 0
+              const available = toppingIsAvailable(opt, ingredientsById)
               const repeatable = opt.qty_delta >= 0 && opt.price_delta >= 0
               return <div key={opt.id} className={`rounded-xl border p-3 flex items-center gap-2 ${qty ? 'border-green-600 bg-green-50' : 'border-gray-200'}`}>
-                <label className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"><input type="checkbox" className="w-5 h-5 accent-green-800" checked={qty > 0} onChange={() => setQuantity(opt.id, qty ? 0 : 1)} /><span className="min-w-0 break-words">{opt.name}<span className="block text-xs text-gray-500">{formatBahtSymbol(opt.price_delta)} / ส่วน</span></span></label>
-                {repeatable && <div className="flex items-center gap-1 shrink-0"><button type="button" className="btn-secondary min-w-11 min-h-11 p-0" disabled={!qty} aria-label={`ลดจำนวน ${opt.name}`} onClick={() => setQuantity(opt.id, qty - 1)}>−</button><span className="w-6 text-center tabular-nums">{qty}</span><button type="button" className="btn-secondary min-w-11 min-h-11 p-0" disabled={qty >= 99} aria-label={`เพิ่มจำนวน ${opt.name}`} onClick={() => setQuantity(opt.id, qty + 1)}>+</button></div>}
+                <label className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"><input type="checkbox" className="w-5 h-5 accent-green-800" disabled={!available && !qty} checked={qty > 0} onChange={() => setQuantity(opt.id, qty ? 0 : 1)} /><span className="min-w-0 break-words">{opt.name}{!available && <span className="ml-2 text-red-700 text-xs">หมดชั่วคราว</span>}<span className="block text-xs text-gray-500">{formatBahtSymbol(opt.price_delta)} / ส่วน</span></span></label>
+                {repeatable && <div className="flex items-center gap-1 shrink-0"><button type="button" className="btn-secondary min-w-11 min-h-11 p-0" disabled={!qty} aria-label={`ลดจำนวน ${opt.name}`} onClick={() => setQuantity(opt.id, qty - 1)}>−</button><span className="w-6 text-center tabular-nums">{qty}</span><button type="button" className="btn-secondary min-w-11 min-h-11 p-0" disabled={!available || qty >= 99} aria-label={`เพิ่มจำนวน ${opt.name}`} onClick={() => setQuantity(opt.id, qty + 1)}>+</button></div>}
               </div>
             })}</div>
+            {unavailableSelection && <p role="alert" className="text-sm text-red-700 mt-2">ท็อปปิ้งที่เลือกไม่พร้อมขาย กรุณายกเลิกตัวเลือกนั้น</p>}
             <p className="text-xs text-gray-500 mt-2">ไม่เลือก = ไม่เพิ่มท็อปปิ้ง</p>
           </section>
           <section><h3 className="font-semibold mb-2">3. สรุปและสูตรที่จะพิมพ์</h3><p className="text-sm text-green-800 mb-2">{sweetnessLabels[sweetness]}{chosen.length ? ` · ${optionLabel(chosen)}` : ' · ไม่เพิ่มท็อปปิ้ง'}</p>
@@ -63,7 +63,7 @@ export function OptionPickerModal({ product, ingredientsById, onConfirm, onClose
             {product.prep_steps && <p className="text-sm text-gray-500 mt-3 whitespace-pre-line">{product.prep_steps}</p>}
           </section>
         </div>
-        <div className="p-4 border-t border-gray-200 bg-white flex gap-2 shrink-0"><button type="button" className="btn-ghost" onClick={onClose}>ยกเลิก</button><button type="button" className="btn-primary flex-1 min-h-12" disabled={!!error || invalidRecipe} onClick={confirm}>เพิ่มลงบิล · {formatBahtSymbol(total)}</button></div>
+        <div className="p-4 border-t border-gray-200 bg-white flex gap-2 shrink-0"><button type="button" className="btn-ghost" onClick={onClose}>ยกเลิก</button><button type="button" className="btn-primary flex-1 min-h-12" disabled={!!error || invalidRecipe || unavailableSelection} onClick={confirm}>เพิ่มลงบิล · {formatBahtSymbol(total)}</button></div>
       </div>
     </div>
   )

@@ -11,6 +11,7 @@ type NavRole = 'owner' | 'manager' | 'staff'
 const navItems: { to: string; label: string; roles?: NavRole[] }[] = [
   { to: '/', label: 'หน้าขาย' },
   { to: '/menu', label: 'เมนู/สูตร', roles: ['owner', 'manager'] },
+  { to: '/toppings', label: 'ท็อปปิ้งกลาง', roles: ['owner'] },
   { to: '/inventory', label: 'สต็อก', roles: ['owner', 'manager', 'staff'] },
   { to: '/production', label: 'ผลิตวัตถุดิบ', roles: ['owner', 'manager', 'staff'] },
   { to: '/queue', label: 'คิวออเดอร์', roles: ['owner', 'manager', 'staff'] },

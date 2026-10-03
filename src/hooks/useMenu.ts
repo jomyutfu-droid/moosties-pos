@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { refreshReferenceData } from '@/lib/sync'
 import { baseCost } from '@/domain/cogs'
+import { optionsForProduct } from '@/domain/toppings'
+import type { StoreTopping } from '@/types'
 import type { Category, Ingredient, Product, ProductOption, ProductWithRecipe, RecipeItem } from '@/types'
 
 /**
@@ -80,7 +82,7 @@ export function useProductDetail(productId: string | null) {
     queryKey: ['product-detail', productId],
     queryFn: async (): Promise<ProductWithRecipe | null> => {
       if (!productId) return null
-      const [productRes, recipeRes, optionsRes] = await Promise.all([
+      const [productRes, recipeRes, optionsRes, toppingsRes] = await Promise.all([
         supabase.from('products').select('*').eq('id', productId).single(),
         supabase
           .from('recipe_items')
@@ -88,15 +90,17 @@ export function useProductDetail(productId: string | null) {
           .eq('product_id', productId)
           .order('sort_order'),
         supabase.from('product_options').select('*').eq('product_id', productId).order('sort_order'),
+        supabase.from('store_toppings').select('*').order('sort_order'),
       ])
       if (productRes.error) throw productRes.error
       if (recipeRes.error) throw recipeRes.error
       if (optionsRes.error) throw optionsRes.error
+      if (toppingsRes.error) throw toppingsRes.error
 
       return {
         ...(productRes.data as Product),
         recipe_items: (recipeRes.data ?? []) as (RecipeItem & { ingredient: Ingredient })[],
-        options: (optionsRes.data ?? []) as ProductOption[],
+        options: optionsForProduct(productId, (optionsRes.data ?? []) as ProductOption[], (toppingsRes.data ?? []) as StoreTopping[]),
       }
     },
     enabled: !!productId,

@@ -4,12 +4,14 @@ import type {
   Ingredient,
   Product,
   ProductOption,
+  StoreTopping,
   RecipeItem,
   Settings,
   SelectedOption,
   OrderChannel,
 } from '@/types'
 import type { StockMovementDraft } from '@/domain/stock'
+import { migrateCachedToppings } from '@/domain/toppings'
 
 /**
  * แคชข้อมูลอ้างอิง (reference data) ไว้ใน IndexedDB เพื่อให้ POS ใช้งานได้แบบออฟไลน์
@@ -60,6 +62,7 @@ export class MoosttiesDB extends Dexie {
   ingredients!: Table<Ingredient, string>
   products!: Table<Product, string>
   product_options!: Table<ProductOption, string>
+  store_toppings!: Table<StoreTopping, string>
   recipe_items!: Table<RecipeItem, string>
   settings!: Table<CachedSettings, string>
   outbox_orders!: Table<OutboxOrder, string>
@@ -74,6 +77,10 @@ export class MoosttiesDB extends Dexie {
       recipe_items: 'id, product_id, ingredient_id',
       settings: 'id',
       outbox_orders: 'client_uuid, status, created_at',
+    })
+    this.version(2).stores({ store_toppings: 'id, sort_order' }).upgrade(async tx => {
+      const legacy = await tx.table<ProductOption, string>('product_options').toArray()
+      await tx.table<StoreTopping, string>('store_toppings').bulkPut(migrateCachedToppings(legacy))
     })
   }
 }
