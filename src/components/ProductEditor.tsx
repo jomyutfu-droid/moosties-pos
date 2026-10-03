@@ -1,6 +1,6 @@
 import { SweetnessEditor } from '@/components/SweetnessEditor'
 import { recipeUnitIsValid, recipeUnitSelectValue } from '@/domain/recipeUnits'
-import { legacySweetnessLevel, sweetnessIngredients } from '@/domain/sweetness'
+import { sweetnessIngredients } from '@/domain/sweetness'
 import type { SweetnessIngredient } from '@/types'
 import { useEffect, useState } from 'react'
 import {
@@ -8,18 +8,17 @@ import {
   useIngredients,
   useProductDetail,
   useSaveProduct,
-  useSaveProductOptions,
   useSaveRecipeItems,
   recalcProductCost,
 } from '@/hooks/useMenu'
 import { refreshReferenceData } from '@/lib/sync'
 import { baseCost, marginPercent, unitProfit } from '@/domain/cogs'
 import { formatBahtSymbol } from '@/lib/money'
-import { parseUnsignedNumber, parseSignedNumber } from '@/lib/forms'
+import { parseUnsignedNumber } from '@/lib/forms'
 import { explainSupabaseError } from '@/lib/errors'
 import { NumberField } from '@/components/NumberField'
 import { defaultUsageUnit, fromBaseQty, toBaseQty, unitByName, usageUnitsForIngredient } from '@/domain/units'
-import type { ProductOption, RecipeItem } from '@/types'
+import type { RecipeItem } from '@/types'
 
 interface RecipeRow extends Partial<Pick<RecipeItem, 'id'>> {
   ingredient_id: string
@@ -28,15 +27,6 @@ interface RecipeRow extends Partial<Pick<RecipeItem, 'id'>> {
   unit_factor: number
   sort_order: number
   note: string | null
-  _key: string
-}
-
-interface OptionRow extends Partial<Pick<ProductOption, 'id'>> {
-  name: string
-  price_delta: number
-  linked_ingredient_id: string | null
-  qty_delta: number
-  sort_order: number
   _key: string
 }
 
@@ -62,7 +52,6 @@ export function ProductEditor({
   const { data: detail } = useProductDetail(productId)
   const saveProduct = useSaveProduct()
   const saveRecipe = useSaveRecipeItems(productId ?? '')
-  const saveOptions = useSaveProductOptions(productId ?? '')
 
   const [sweetnessConfig, setSweetnessConfig] = useState<SweetnessIngredient[]>([])
   const [name, setName] = useState('')
@@ -72,8 +61,6 @@ export function ProductEditor({
   const [prepSteps, setPrepSteps] = useState('')
   const [recipeRows, setRecipeRows] = useState<RecipeRow[]>([])
   const [removedRecipeIds, setRemovedRecipeIds] = useState<string[]>([])
-  const [optionRows, setOptionRows] = useState<OptionRow[]>([])
-  const [removedOptionIds, setRemovedOptionIds] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -97,17 +84,6 @@ export function ProductEditor({
           _key: r.id,
         })),
       )
-      setOptionRows(
-        detail.options.map((o) => ({
-          id: o.id,
-          name: o.name,
-          price_delta: o.price_delta,
-          linked_ingredient_id: o.linked_ingredient_id,
-          qty_delta: o.qty_delta,
-          sort_order: o.sort_order,
-          _key: o.id,
-        })),
-      )
     } else if (productId === null) {
       setSweetnessConfig([])
       setName('')
@@ -116,9 +92,7 @@ export function ProductEditor({
       setSku('')
       setPrepSteps('')
       setRecipeRows([])
-      setOptionRows([])
       setRemovedRecipeIds([])
-      setRemovedOptionIds([])
     }
   }, [detail, productId, categories])
 
@@ -152,25 +126,6 @@ export function ProductEditor({
   function removeRecipeRow(row: RecipeRow) {
     if (row.id) setRemovedRecipeIds((ids) => [...ids, row.id!])
     setRecipeRows((rows) => rows.filter((r) => r._key !== row._key))
-  }
-
-  function addOptionRow() {
-    setOptionRows((rows) => [
-      ...rows,
-      {
-        name: '',
-        price_delta: 0,
-        linked_ingredient_id: null,
-        qty_delta: 0,
-        sort_order: rows.length,
-        _key: newKey(),
-      },
-    ])
-  }
-
-  function removeOptionRow(row: OptionRow) {
-    if (row.id) setRemovedOptionIds((ids) => [...ids, row.id!])
-    setOptionRows((rows) => rows.filter((r) => r._key !== row._key))
   }
 
   function changeRecipeIngredient(rowKey: string, ingredientId: string) {
@@ -242,9 +197,6 @@ export function ProductEditor({
       if (recipeRows.length || removedRecipeIds.length) {
         await saveRecipeForProduct(targetId)
       }
-      if (optionRows.length || removedOptionIds.length) {
-        await saveOptionsForProduct(targetId)
-      }
 
       // แคชเมนูของหน้าขายอ่านจาก Dexie — ต้องดึงใหม่ ไม่งั้นหน้าขายยังใช้ราคา/สูตรเดิม
       try {
@@ -298,40 +250,6 @@ export function ProductEditor({
       // เส้นทางนี้ไม่ผ่าน useSaveRecipeItems จึงต้องคำนวณ cost_cached เอง
       // ไม่งั้นเมนูใหม่จะมีต้นทุน = 0 และกำไรในรายงานจะสูงเกินจริง
       await recalcProductCost(targetId)
-    }
-  }
-
-  async function saveOptionsForProduct(targetId: string) {
-    const upserts = optionRows
-      .filter((o) => o.name)
-      .map((o) => ({
-        id: o.id,
-        name: o.name,
-        price_delta: o.price_delta,
-        linked_ingredient_id: o.linked_ingredient_id,
-        qty_delta: o.qty_delta,
-        sort_order: o.sort_order,
-      }))
-    if (targetId === productId) {
-      await saveOptions.mutateAsync({ upserts, deleteIds: removedOptionIds })
-    } else {
-      const { supabase } = await import('@/lib/supabase')
-      if (removedOptionIds.length) {
-        const { error } = await supabase.from('product_options').delete().in('id', removedOptionIds)
-        if (error) throw error
-      }
-      if (upserts.length) {
-        const rows = upserts.map((u) => ({
-          product_id: targetId,
-          name: u.name,
-          price_delta: u.price_delta,
-          linked_ingredient_id: u.linked_ingredient_id,
-          qty_delta: u.qty_delta,
-          sort_order: u.sort_order,
-        }))
-        const { error } = await supabase.from('product_options').insert(rows)
-        if (error) throw error
-      }
     }
   }
 
@@ -475,79 +393,11 @@ export function ProductEditor({
             baseQuantities={new Map(recipeRows.map(r => [r.ingredient_id, recipeRows.filter(i => i.ingredient_id === r.ingredient_id).reduce((sum, i) => sum + baseQtyForRow(i), 0)]))}
           />
 
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold">ท็อปปิ้งและตัวเลือกอื่น</h3>
-              <button className="btn-secondary text-sm" onClick={addOptionRow}>
-                + ตัวเลือก
-              </button>
-            </div>
-            <div className="space-y-2">
-              {optionRows.filter(row => !legacySweetnessLevel(row.name) && row.name.trim() !== 'ไม่เพิ่ม').map((row, index) => (
-                <div key={row._key} className="recipe-form-row">
-                  <span className="hidden max-sm:block col-span-2 text-xs font-semibold text-gray-500">
-                    ตัวเลือกที่ {index + 1}
-                  </span>
-                  <input
-                    className="input max-sm:col-span-2"
-                    style={{ flex: '2 1 0', minWidth: 0 }}
-                    placeholder="ชื่อตัวเลือก เช่น เพิ่มไข่มุก"
-                    value={row.name}
-                    onChange={(e) =>
-                      setOptionRows((rows) => rows.map((r) => (r._key === row._key ? { ...r, name: e.target.value } : r)))
-                    }
-                  />
-                  <NumberField
-                    className="input"
-                    title="ราคาเพิ่มหรือลด (บาท)"
-                    placeholder="+ราคา"
-                    value={row.price_delta}
-                    parse={parseSignedNumber}
-                    onChange={(n) =>
-                      setOptionRows((rows) =>
-                        rows.map((r) => (r._key === row._key ? { ...r, price_delta: n } : r)),
-                      )
-                    }
-                  />
-                  <select
-                    className="input max-sm:col-span-2"
-                    style={{ flex: '2 1 0', minWidth: 0 }}
-                    value={row.linked_ingredient_id ?? ''}
-                    onChange={(e) =>
-                      setOptionRows((rows) =>
-                        rows.map((r) =>
-                          r._key === row._key ? { ...r, linked_ingredient_id: e.target.value || null } : r,
-                        ),
-                      )
-                    }
-                  >
-                    <option value="">ไม่ผูกวัตถุดิบ</option>
-                    {ingredients?.map((i) => (
-                      <option key={i.id} value={i.id}>
-                        {i.name}
-                      </option>
-                    ))}
-                  </select>
-                  <NumberField
-                    className="input"
-                    title="ปริมาณวัตถุดิบเพิ่มหรือลด"
-                    placeholder="+ปริมาณ"
-                    value={row.qty_delta}
-                    parse={parseSignedNumber}
-                    onChange={(n) =>
-                      setOptionRows((rows) =>
-                        rows.map((r) => (r._key === row._key ? { ...r, qty_delta: n } : r)),
-                      )
-                    }
-                  />
-                  <button className="btn-ghost text-red-600" onClick={() => removeOptionRow(row)}>
-                    ลบ
-                  </button>
-                </div>
-              ))}
-              {optionRows.length === 0 && <p className="text-sm text-gray-400">ยังไม่มีตัวเลือก</p>}
-            </div>
-          </div>
+          <section className="rounded-xl bg-green-50 p-4 text-sm text-green-900">
+            <h3 className="font-semibold">ใช้ท็อปปิ้งกลางของร้าน</h3>
+            <p className="mt-1">เมนูนี้มีท็อปปิ้งของร้านให้เลือกอัตโนมัติ พนักงานเลือกเพิ่มตอนขาย</p>
+            <a className="underline inline-block mt-2" href="/toppings">จัดการท็อปปิ้งกลาง</a>
+          </section>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>

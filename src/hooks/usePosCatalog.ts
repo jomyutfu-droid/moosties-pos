@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/db'
+import { optionsForProduct } from '@/domain/toppings'
 import type { Category, Ingredient, ProductWithRecipe } from '@/types'
 
 /**
@@ -14,21 +15,16 @@ export function usePosCatalog(): {
   loading: boolean
 } {
   const result = useLiveQuery(async () => {
-    const [categories, products, options, recipeItems, ingredients] = await Promise.all([
+    const [categories, products, options, recipeItems, ingredients, toppings] = await Promise.all([
       db.categories.toArray(),
       db.products.toArray(),
       db.product_options.toArray(),
       db.recipe_items.toArray(),
       db.ingredients.toArray(),
+      db.store_toppings.toArray(),
     ])
 
     const ingredientsById = new Map(ingredients.map((i) => [i.id, i]))
-    const optionsByProduct = new Map<string, typeof options>()
-    for (const o of options) {
-      const list = optionsByProduct.get(o.product_id) ?? []
-      list.push(o)
-      optionsByProduct.set(o.product_id, list)
-    }
     const recipeByProduct = new Map<string, typeof recipeItems>()
     for (const r of recipeItems) {
       const list = recipeByProduct.get(r.product_id) ?? []
@@ -46,7 +42,7 @@ export function usePosCatalog(): {
           .sort((a, b) => a.sort_order - b.sort_order)
           .map((r) => ({ ...r, ingredient: ingredientsById.get(r.ingredient_id)! }))
           .filter((r) => r.ingredient),
-        options: (optionsByProduct.get(p.id) ?? []).sort((a, b) => a.sort_order - b.sort_order),
+        options: optionsForProduct(p.id, options, toppings),
       }))
 
     const sortedCategories = categories

@@ -8,6 +8,7 @@ import { refreshReferenceData, startAutoSync } from '@/lib/sync'
 import { pendingOutboxCount } from '@/lib/db'
 import PinPage from '@/pages/PinPage'
 import PosPage from '@/pages/PosPage'
+import ToppingsPage from '@/pages/ToppingsPage'
 import MenuPage from '@/pages/MenuPage'
 import InventoryPage from '@/pages/InventoryPage'
 import ProductionPage from '@/pages/ProductionPage'
@@ -78,6 +79,7 @@ function App() {
             </RequireRole>
           }
         />
+        <Route path="/toppings" element={<RequireRole roles={['owner']}><ToppingsPage /></RequireRole>} />
         <Route path="/inventory" element={<InventoryPage />} />
         <Route path="/production" element={<ProductionPage />} />
         <Route

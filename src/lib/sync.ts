@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { db, type OutboxOrder } from '@/lib/db'
 import { errorMessage } from '@/lib/errors'
-import type { Category, Ingredient, Product, ProductOption, RecipeItem } from '@/types'
+import type { Category, Ingredient, Product, ProductOption, RecipeItem, StoreTopping } from '@/types'
 
 /**
  * Sync แบบออฟไลน์-ก่อน (สเปกหัวข้อ 4, 6.7):
@@ -18,15 +18,16 @@ export function refreshReferenceData(): Promise<void> {
 }
 
 async function loadReferenceData(): Promise<void> {
-  const [categories, ingredients, products, options, recipeItems] = await Promise.all([
+  const [categories, ingredients, products, options, recipeItems, toppings] = await Promise.all([
     supabase.from('categories').select('*').order('sort_order'),
     supabase.from('ingredients').select('*, units:ingredient_units(*)'),
     supabase.from('products').select('*').order('sort_order'),
     supabase.from('product_options').select('*'),
     supabase.from('recipe_items').select('*'),
+    supabase.from('store_toppings').select('*').order('sort_order'),
   ])
 
-  const errors = [categories, ingredients, products, options, recipeItems]
+  const errors = [categories, ingredients, products, options, recipeItems, toppings]
     .map((r) => r.error)
     .filter(Boolean)
   if (errors.length) {
@@ -35,19 +36,21 @@ async function loadReferenceData(): Promise<void> {
 
   await db.transaction(
     'rw',
-    [db.categories, db.ingredients, db.products, db.product_options, db.recipe_items],
+    [db.categories, db.ingredients, db.products, db.product_options, db.recipe_items, db.store_toppings],
     async () => {
       await db.categories.clear()
       await db.ingredients.clear()
       await db.products.clear()
       await db.product_options.clear()
       await db.recipe_items.clear()
+      await db.store_toppings.clear()
 
       if (categories.data) await db.categories.bulkPut(categories.data as Category[])
       if (ingredients.data) await db.ingredients.bulkPut(ingredients.data as Ingredient[])
       if (products.data) await db.products.bulkPut(products.data as Product[])
       if (options.data) await db.product_options.bulkPut(options.data as ProductOption[])
       if (recipeItems.data) await db.recipe_items.bulkPut(recipeItems.data as RecipeItem[])
+      if (toppings.data) await db.store_toppings.bulkPut(toppings.data as StoreTopping[])
     },
   )
 }

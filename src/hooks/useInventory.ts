@@ -33,12 +33,14 @@ export function useIngredientUsage() {
   return useQuery({
     queryKey: ['ingredient-usage'],
     queryFn: async (): Promise<Record<string, IngredientUsage>> => {
-      const [recipesRes, optionsRes] = await Promise.all([
+      const [recipesRes, optionsRes, toppingsRes] = await Promise.all([
         supabase.from('recipe_items').select('ingredient_id, product_id'),
         supabase.from('product_options').select('linked_ingredient_id, product_id').not('linked_ingredient_id', 'is', null),
+        supabase.from('store_toppings').select('linked_ingredient_id').not('linked_ingredient_id', 'is', null),
       ])
       if (recipesRes.error) throw recipesRes.error
       if (optionsRes.error) throw optionsRes.error
+      if (toppingsRes.error) throw toppingsRes.error
 
       const usage: Record<string, IngredientUsage> = {}
       for (const row of recipesRes.data ?? []) {
@@ -46,7 +48,7 @@ export function useIngredientUsage() {
         usage[ingredientId] ??= { recipeProductCount: 0, optionProductCount: 0 }
         usage[ingredientId].recipeProductCount += 1
       }
-      for (const row of optionsRes.data ?? []) {
+      for (const row of [...(optionsRes.data ?? []), ...(toppingsRes.data ?? [])]) {
         const ingredientId = row.linked_ingredient_id as string | null
         if (!ingredientId) continue
         usage[ingredientId] ??= { recipeProductCount: 0, optionProductCount: 0 }
