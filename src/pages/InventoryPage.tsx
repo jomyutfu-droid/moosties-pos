@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   useDeactivateIngredient,
   useDeleteIngredient,
@@ -22,8 +22,15 @@ export default function InventoryPage() {
   const [movementTarget, setMovementTarget] = useState<Ingredient | null>(null)
   const [quickMovement, setQuickMovement] = useState(false)
 
+  const [search, setSearch] = useState('')
+  const searchInput = useRef<HTMLInputElement>(null)
+  const query = search.normalize('NFKC').trim().toLocaleLowerCase('th')
   const active = (ingredients ?? []).filter((i) => i.is_active)
+  const visible = active.filter((i) =>
+    [i.name, i.category ?? ''].some((value) => value.normalize('NFKC').toLocaleLowerCase('th').includes(query)),
+  )
   const lowStock = getLowStockIngredients(active)
+  const visibleLowStock = getLowStockIngredients(visible)
   const lowStockIds = new Set(lowStock.map((i) => i.id))
 
   async function handleDeactivate(ingredient: Ingredient) {
@@ -63,7 +70,7 @@ export default function InventoryPage() {
   }
 
   // จัดกลุ่มตาม category เรียงตัวอักษรภายในกลุ่ม
-  const sorted = [...active].sort((a, b) => a.name.localeCompare(b.name, 'th'))
+  const sorted = [...visible].sort((a, b) => a.name.localeCompare(b.name, 'th'))
   const groups = sorted.reduce<Record<string, Ingredient[]>>((acc, ing) => {
     const key = ing.category?.trim() || 'ไม่ระบุหมวด'
     if (!acc[key]) acc[key] = []
@@ -79,10 +86,10 @@ export default function InventoryPage() {
   const existingCategories = [...new Set(active.map((i) => i.category).filter(Boolean) as string[])]
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-6 space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-gray-800">สต็อกวัตถุดิบ</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button className="btn-secondary" disabled={isLoading || !ingredients?.length} onClick={handleExport}>
             ส่งออก Excel
           </button>
@@ -95,11 +102,22 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      {lowStock.length > 0 && (
+      <div role="search" aria-label="ค้นหาสต็อกวัตถุดิบ" className="card p-4 space-y-2">
+        <label htmlFor="inventory-search" className="label">ค้นหาวัตถุดิบ</label>
+        <div className="flex items-center gap-2">
+          <input ref={searchInput} id="inventory-search" type="search" className="input flex-1 min-w-0"
+            value={search} placeholder="พิมพ์ชื่อวัตถุดิบหรือหมวด เช่น นมสด"
+            onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setSearch('') }} />
+          {search && <button type="button" className="btn-secondary shrink-0" onClick={() => {setSearch(''); searchInput.current?.focus()}}>ล้างคำค้น</button>}
+        </div>
+        {!isLoading && <p role="status" className="text-xs text-gray-500">แสดง {visible.length} จาก {active.length} รายการ</p>}
+      </div>
+
+      {visibleLowStock.length > 0 && (
         <div className="card p-4 border-amber-300 bg-amber-50">
-          <p className="font-semibold text-amber-800">วัตถุดิบใกล้หมด ({lowStock.length})</p>
+          <p className="font-semibold text-amber-800">วัตถุดิบใกล้หมด ({visibleLowStock.length})</p>
           <ul className="mt-1 text-sm text-amber-700 space-y-0.5">
-            {lowStock.map((i) => (
+            {visibleLowStock.map((i) => (
               <li key={i.id}>
                 {i.name}: เหลือ {formatStockQty(i.stock_qty, i.unit)} (จุดสั่งซื้อ {formatStockQty(i.reorder_point)})
               </li>
@@ -187,8 +205,8 @@ export default function InventoryPage() {
             </table>
           </div>
         ))}
-        {active.length === 0 && !isLoading && (
-          <div className="card p-8 text-center text-gray-400">ยังไม่มีวัตถุดิบ</div>
+        {visible.length === 0 && !isLoading && (
+          <div className="card p-8 text-center text-gray-400">{query ? 'ไม่พบวัตถุดิบที่ตรงกับคำค้น ลองค้นหาด้วยชื่ออื่น' : 'ยังไม่มีวัตถุดิบ'}</div>
         )}
       </div>
 
