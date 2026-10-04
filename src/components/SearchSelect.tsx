@@ -39,9 +39,13 @@ export function SearchSelect({ value, onChange, options, label, placeholder = '�
       <span className={`min-w-0 break-words ${selected ? '' : 'text-gray-500'}`}>{selected?.label ?? (value ? 'ไม่พบรายการเดิม กรุณาเลือกใหม่' : emptyLabel ?? placeholder)}</span>
       <span aria-hidden="true" className="shrink-0 text-green-800">⌕</span>
     </button>
-    {required && <select className="sr-only" tabIndex={-1} aria-label={`${label} (ค่าที่เลือก)`}
+    {required && <select className="sr-only" tabIndex={-1} aria-hidden="true"
       required disabled={disabled} value={value} onChange={e => onChange(e.target.value)}
-      onInvalid={e => { e.preventDefault(); show() }}>
+      onInvalid={e => {
+        e.preventDefault()
+        const firstInvalid = e.currentTarget.form?.querySelector(':invalid')
+        if (!firstInvalid || firstInvalid === e.currentTarget) show()
+      }}>
       <option value="">{placeholder}</option>{options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
     </select>}
     {open && createPortal(<div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-3"
