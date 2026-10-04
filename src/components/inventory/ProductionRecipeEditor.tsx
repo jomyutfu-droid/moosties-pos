@@ -58,7 +58,7 @@ export function ProductionRecipeEditor({ recipe, ingredients, token, onClose, on
               {ing && <p className="text-sm break-words">{ing.name}</p>}
               <div className="quantity-unit-row production-quantity">
                 <label className="text-sm">จำนวนต่อ 1 รอบ<input required aria-label={`จำนวนส่วนผสม ${idx+1}`} type="number" min="0.001" max="1000000" step="0.001" placeholder="เช่น 1250.500" className="input mt-1" value={row.input_qty} onChange={e=>patchRow(idx,{input_qty:e.target.value})}/></label>
-                <label className="text-sm">หน่วย<select required aria-label={`หน่วยส่วนผสม ${idx+1}`} className="input mt-1" value={row.input_unit} onChange={e=>patchRow(idx,{input_unit:e.target.value})}>{units.map(u=><option key={u.name} value={u.name}>{u.name || 'หน่วย'}</option>)}</select></label>
+                <label className="text-sm">หน่วย<select required disabled={!ing} aria-label={`หน่วยส่วนผสม ${idx+1}`} className="input mt-1" value={row.input_unit} onChange={e=>patchRow(idx,{input_unit:e.target.value})}>{units.map(u=><option key={u.name} value={u.name}>{u.name || 'หน่วย'}</option>)}</select></label>
               </div>
               {ing && <p className="text-xs text-gray-500">ตัดสต็อก {formatStockQty(round3(Number(row.input_qty)*factor),ing.unit)} / รอบ</p>}
             </div>
