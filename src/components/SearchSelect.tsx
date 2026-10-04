@@ -43,7 +43,7 @@ export function SearchSelect({ value, onChange, options, label, placeholder = 'à
       required disabled={disabled} value={value} onChange={e => onChange(e.target.value)}
       onInvalid={e => {
         e.preventDefault()
-        const firstInvalid = e.currentTarget.form?.querySelector(':invalid')
+        const firstInvalid = e.currentTarget.form?.querySelector('input:invalid, select:invalid, textarea:invalid')
         if (!firstInvalid || firstInvalid === e.currentTarget) show()
       }}>
       <option value="">{placeholder}</option>{options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
