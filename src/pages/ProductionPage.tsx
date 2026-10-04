@@ -1,3 +1,4 @@
+import { SearchSelect } from '@/components/SearchSelect'
 import { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSessionStore } from '@/store/session'
@@ -72,7 +73,8 @@ export default function ProductionPage() {
     {tab==='produce' && <div className="grid lg:grid-cols-[1fr_1.1fr] gap-5">
       <section className="bg-white rounded-2xl border p-5 space-y-5">
         <h2 className="font-bold text-lg">1. เลือกสูตรที่จะผลิต</h2>
-        <select aria-label="เลือกสูตรผลิต" className="input" value={selected} onChange={e=>selectRecipe(e.target.value)}><option value="">เลือกสูตร เช่น ซอส / ครีมชีส</option>{data.recipes.filter(r=>r.is_active).map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select>
+        <SearchSelect label="เลือกสูตรผลิต" value={selected} onChange={selectRecipe} emptyLabel="เลือกสูตร เช่น ซอส / ครีมชีส"
+          options={data.recipes.filter(r=>r.is_active).map(r=>({value:r.id,label:r.name}))} />
         {!data.recipes.some(r=>r.is_active) && <div className="text-sm text-gray-600 bg-gray-50 rounded-xl p-4">ยังไม่มีสูตรผลิต{data.can_manage ? <button className="block text-green-800 underline mt-2" onClick={()=>setEditing(null)}>+ สร้างสูตรแรก</button> : <p className="mt-2">ให้เจ้าของร้านตั้งสูตรก่อนเริ่มผลิต</p>}</div>}
         {recipe && <><h2 className="font-bold text-lg">2. จำนวนรอบที่ผลิต</h2><div className="flex gap-2">{[1,2,3].map(n=><button key={n} className={`px-4 py-2 rounded-xl border ${amount===n?'bg-green-100 border-green-600':''}`} onClick={()=>setRounds(String(n))}>{n} รอบ</button>)}</div><label className="block text-sm">กำหนดจำนวนรอบเอง<input className="input mt-1" type="number" min="0.001" max="1000" step="0.001" value={rounds} onChange={e=>setRounds(e.target.value)}/></label><p className="bg-green-50 text-green-900 p-3 rounded-xl">คาดว่าจะได้ <strong>{formatStockQty(round3(recipe.expected_qty*amount),recipe.output_unit)}</strong></p>
         {recipe.instructions && <div><h3 className="font-bold mb-1">วิธีทำ</h3><p className="whitespace-pre-wrap text-sm text-gray-600">{recipe.instructions}</p></div>}</>}

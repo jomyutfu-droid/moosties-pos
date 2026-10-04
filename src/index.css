@@ -121,13 +121,13 @@ body {
   border-radius: 12px;
 }
 .recipe-form-row > * { min-width: 0; }
-.recipe-form-row > select:first-of-type,
+.recipe-form-row > .recipe-ingredient-picker,
 .recipe-form-row > input[placeholder="ชื่อตัวเลือก เช่น เพิ่มไข่มุก"],
 .recipe-form-row > input[placeholder="หมายเหตุ"] { grid-column: 1 / -1; }
 .recipe-form-row > button { justify-self: end; grid-column: 2; }
 @media (min-width: 640px) {
   .recipe-form-row { grid-template-columns: minmax(0, 1fr) 150px 150px; }
-  .recipe-form-row > select:first-of-type { grid-column: 1 / -1; }
+  .recipe-form-row > .recipe-ingredient-picker { grid-column: 1 / -1; }
   .recipe-form-row > button { grid-column: 3; }
 }
 

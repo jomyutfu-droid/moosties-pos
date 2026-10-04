@@ -1,3 +1,4 @@
+import { SearchSelect } from '@/components/SearchSelect'
 import { useRef, useState } from 'react'
 import { IngredientEditor } from './IngredientEditor'
 import { productionAction } from '@/lib/production'
@@ -40,7 +41,9 @@ export function ProductionRecipeEditor({ recipe, ingredients, token, onClose, on
         <fieldset disabled={busy} className="space-y-5">
           <label className="block text-sm font-semibold">ชื่อสูตร<input required maxLength={120} className="input mt-1" placeholder="เช่น ครีมชีสสูตรร้าน" value={name} onChange={e=>setName(e.target.value)}/></label>
           <div className="rounded-xl bg-green-50 p-4 space-y-3">
-            <label className="block text-sm font-semibold">ผลิตเป็นวัตถุดิบอะไร (D)<select required className="input mt-1" value={outputId} onChange={e=>setOutputId(e.target.value)}><option value="">เลือกผลผลิต</option>{ingredients.filter(i=>i.is_active || i.id===outputId).map(i=><option key={i.id} value={i.id}>{i.name} ({i.unit}){!i.is_active?' · ปิดใช้งาน':''}</option>)}</select></label>
+            <div className="text-sm font-semibold">ผลิตเป็นวัตถุดิบอะไร (D)<SearchSelect required className="mt-1" label="ผลิตเป็นวัตถุดิบอะไร (D)" placeholder="เลือกผลผลิต"
+              value={outputId} onChange={setOutputId}
+              options={ingredients.filter(i=>i.is_active || i.id===outputId).map(i=>({value:i.id,label:`${i.name} (${i.unit})${!i.is_active?' · ปิดใช้งาน':''}`}))} /></div>
             <button type="button" className="text-sm text-green-800 underline" onClick={()=>setAdding(true)}>+ เพิ่มวัตถุดิบใหม่ในสต็อก</button>
             <label className="block text-sm font-semibold">คาดว่าจะได้ต่อ 1 รอบ ({output?.unit ?? 'หน่วยผลผลิต'})<input required type="number" min="0.001" max="1000000" step="0.001" className="input mt-1" value={expected} onChange={e=>setExpected(e.target.value)} /></label>
           </div>
@@ -49,7 +52,9 @@ export function ProductionRecipeEditor({ recipe, ingredients, token, onClose, on
             const units=[{name:ing?.unit ?? '',factor_to_base:1},...(ing?.units ?? []).filter(u=>u.name!==ing?.unit)]
             const factor=units.find(u=>u.name===row.input_unit)?.factor_to_base ?? 1
             return <div key={idx} className="border rounded-xl p-3 space-y-2">
-              <div className="flex gap-2"><select required aria-label={`ส่วนผสม ${idx+1}`} className="input flex-1 min-w-0" value={row.ingredient_id} onChange={e=>{const i=ingredients.find(i=>i.id===e.target.value);patchRow(idx,{ingredient_id:e.target.value,input_unit:i?.unit ?? ''})}}><option value="">เลือกส่วนผสม {idx+1}</option>{ingredients.filter(i=>i.id!==outputId && (i.is_active || i.id===row.ingredient_id) && (!items.some((x,j)=>j!==idx && x.ingredient_id===i.id))).map(i=><option key={i.id} value={i.id}>{i.name}</option>)}</select><button type="button" aria-label={`ลบส่วนผสม ${idx+1}`} className="text-red-700 px-2" onClick={()=>setItems(items.filter((_,i)=>i!==idx))}>ลบ</button></div>
+              <div className="flex gap-2"><SearchSelect required label={`ส่วนผสม ${idx+1}`} placeholder={`เลือกส่วนผสม ${idx+1}`} className="flex-1 min-w-0" value={row.ingredient_id}
+                onChange={id=>{const i=ingredients.find(i=>i.id===id);patchRow(idx,{ingredient_id:id,input_unit:i?.unit ?? ''})}}
+                options={ingredients.filter(i=>i.id!==outputId && (i.is_active || i.id===row.ingredient_id) && (!items.some((x,j)=>j!==idx && x.ingredient_id===i.id))).map(i=>({value:i.id,label:`${i.name} (${i.unit})${!i.is_active?' · ปิดใช้งาน':''}`}))} /><button type="button" aria-label={`ลบส่วนผสม ${idx+1}`} className="text-red-700 px-2" onClick={()=>setItems(items.filter((_,i)=>i!==idx))}>ลบ</button></div>
               {ing && <p className="text-sm break-words">{ing.name}</p>}
               <div className="quantity-unit-row production-quantity">
                 <label className="text-sm">จำนวนต่อ 1 รอบ<input required aria-label={`จำนวนส่วนผสม ${idx+1}`} type="number" min="0.001" max="1000000" step="0.001" placeholder="เช่น 1250.500" className="input mt-1" value={row.input_qty} onChange={e=>patchRow(idx,{input_qty:e.target.value})}/></label>

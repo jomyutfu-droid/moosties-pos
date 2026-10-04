@@ -1,3 +1,4 @@
+import { SearchSelect } from '@/components/SearchSelect'
 import type { Ingredient, SweetnessIngredient } from '@/types'
 
 export function SweetnessEditor({ value, onChange, ingredients, baseQuantities }: {
@@ -24,9 +25,8 @@ export function SweetnessEditor({ value, onChange, ingredients, baseQuantities }
         {((row.less != null && (row.less < 0 || row.less > normal)) || (row.more != null && row.more < normal)) && <p className="text-xs text-red-700">หวานน้อยต้องไม่เกินปกติ และหวานมากต้องไม่น้อยกว่าปกติ</p>}
       </div>
     })}
-    <select className="input" aria-label="เพิ่มสารให้ความหวาน" value="" onChange={e => { if (e.target.value) onChange([...value, { ingredient_id: e.target.value, less: null, more: null }]) }}>
-      <option value="">+ เลือกสารให้ความหวาน</option>
-      {ingredients.filter(i => i.is_active && !selected.has(i.id) && i.category?.trim() !== 'บรรจุภัณฑ์').map(i => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
-    </select>
+    <SearchSelect label="เพิ่มสารให้ความหวาน" value="" placeholder="+ เลือกสารให้ความหวาน"
+      onChange={id => { if (id) onChange([...value, { ingredient_id: id, less: null, more: null }]) }}
+      options={ingredients.filter(i => i.is_active && !selected.has(i.id) && i.category?.trim() !== 'บรรจุภัณฑ์').map(i => ({ value: i.id, label: `${i.name} (${i.unit})` }))} />
   </section>
 }
