@@ -1,3 +1,4 @@
+import { SearchSelect } from '@/components/SearchSelect'
 import { useRef, useState } from 'react'
 import { NumberField } from '@/components/NumberField'
 import { useIngredients } from '@/hooks/useMenu'
@@ -41,9 +42,11 @@ function ToppingEditor({ topping, onClose }: { topping: StoreTopping | null; onC
           <label className="block"><span className="label">ราคาเพิ่ม / ส่วน (บาท)</span><NumberField className="input" value={form.price_delta} parse={parseUnsignedNumber} onChange={n => change('price_delta', n)} /></label>
           <label className="block"><span className="label">ลำดับแสดง</span><NumberField className="input" value={form.sort_order} parse={parseUnsignedNumber} onChange={n => change('sort_order', n)} /></label>
         </div>
-        <label className="block"><span className="label">วัตถุดิบที่ตัดสต๊อก</span><select className="input" value={form.linked_ingredient_id ?? ''} onChange={e => setForm(old => ({ ...old, linked_ingredient_id: e.target.value || null, qty_delta: 0 }))}>
-          <option value="">ไม่ตัดสต๊อก</option>{ingredients.filter(i => i.is_active || i.id === form.linked_ingredient_id).map(i => <option key={i.id} value={i.id}>{i.name} ({i.unit}){!i.is_active ? ' — ปิดใช้งาน' : ''}</option>)}
-        </select></label>
+        <div><span className="label">วัตถุดิบที่ตัดสต๊อก</span><SearchSelect label="วัตถุดิบที่ตัดสต๊อก"
+          value={form.linked_ingredient_id ?? ''} emptyLabel="ไม่ตัดสต๊อก"
+          onChange={id => setForm(old => ({ ...old, linked_ingredient_id: id || null, qty_delta: 0 }))}
+          options={ingredients.filter(i => i.is_active || i.id === form.linked_ingredient_id).map(i => ({ value: i.id, label: `${i.name} (${i.unit})${!i.is_active ? ' — ปิดใช้งาน' : ''}` }))} />
+        </div>
         {form.linked_ingredient_id && <label className="block"><span className="label">ปริมาณต่อ 1 ส่วน ({ingredient?.unit ?? 'หน่วยฐาน'})</span><NumberField className="input" value={form.qty_delta} parse={parseUnsignedNumber} onChange={n => change('qty_delta', n)} /><span className="block mt-1 text-xs text-gray-500">เลือก 2 ส่วน จะตัด {form.qty_delta * 2} {ingredient?.unit}</span></label>}
         <div className="space-y-3"><label className="flex gap-2 items-center"><input type="checkbox" checked={form.is_active} onChange={e => change('is_active', e.target.checked)} />เปิดใช้งานทุกเมนู</label><label className="flex gap-2 items-center"><input type="checkbox" checked={!form.is_available} onChange={e => change('is_available', !e.target.checked)} />หมดชั่วคราว</label></div>
         <p className="text-xs text-gray-500">ปิดใช้งาน = ซ่อนจากทุกเมนู · หมดชั่วคราว = แสดงแต่เลือกเพิ่มไม่ได้</p>

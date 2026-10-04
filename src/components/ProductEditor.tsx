@@ -1,3 +1,4 @@
+import { SearchSelect } from '@/components/SearchSelect'
 import { SweetnessEditor } from '@/components/SweetnessEditor'
 import { recipeUnitIsValid, recipeUnitSelectValue } from '@/domain/recipeUnits'
 import { sweetnessIngredients } from '@/domain/sweetness'
@@ -322,19 +323,14 @@ export function ProductEditor({
                     <span className="hidden max-sm:block col-span-2 text-xs font-semibold text-gray-500">
                       วัตถุดิบที่ {index + 1}
                     </span>
-                    <select
-                      className="input max-sm:col-span-2"
-                      style={{ flex: '3 1 0', minWidth: 0 }}
+                    <SearchSelect
+                      className="recipe-ingredient-picker max-sm:col-span-2"
+                      label={`วัตถุดิบในสูตร ${index + 1}`}
                       value={row.ingredient_id}
-                      onChange={(e) => changeRecipeIngredient(row._key, e.target.value)}
-                    >
-                      <option value="">เลือกวัตถุดิบ</option>
-                      {ingredients?.map((i) => (
-                        <option key={i.id} value={i.id}>
-                          {i.name}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={id => changeRecipeIngredient(row._key, id)}
+                      emptyLabel="เลือกวัตถุดิบ"
+                      options={(ingredients ?? []).map(i => ({ value: i.id, label: `${i.name} (${i.unit})${!i.is_active ? ' · ปิดใช้งาน' : ''}` }))}
+                    />
                     <NumberField
                       className="input"
                       title="จำนวนวัตถุดิบต่อแก้ว"

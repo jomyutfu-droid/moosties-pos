@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { SearchSelect } from '@/components/SearchSelect'
+import { useEffect, useState } from 'react'
 import { useRecordStockMovement } from '@/hooks/useInventory'
 import { useSessionStore } from '@/store/session'
 import { formatStockQty } from '@/lib/money'
@@ -24,10 +25,7 @@ export function MovementModal({ ingredient: preSelected, ingredients = [], onClo
   const record = useRecordStockMovement()
   const activeStaff = useSessionStore((s) => s.activeStaff)
 
-  const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Ingredient | null>(null)
-  const [open, setOpen] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
 
   const [type, setType] = useState<StockMovementType>('receive')
   const [unitName, setUnitName] = useState('')
@@ -51,20 +49,6 @@ export function MovementModal({ ingredient: preSelected, ingredients = [], onClo
     setQty(0)
     setPricePerUnit(0)
   }, [ingredient, type])
-
-  const filtered = query.trim()
-    ? ingredients.filter((i) => i.name.toLowerCase().includes(query.toLowerCase()))
-    : ingredients
-
-  function pickIngredient(ing: Ingredient) {
-    setSelected(ing)
-    setQuery(ing.name)
-    setOpen(false)
-    const next = type === 'receive' ? defaultPurchaseUnit(ing) : defaultUsageUnit(ing)
-    setUnitName(next?.name ?? ing.unit)
-    setQty(0)
-    inputRef.current?.blur()
-  }
 
   async function handleSave() {
     setError(null)
@@ -106,32 +90,11 @@ export function MovementModal({ ingredient: preSelected, ingredients = [], onClo
 
         <div className="p-5 space-y-3">
           {!preSelected && (
-            <div className="relative">
-              <label className="label">ค้นหาวัตถุดิบ</label>
-              <input
-                ref={inputRef}
-                className="input"
-                placeholder="พิมชื่อเพื่อค้นหา…"
-                value={query}
-                autoComplete="off"
-                onChange={(e) => { setQuery(e.target.value); setSelected(null); setOpen(true) }}
-                onFocus={() => setOpen(true)}
-                onBlur={() => setTimeout(() => setOpen(false), 150)}
-              />
-              {open && filtered.length > 0 && (
-                <ul className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
-                  {filtered.map((i) => (
-                    <li
-                      key={i.id}
-                      className="px-3 py-2 cursor-pointer hover:bg-blue-50 flex justify-between items-center text-sm"
-                      onMouseDown={() => pickIngredient(i)}
-                    >
-                      <span className="font-medium">{i.name}</span>
-                      <span className="text-gray-400 text-xs ml-2">{formatStockQty(i.stock_qty, i.unit)}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+            <div>
+              <span className="label">ค้นหาวัตถุดิบ</span>
+              <SearchSelect label="วัตถุดิบสำหรับรับ / ปรับสต๊อก" value={selected?.id ?? ''} placeholder="ค้นหาและเลือกวัตถุดิบ"
+                onChange={id => setSelected(ingredients.find(i => i.id === id) ?? null)}
+                options={ingredients.map(i => ({value:i.id,label:`${i.name} · คงเหลือ ${formatStockQty(i.stock_qty,i.unit)}`}))} />
               {selected && <p className="text-xs text-gray-500 mt-1">คงเหลือ {formatStockQty(selected.stock_qty, selected.unit)}</p>}
             </div>
           )}
