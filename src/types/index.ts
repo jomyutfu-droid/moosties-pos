@@ -52,6 +52,7 @@ export interface IngredientUnit {
 }
 
 export interface Ingredient {
+  daily_prep?: boolean
   id: UUID
   name: string
   unit: string
