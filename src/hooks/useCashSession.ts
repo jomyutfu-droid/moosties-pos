@@ -1,4 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { dailyTeaAction } from '@/lib/dailyTea'
+import { refreshProductionStock } from '@/lib/production'
 import { supabase } from '@/lib/supabase'
 import { getPinSessionToken } from '@/hooks/useAuth'
 import { useSessionStore } from '@/store/session'
@@ -148,16 +150,12 @@ export function useCloseSession() {
       countedCash: number
       note: string | null
       cupsSold: number
+      tea?: { brewed_ml: number; used_ml: number; revision: number }
     }): Promise<CashCloseResult> => {
-      const { data, error } = await supabase.rpc('close_cash_session_with_cups', {
-        p_token: getPinSessionToken(),
-        p_session_id: params.session.id,
-        p_counted_cash: params.countedCash,
-        p_note: params.note,
-        p_cups_sold: params.cupsSold,
+      return dailyTeaAction<CashCloseResult>(getPinSessionToken(), 'close', {
+        session_id: params.session.id, counted_cash: params.countedCash,
+        note: params.note, cups_sold: params.cupsSold, ...params.tea,
       })
-      if (error) throw error
-      return firstRow<CashCloseResult>(data)
     },
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ['cash-sessions'] })
@@ -165,6 +163,9 @@ export function useCloseSession() {
       // ปิดกะแล้ว RPC จะสร้าง sales_volume reward ทุกครบ 25 แก้ว
       // ให้หน้ารายงานเจ้าของร้านเห็นรายการใหม่ทันที ไม่ค้างค่าเดิมเป็น 0
       qc.invalidateQueries({ queryKey: ['staff-rewards'] })
+      qc.invalidateQueries({ queryKey: ['daily-tea'] })
+      qc.invalidateQueries({ queryKey: ['ingredients-full'] })
+      refreshProductionStock()
     },
   })
 }

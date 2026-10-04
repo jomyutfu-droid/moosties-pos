@@ -97,10 +97,10 @@ export interface LowStockIngredient {
 
 /** รายชื่อวัตถุดิบที่ต่ำกว่าจุดสั่งซื้อซ้ำ (สเปกหัวข้อ 8 — low-stock alert) */
 export function getLowStockIngredients<
-  T extends { id: string; name: string; unit: string; stock_qty: number; reorder_point: number; is_active: boolean },
+  T extends { id: string; name: string; unit: string; stock_qty: number; reorder_point: number; is_active: boolean; daily_prep?: boolean },
 >(ingredients: T[]): LowStockIngredient[] {
   return ingredients
-    .filter((i) => i.is_active && i.stock_qty <= i.reorder_point)
+    .filter((i) => i.is_active && !i.daily_prep && i.stock_qty <= i.reorder_point)
     .map((i) => ({
       id: i.id,
       name: i.name,

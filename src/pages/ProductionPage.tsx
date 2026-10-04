@@ -1,3 +1,4 @@
+import { DailyTeaSettings } from '@/components/inventory/DailyTeaSettings'
 import { SearchSelect } from '@/components/SearchSelect'
 import { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -63,6 +64,7 @@ export default function ProductionPage() {
   }
   return <div className="h-full overflow-y-auto p-4 md:p-6"><div className="mx-auto max-w-5xl space-y-5 pb-8">
     <header className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold text-green-700 tracking-wide">MOOSTIES · PREP KITCHEN</p><h1 className="text-2xl font-bold text-green-950 mt-1">ผลิตวัตถุดิบ</h1><p className="text-sm text-gray-600 mt-1">ผสมวัตถุดิบ → บันทึกผลผลิต → พร้อมใช้ในหน้าขาย</p></div><button className="btn-secondary text-sm shrink-0" disabled={isFetching||busy||!online} onClick={()=>void refetch()}>รีเฟรช</button></header>
+    <DailyTeaSettings />
     <nav className="grid grid-cols-3 bg-white/80 border rounded-2xl p-1 gap-1" aria-label="หน้าการผลิต">{([['produce','ผลิต'],['recipes','สูตรผลิต'],['history','ประวัติ']] as const).map(([key,label])=><button key={key} className={`py-3 rounded-xl font-semibold ${tab===key?'bg-green-800 text-white':'text-gray-600'}`} onClick={()=>{setTab(key);setError('')}}>{label}</button>)}</nav>
     {!online && <p role="alert" className="p-3 bg-amber-50 text-amber-900 rounded-xl">เชื่อมต่ออินเทอร์เน็ตก่อนบันทึกการผลิต</p>}
     {!token && <p role="alert">กรุณาเข้าสู่ระบบด้วย PIN อีกครั้ง</p>}

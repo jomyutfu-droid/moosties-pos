@@ -1,3 +1,6 @@
+import { DailyTeaClose } from '@/components/inventory/DailyTeaClose'
+import { useDailyTea } from '@/hooks/useDailyTea'
+import { bangkokDate, teaPreview } from '@/lib/dailyTea'
 import { useState } from 'react'
 import { useTodaySummary, useSalesByDateRange, useDailySalesByDateRange } from '@/hooks/useReports'
 import { useBillHistory, useVoidBill, type BillHistory } from '@/hooks/useBillManagement'
@@ -433,13 +436,16 @@ function localDateKey(iso: string) {
   return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0')
 }
 
-function CashSessionPanel() {
+export function CashSessionPanel() {
   const { data: session, isLoading, error: sessionError } = useOpenCashSession()
   const { data: history = [] } = useCashSessionSummaries(50)
   const { data: movements = [] } = useCashMovements(session?.id ?? null)
   const openSession = useOpenSession()
   const addMovement = useAddCashMovement()
   const closeSession = useCloseSession()
+  const tea = useDailyTea(session ? bangkokDate(session.opened_at) : undefined)
+  const [closeTea, setCloseTea] = useState(false)
+  const [brewedTea, setBrewedTea] = useState('')
   const activeStaff = useSessionStore((s) => s.activeStaff)
 
   const [openingCash, setOpeningCash] = useState(0)
@@ -500,7 +506,11 @@ function CashSessionPanel() {
     if (!session) return
     setError(null)
     try {
-      const closed = await closeSession.mutateAsync({ session, countedCash, cupsSold, note: closeNote.trim() || null })
+      if (closeTea && !tea.data?.total && (tea.isFetching || !tea.data || brewedTea === '' || !teaPreview(Number(brewedTea), Number(tea.data.used_ml)).valid)) throw new Error('กรุณาโหลดยอดใช้ชาและกรอกยอดชงให้ถูกต้อง')
+      const closed = await closeSession.mutateAsync({ session, countedCash, cupsSold, note: closeNote.trim() || null,
+        tea: closeTea && tea.data && !tea.data.total ? {brewed_ml: Number(brewedTea), used_ml: Number(tea.data.used_ml), revision: 0} : undefined })
+      setCloseTea(false)
+      setBrewedTea('')
       setResult({ ...closed, counted: countedCash })
       setConfirming(false)
       setCountedCash(0)
@@ -634,6 +644,8 @@ function CashSessionPanel() {
           )}
         </div>
 
+        <DailyTeaClose data={tea.data} loading={tea.isLoading} error={tea.error} enabled={closeTea} brewed={brewedTea}
+          onEnabled={v => {setCloseTea(v); setConfirming(false)}} onBrewed={v => {setBrewedTea(v); setConfirming(false)}} refresh={() => void tea.refetch()} />
         <h3 className="font-semibold mb-2">รวมเงินตอนปิดกะ</h3>
         <div className="flex flex-wrap gap-2 items-end">
           <div className="flex-1 min-w-[140px]"><label className="label">นับเงินสดได้จริง (บาท)</label><NumberField className="input" value={countedCash} parse={parseUnsignedNumber} onChange={(n) => { setCountedCash(n); setConfirming(false) }} /></div>
