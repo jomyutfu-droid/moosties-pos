@@ -11,9 +11,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons.svg', 'icons/icon.svg'],
       manifest: {
-        name: 'MOOSTTIES POS',
-        short_name: 'MOOSTTIES',
-        description: 'ระบบขายหน้าร้านสำหรับร้านเครื่องดื่ม MOOSTTIES',
+        name: 'MOOSTIES POS',
+        short_name: 'MOOSTIES',
+        description: 'ระบบขายหน้าร้านสำหรับร้านเครื่องดื่ม MOOSTIES',
         theme_color: '#16a34a',
         background_color: '#ffffff',
         display: 'standalone',

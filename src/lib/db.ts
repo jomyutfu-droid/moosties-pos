@@ -57,7 +57,7 @@ export interface CachedSettings extends Settings {
   id: 'singleton'
 }
 
-export class MoosttiesDB extends Dexie {
+export class MoostiesDB extends Dexie {
   categories!: Table<Category, string>
   ingredients!: Table<Ingredient, string>
   products!: Table<Product, string>
@@ -85,7 +85,7 @@ export class MoosttiesDB extends Dexie {
   }
 }
 
-export const db = new MoosttiesDB()
+export const db = new MoostiesDB()
 
 /** จำนวนออเดอร์ที่ยังรอ sync (รวม 'syncing' ที่อาจค้างจากรอบก่อน) */
 export async function pendingOutboxCount(): Promise<number> {

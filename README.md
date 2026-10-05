@@ -1,4 +1,4 @@
-# MOOSTTIES POS
+# MOOSTIES POS
 
 ระบบขายหน้าร้าน (POS) สำหรับร้านเครื่องดื่ม/สมูทตี้ — React + TypeScript + Vite + Tailwind, ทำงานแบบ PWA
 ออฟไลน์-ก่อน (offline-first) เชื่อมต่อ Supabase (PostgreSQL + Auth + Realtime)

@@ -164,7 +164,7 @@ export function ReceiptModal({ order, onClose }: { order: ReceiptInfo; onClose: 
 
   function handlePrint() {
     const html = buildPrintHTML(order, {
-      header: settings?.receipt_header?.trim() || settings?.store_name?.trim() || 'MOOSTTIES',
+      header: settings?.receipt_header?.trim() || settings?.store_name?.trim() || 'MOOSTIES',
       footer: settings?.receipt_footer?.trim() || 'ขอบคุณที่ใช้บริการ',
     })
     // เปิด + พิมพ์ + ปิดหน้าต่างอัตโนมัติ (ปิดจากหน้าต่างแม่ เพราะ Chrome บล็อกการปิดตัวเอง)

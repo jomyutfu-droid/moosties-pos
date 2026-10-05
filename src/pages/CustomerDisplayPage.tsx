@@ -64,7 +64,7 @@ export default function CustomerDisplayPage() {
     }
   }, [promptpayId, display?.total])
 
-  const storeName = settings?.store_name ?? 'MOOSTTIES'
+  const storeName = settings?.store_name ?? 'MOOSTIES'
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col">

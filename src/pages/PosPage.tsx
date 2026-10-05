@@ -153,7 +153,7 @@ export default function PosPage() {
         writePrintWindow(
           meta.printWindow,
           buildPrintHTML(receiptInfo, {
-            header: settings?.receipt_header?.trim() || settings?.store_name?.trim() || 'MOOSTTIES',
+            header: settings?.receipt_header?.trim() || settings?.store_name?.trim() || 'MOOSTIES',
             footer: settings?.receipt_footer?.trim() || 'ขอบคุณที่ใช้บริการ',
           }),
         )

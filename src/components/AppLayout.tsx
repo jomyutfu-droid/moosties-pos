@@ -86,7 +86,7 @@ export function AppLayout() {
             }}
           />
           <span className="font-bold text-base" style={{ color: '#123524' }}>
-            MOOSTTIES
+            MOOSTIES
           </span>
         </div>
 
@@ -197,7 +197,7 @@ export function AppLayout() {
           className="w-7 h-7 rounded-[9px]"
           style={{ background: 'linear-gradient(135deg,#16a34a,#4ade80)' }}
         />
-        <span className="font-bold text-sm" style={{ color: '#123524' }}>MOOSTTIES</span>
+        <span className="font-bold text-sm" style={{ color: '#123524' }}>MOOSTIES</span>
         <nav className="flex flex-1 min-w-0 gap-1 ml-2 overflow-x-auto">
           {visibleItems.map((item) => (
             <NavLink

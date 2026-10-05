@@ -6,9 +6,9 @@ import { createDefaultBusinessHours, normaliseBusinessHours } from '@/lib/busine
 import type { Settings } from '@/types'
 
 const DEFAULTS: Settings = {
-  store_name: 'MOOSTTIES',
+  store_name: 'MOOSTIES',
   promptpay_id: '',
-  receipt_header: 'MOOSTTIES',
+  receipt_header: 'MOOSTIES',
   receipt_footer: 'ขอบคุณที่ใช้บริการ',
   currency: 'THB',
   vat_percent: 0,
