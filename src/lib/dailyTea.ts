@@ -9,6 +9,10 @@ export interface TeaData {
   date: string; used_ml: number; grams_per_spoon: number | null; started_at: string
   can_manage: boolean; total: TeaTotal | null; history: TeaTotal[]
 }
+export function normalizeTeaData(data: TeaData): TeaData {
+  // Older RPC responses represent an absent SQL row as an object of null fields.
+  return { ...data, total: data.total?.id ? data.total : null }
+}
 export function bangkokDate(value: string | number = Date.now()): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(value))
 }

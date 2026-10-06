@@ -15,6 +15,7 @@ begin
  insert into public.users(name,role,branch_id) values('QA tea other rollback','staff',other_b) returning id into other_uid;
  insert into public.pin_sessions(user_id,token_hash) values(uid,encode(extensions.digest(token,'sha256'),'hex')),(other_uid,encode(extensions.digest(other_token,'sha256'),'hex'));
  result:=public.daily_tea_action(token,'load','{}');
+ assert result->'total'='null'::jsonb,'missing summary returned a truthy null-field object';
  assert (result->>'can_manage')::boolean,'staff controls hidden';
  assert jsonb_array_length(result->'history')=0,'other branch history leaked';
  select * into cfg from public.daily_tea_config;
@@ -28,6 +29,7 @@ begin
  insert into public.cash_sessions(branch_id,user_id,opening_cash) values(b,uid,0) returning id into sid;
  payload:=jsonb_build_object('session_id',sid,'counted_cash',0,'cups_sold',0,'brewed_ml',600,'used_ml',0,'revision',0);
  perform public.daily_tea_action(token,'close',payload);
+ assert public.daily_tea_action(token,'load','{}')->'total'->>'id' is not null,'saved summary absent from load';
  assert (select brewed_ml=600 and powder_grams=15 from public.daily_tea_totals where branch_id=b and business_date=d),'staff close incorrect';
  select count(*) into n from public.stock_movements;
  perform public.daily_tea_action(token,'close',payload);
