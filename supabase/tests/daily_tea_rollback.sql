@@ -57,9 +57,9 @@ begin
  insert into public.pin_sessions(user_id,token_hash) values(staff_id,encode(extensions.digest(staff_token,'sha256'),'hex'));
  assert (public.daily_tea_action(staff_token,'load','{}')->>'used_ml')::numeric=0,'cross branch usage leaked';
  assert jsonb_array_length(public.daily_tea_action(staff_token,'load','{}')->'history')=0,'cross branch history leaked';
- ok:=false;
- begin perform public.daily_tea_action(staff_token,'settings','{"grams_per_spoon":5}'); exception when others then ok:=true; end;
- assert ok,'staff changed settings';
+ assert (public.daily_tea_action(staff_token,'load','{}')->>'can_manage')::boolean,'staff controls hidden';
+ perform public.daily_tea_action(staff_token,'settings','{"grams_per_spoon":5}');
+ assert (select stock_qty=powder_before-15 from public.ingredients where id=cfg.powder_id),'staff settings duplicated deduction';
  ok:=false;
  begin perform public.daily_tea_action(staff_token,'close',payload); exception when others then ok:=true; end;
  assert ok,'staff closed another branch session';
