@@ -42,6 +42,9 @@ export function TouchKeyboard() {
       current.current = null; originalMode.current = null; setField(null)
     }
     if (!active) { release(); return }
+    let pointerActive = false
+    let pendingFocus: EventTarget | null = null
+    let pointerTimer: ReturnType<typeof setTimeout> | undefined
     function open(target: EventTarget | null) {
       if (!editableField(target) || current.current === target) return
       release()
@@ -56,16 +59,30 @@ export function TouchKeyboard() {
     }
     function focus(event: FocusEvent) {
       if (panel.current?.contains(event.target as Node)) return
+      // Resizing during pointerdown moves the control before pointerup and can lose the click.
+      if (pointerActive) { pendingFocus = event.target; return }
       if (editableField(event.target)) open(event.target); else release()
     }
     function pointer(event: PointerEvent) {
       if (panel.current?.contains(event.target as Node)) return
-      if (!editableField(event.target)) release()
+      pointerActive = true; pendingFocus = null
     }
-    function click(event: MouseEvent) { if (editableField(event.target)) open(event.target) }
+    function pointerEnd() {
+      clearTimeout(pointerTimer)
+      pointerTimer = setTimeout(() => { pointerActive = false }, 0)
+    }
+    function click(event: MouseEvent) {
+      if (panel.current?.contains(event.target as Node)) return
+      pointerActive = false
+      if (editableField(event.target)) open(event.target)
+      else if (editableField(pendingFocus) && pendingFocus === document.activeElement) open(pendingFocus)
+      else release()
+      pendingFocus = null
+    }
     function input(event: Event) {
       if (!writing.current && event.target === current.current) {
         buffer.current = current.current!.value; setDraft(buffer.current)
+        replaceNumber.current = false
       }
     }
     function escape(event: KeyboardEvent) { if (event.key === 'Escape') release() }
@@ -76,12 +93,16 @@ export function TouchKeyboard() {
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'readonly'] })
     document.addEventListener('focusin', focus)
     document.addEventListener('pointerdown', pointer)
+    document.addEventListener('pointerup', pointerEnd)
+    document.addEventListener('pointercancel', pointerEnd)
     document.addEventListener('click', click)
     document.addEventListener('input', input)
     document.addEventListener('keydown', escape)
     return () => {
       observer.disconnect(); release()
+      clearTimeout(pointerTimer)
       document.removeEventListener('focusin', focus); document.removeEventListener('pointerdown', pointer)
+      document.removeEventListener('pointerup', pointerEnd); document.removeEventListener('pointercancel', pointerEnd)
       document.removeEventListener('click', click); document.removeEventListener('input', input)
       document.removeEventListener('keydown', escape)
     }
@@ -121,7 +142,7 @@ export function TouchKeyboard() {
     // React may normalize a number; preserve the decimal-in-progress in the keypad buffer.
     requestAnimationFrame(() => {
       if (!field.isConnected || current.current !== field) return
-      if (!numeric && ['text', 'search', 'password', 'tel'].includes(field.type)) {
+      if (field instanceof HTMLTextAreaElement || (!numeric && ['text', 'search', 'password', 'tel'].includes(field.type))) {
         const cursor = Math.min(result.cursor, field.value.length)
         field.setSelectionRange(cursor, cursor)
       }
