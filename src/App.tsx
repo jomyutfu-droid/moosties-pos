@@ -19,6 +19,7 @@ import QueuePage from '@/pages/QueuePage'
 import TimePage from '@/pages/TimePage'
 import CustomerDisplayPage from '@/pages/CustomerDisplayPage'
 import LoginPage from '@/pages/LoginPage'
+import { TouchKeyboard } from '@/components/TouchKeyboard'
 
 function App() {
   useAuthListener()
@@ -45,7 +46,7 @@ function App() {
   }, [authReady])
 
   return (
-    <Routes>
+    <><TouchKeyboard /><Routes>
       {/* Feature 4: ลบ /login ออก — ใช้ anonymous auth แทน */}
       <Route
         path="/pin"
@@ -113,7 +114,7 @@ function App() {
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    </Routes></>
   )
 }
 

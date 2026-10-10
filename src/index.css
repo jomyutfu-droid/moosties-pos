@@ -6,6 +6,38 @@
   color-scheme: light;
 }
 
+.touch-keyboard {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  padding: 10px 12px max(10px, env(safe-area-inset-bottom));
+  background: #eaf4ed;
+  border-top: 2px solid #b8d5c1;
+  box-shadow: 0 -4px 20px #12352425;
+  max-height: 60dvh;
+  overflow-y: auto;
+  touch-action: manipulation;
+}
+.touch-key {
+  min-width: 44px;
+  min-height: 44px;
+  flex: 1 1 0;
+  background: white;
+  border: 1px solid #b8d5c1;
+  border-radius: 8px;
+  color: #123524;
+  font-size: 18px;
+  font-weight: 600;
+  user-select: none;
+}
+.touch-key:active, .touch-key[aria-pressed="true"] { background: #bbf7d0; }
+.touch-key-done { background: #166534; color: white; }
+.touch-keyboard-open #root { height: calc(100% - var(--touch-keyboard-height)); }
+.touch-keyboard-open .fixed.inset-0 { bottom: var(--touch-keyboard-height); }
+.touch-keyboard-open .fixed.inset-0 > * { max-height: calc(100dvh - var(--touch-keyboard-height) - 24px); overflow-y: auto; }
+
 html, body, #root {
   height: 100%;
 }

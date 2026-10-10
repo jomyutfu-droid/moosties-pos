@@ -20,7 +20,7 @@ export function DailyTeaClose({ data, loading, error, enabled, brewed, onEnabled
         <p className="text-xs text-gray-600">ถ้าเพียงสลับกะและร้านยังเปิด ให้เว้นช่องนี้</p>
         {enabled && <>
           <label htmlFor="daily-tea-volume" className="label">ยอดชามะลิที่ชงรวมวันนี้ (มล.)</label>
-          <input id="daily-tea-volume" className="input" type="number" min={0} max={1000000} step="0.001" value={brewed} onChange={e => onBrewed(e.target.value)} placeholder="เช่น 600" />
+          <input id="daily-tea-volume" className="input" type="number" inputMode="decimal" min={0} max={1000000} step="0.001" value={brewed} onChange={e => onBrewed(e.target.value)} placeholder="เช่น 600" />
           <div className="flex flex-wrap gap-2">{[600,1200,1800].map(n => <button key={n} className="btn-secondary text-sm" onClick={() => onBrewed(String(n))}>{n} มล.</button>)}</div>
           {brewed !== '' && <p className="text-sm">ชง {brewed} · ใช้ {data.used_ml} · ทิ้ง {preview.waste} มล. · ผงชา {Number(preview.spoons.toFixed(3))} ช้อนโต๊ะ</p>}
           {brewed !== '' && !preview.valid && <p role="alert" className="text-red-700 text-sm">ยอดชงต้องไม่น้อยกว่ายอดใช้</p>}

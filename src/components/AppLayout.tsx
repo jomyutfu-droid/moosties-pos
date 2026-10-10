@@ -5,6 +5,7 @@ import { db } from '@/lib/db'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useSessionStore } from '@/store/session'
 import { useAutoCloseExpiredTimeLogs } from '@/hooks/useTimeLogs'
+import { TouchKeyboardToggle } from './TouchKeyboardToggle'
 
 type NavRole = 'owner' | 'manager' | 'staff'
 
@@ -146,6 +147,7 @@ export function AppLayout() {
           </div>
 
           {/* Action buttons */}
+          <TouchKeyboardToggle />
           <div className="flex gap-1.5">
             <button
               onClick={handleSwitchStaff}

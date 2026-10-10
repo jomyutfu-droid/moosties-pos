@@ -9,6 +9,7 @@ interface Props {
   disabled?: boolean
   title?: string
   style?: CSSProperties
+  inputMode?: 'numeric' | 'decimal'
 }
 
 /**
@@ -29,7 +30,7 @@ interface Props {
  * จะ sync ค่าที่แสดงใหม่จาก value ภายนอก เฉพาะตอนที่ value เปลี่ยนจากแหล่งอื่นที่ไม่ใช่การพิมพ์ของ
  * ตัวเอง (เช่น สลับไปแก้สินค้าอื่น, ปุ่มลัดตั้งค่าให้) เท่านั้น
  */
-export function NumberField({ value, onChange, parse, className, placeholder, disabled, title, style }: Props) {
+export function NumberField({ value, onChange, parse, className, placeholder, disabled, title, style, inputMode = 'decimal' }: Props) {
   const [text, setText] = useState<string>(value === 0 ? '' : String(value))
   const lastCommitted = useRef(value)
 
@@ -43,7 +44,8 @@ export function NumberField({ value, onChange, parse, className, placeholder, di
   return (
     <input
       type="text"
-      inputMode="decimal"
+      inputMode={inputMode}
+      data-keyboard-signed={parse('-1') < 0 ? 'true' : 'false'}
       className={className}
       style={style}
       placeholder={placeholder}

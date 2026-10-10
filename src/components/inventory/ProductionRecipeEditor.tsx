@@ -45,7 +45,7 @@ export function ProductionRecipeEditor({ recipe, ingredients, token, onClose, on
               value={outputId} onChange={setOutputId}
               options={ingredients.filter(i=>i.is_active || i.id===outputId).map(i=>({value:i.id,label:`${i.name} (${i.unit})${!i.is_active?' · ปิดใช้งาน':''}`}))} /></div>
             <button type="button" className="text-sm text-green-800 underline" onClick={()=>setAdding(true)}>+ เพิ่มวัตถุดิบใหม่ในสต็อก</button>
-            <label className="block text-sm font-semibold">คาดว่าจะได้ต่อ 1 รอบ ({output?.unit ?? 'หน่วยผลผลิต'})<input required type="number" min="0.001" max="1000000" step="0.001" className="input mt-1" value={expected} onChange={e=>setExpected(e.target.value)} /></label>
+            <label className="block text-sm font-semibold">คาดว่าจะได้ต่อ 1 รอบ ({output?.unit ?? 'หน่วยผลผลิต'})<input required type="number" inputMode="decimal" min="0.001" max="1000000" step="0.001" className="input mt-1" value={expected} onChange={e=>setExpected(e.target.value)} /></label>
           </div>
           <div><h3 className="font-bold mb-3">ใช้ส่วนผสมอะไรบ้าง (A + B + C)</h3><div className="space-y-3">{items.map((row,idx)=>{
             const ing=ingredients.find(i=>i.id===row.ingredient_id)
@@ -57,7 +57,7 @@ export function ProductionRecipeEditor({ recipe, ingredients, token, onClose, on
                 options={ingredients.filter(i=>i.id!==outputId && (i.is_active || i.id===row.ingredient_id) && (!items.some((x,j)=>j!==idx && x.ingredient_id===i.id))).map(i=>({value:i.id,label:`${i.name} (${i.unit})${!i.is_active?' · ปิดใช้งาน':''}`}))} /><button type="button" aria-label={`ลบส่วนผสม ${idx+1}`} className="text-red-700 px-2" onClick={()=>setItems(items.filter((_,i)=>i!==idx))}>ลบ</button></div>
               {ing && <p className="text-sm break-words">{ing.name}</p>}
               <div className="quantity-unit-row production-quantity">
-                <label className="text-sm">จำนวนต่อ 1 รอบ<input required aria-label={`จำนวนส่วนผสม ${idx+1}`} type="number" min="0.001" max="1000000" step="0.001" placeholder="เช่น 1250.500" className="input mt-1" value={row.input_qty} onChange={e=>patchRow(idx,{input_qty:e.target.value})}/></label>
+                <label className="text-sm">จำนวนต่อ 1 รอบ<input required aria-label={`จำนวนส่วนผสม ${idx+1}`} type="number" inputMode="decimal" min="0.001" max="1000000" step="0.001" placeholder="เช่น 1250.500" className="input mt-1" value={row.input_qty} onChange={e=>patchRow(idx,{input_qty:e.target.value})}/></label>
                 <label className="text-sm">หน่วย<select required disabled={!ing} aria-label={`หน่วยส่วนผสม ${idx+1}`} className="input mt-1" value={row.input_unit} onChange={e=>patchRow(idx,{input_unit:e.target.value})}>{units.map(u=><option key={u.name} value={u.name}>{u.name || 'หน่วย'}</option>)}</select></label>
               </div>
               {ing && <p className="text-xs text-gray-500">ตัดสต็อก {formatStockQty(round3(Number(row.input_qty)*factor),ing.unit)} / รอบ</p>}

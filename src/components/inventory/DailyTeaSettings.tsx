@@ -42,7 +42,7 @@ export function DailyTeaSettings() {
       <p className="text-sm">น้ำหนักผงชาต่อช้อนโต๊ะ: {data.grams_per_spoon ?? 'ยังไม่ได้ชั่ง'}{data.grams_per_spoon !== null ? ' กรัม' : ' · เก็บจำนวนช้อนไว้รอตัดผงชา'}</p>
       {data.can_manage && <div className="space-y-2">
         <label htmlFor="tea-spoon-grams" className="label">น้ำหนักจริงของผงชา 1 ช้อนโต๊ะ (กรัม)</label>
-        <div className="flex flex-wrap gap-2"><input id="tea-spoon-grams" className="input flex-1 min-w-36" type="number" step="0.001" min="0.001" max="100" value={grams} onChange={e => setGrams(e.target.value)} placeholder="กรอกเมื่อชั่งแล้ว" /><button className="btn-secondary" disabled={busy || !grams} onClick={() => void save('settings')}>บันทึกน้ำหนักและตัดยอดรอชั่ง</button></div>
+        <div className="flex flex-wrap gap-2"><input id="tea-spoon-grams" className="input flex-1 min-w-36" type="number" inputMode="decimal" step="0.001" min="0.001" max="100" value={grams} onChange={e => setGrams(e.target.value)} placeholder="กรอกเมื่อชั่งแล้ว" /><button className="btn-secondary" disabled={busy || !grams} onClick={() => void save('settings')}>บันทึกน้ำหนักและตัดยอดรอชั่ง</button></div>
         <p className="text-xs text-gray-500">ใช้กับการชงครั้งถัดไปและยอดที่ยังรอชั่ง ยอดผงชาที่ตัดแล้วจะไม่ถูกตัดซ้ำ</p>
       </div>}
       {data.history.length === 0 ? <p className="text-sm text-gray-500">ยังไม่มีสรุปชารายวัน</p> : <div className="space-y-2">{data.history.map(row => <div key={row.id} className="rounded-xl bg-green-50 p-3 text-sm">
@@ -53,7 +53,7 @@ export function DailyTeaSettings() {
       </div>)}</div>}
       {editing && <div className="p-3 border rounded-xl space-y-2">
         <label htmlFor="tea-revise-volume" className="label">ยอดชงที่ถูกต้อง วันที่ {editing.business_date} (มล.)</label>
-        <input id="tea-revise-volume" className="input" type="number" value={volume} onChange={e => setVolume(e.target.value)} min={editing.current_used_ml} step="0.001" />
+        <input id="tea-revise-volume" className="input" type="number" inputMode="decimal" value={volume} onChange={e => setVolume(e.target.value)} min={editing.current_used_ml} step="0.001" />
         <p className="text-sm">ใช้ {editing.current_used_ml} · ทิ้ง {teaPreview(Number(volume), Number(editing.current_used_ml)).waste} มล.</p>
         <div className="flex gap-2"><button className="btn-primary" disabled={busy} onClick={() => void save('revise')}>ยืนยันแก้ไข</button><button className="btn-secondary" disabled={busy} onClick={() => setEditing(null)}>ยกเลิก</button></div>
       </div>}
