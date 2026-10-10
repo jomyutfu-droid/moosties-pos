@@ -2,14 +2,15 @@ import { supabase } from '@/lib/supabase'
 import { stockMovementsForOrder } from '@/domain/stock'
 import { adjustedRecipe } from '@/domain/recipe'
 import { optionLabel } from '@/domain/sweetness'
-import { lineManOrderItems, normalizeLineManRef } from '@/domain/lineMan'
+import { lineManOrderItems, resolveLineManRef } from '@/domain/lineMan'
 import type { CartLine } from '@/types'
 import type { LineManReceiptInfo } from '@/components/pos/LineManReceiptModal'
 
 export function prepareLineManOrder(lines: CartLine[], reference: string, note: string) {
-  const lineManOrderId = normalizeLineManRef(reference)
+  const clientUuid = crypto.randomUUID()
+  const lineManOrderId = resolveLineManRef(reference, clientUuid)
   return {
-    client_uuid: crypto.randomUUID(),
+    client_uuid: clientUuid,
     reference: lineManOrderId,
     note: note || null,
     items: lineManOrderItems(lines).map((item, i) => ({

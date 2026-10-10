@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { normalizeLineManRef } from '@/domain/lineMan'
+import { displayLineManRef, isAutomaticLineManRef, normalizeLineManRef } from '@/domain/lineMan'
 import { useSessionStore } from '@/store/session'
 import type { LineManReceiptInfo } from './LineManReceiptModal'
 
@@ -30,7 +30,7 @@ export function LineManHistoryModal({ onClose, onReceipt }: { onClose: () => voi
         {(error || validation) && <p role="alert" className="text-red-700">{validation || 'โหลดประวัติไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วค้นหาอีกครั้ง'}</p>}
         {isFetching && <p>กำลังโหลด…</p>}
         {!isFetching && !error && data?.length === 0 && <p className="text-gray-500">ไม่พบคำสั่งซื้อ</p>}
-        {data?.map(order => <div key={order.id} className="border rounded-xl p-3 flex gap-2 items-center justify-between"><div className="min-w-0"><p className="font-bold break-all">{order.external_order_ref}</p><p className="text-xs text-gray-500">{new Date(order.created_at).toLocaleString('th-TH')} · {order.order_no}</p><p className="text-sm">{order.receipt_snapshot.totalCups} แก้ว · บันทึกออเดอร์แล้ว</p></div><button className="btn-secondary shrink-0 text-sm" onClick={() => onReceipt(order.receipt_snapshot)}>พิมพ์ใบงาน</button></div>)}
+        {data?.map(order => <div key={order.id} className="border rounded-xl p-3 flex gap-2 items-center justify-between"><div className="min-w-0"><p className="font-bold break-all">{displayLineManRef(order.external_order_ref, order.order_no)}</p>{isAutomaticLineManRef(order.external_order_ref) && <p className="text-xs text-gray-500">ไม่ระบุเลขคำสั่งซื้อ LINE MAN</p>}<p className="text-xs text-gray-500">{new Date(order.created_at).toLocaleString('th-TH')} · {order.order_no}</p><p className="text-sm">{order.receipt_snapshot.totalCups} แก้ว · บันทึกออเดอร์แล้ว</p></div><button className="btn-secondary shrink-0 text-sm" onClick={() => onReceipt(order.receipt_snapshot)}>พิมพ์ใบงาน</button></div>)}
       </div>
     </section>
   </div>

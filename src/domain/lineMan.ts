@@ -8,6 +8,19 @@ export function normalizeLineManRef(value: string): string {
   return ref
 }
 
+/** The same checkout UUID keeps a blank-reference retry idempotent. */
+export function resolveLineManRef(value: string, clientUuid: string): string {
+  return normalizeLineManRef(value.trim() || `POS-LM-${clientUuid}`)
+}
+
+export function isAutomaticLineManRef(value: string): boolean {
+  return /^POS-LM-[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i.test(value)
+}
+
+export function displayLineManRef(reference: string, orderNo: string): string {
+  return isAutomaticLineManRef(reference) ? orderNo : reference
+}
+
 /** Strip every price/cost and stock-bearing field; this is an operational order snapshot only. */
 export function lineManOrderItems(lines: CartLine[]) {
   if (!lines.length) throw new Error('ยังไม่มีรายการในตะกร้า')

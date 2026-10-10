@@ -19,7 +19,7 @@ export function LineManCheckoutModal({ lines, note, onSuccess, onClose }: {
   const submitted = useRef<ReturnType<typeof prepareLineManOrder> | null>(null)
   const { pinSessionToken } = useSessionStore()
   const cups = lines.reduce((sum, line) => sum + line.qty, 0)
-  const referenceValid = /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(reference.trim())
+  const referenceValid = !reference.trim() || /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(reference.trim())
 
   async function confirm() {
     if (lock.current || !referenceValid) return
@@ -45,9 +45,9 @@ export function LineManCheckoutModal({ lines, note, onSuccess, onClose }: {
         <button aria-label="ปิด LINE MAN" className="self-start p-2" disabled={busy} onClick={onClose}>✕</button>
       </header>
       <div className="p-5 space-y-4 overflow-y-auto min-h-0">
-        <label className="block font-semibold">เลขคำสั่งซื้อ LINE MAN <span className="text-red-600">*</span>
-          <input autoFocus autoComplete="off" spellCheck={false} className="input mt-2 font-mono text-lg" placeholder="กรอกเลขคำสั่งซื้อแบบเต็มทุกครั้ง" maxLength={80} value={reference} disabled={attempted} onChange={e => setReference(e.target.value)} />
-          <span className="block text-xs font-normal text-gray-500 mt-1">ใช้เลขเต็ม ไม่ใช้เฉพาะเลขท้าย เพื่อป้องกันบิลซ้ำ</span>
+        <label className="block font-semibold">เลขคำสั่งซื้อ LINE MAN <span className="text-sm font-normal text-gray-500">(ไม่จำเป็น)</span>
+          <input autoComplete="off" spellCheck={false} className="input mt-2 font-mono text-lg" placeholder="เว้นว่างได้ หรือกรอกเลขคำสั่งซื้อแบบเต็ม" maxLength={80} value={reference} disabled={attempted} onChange={e => setReference(e.target.value)} />
+          <span className="block text-xs font-normal text-gray-500 mt-1">เว้นว่างแล้วกดบันทึกได้เลย · ถ้ากรอก ให้ใช้เลขเต็มเพื่อป้องกันบิลซ้ำ</span>
         </label>
         <div className="rounded-xl border divide-y">
           {lines.map(line => <div key={line.uid} className="p-3 flex justify-between gap-3 text-sm"><div><p className="font-semibold">{line.qty} × {line.product.name}</p><p className="text-gray-500 text-xs mt-1">{optionLabel(line.selectedOptions) || 'ไม่เพิ่มท็อปปิ้ง'}</p></div><span className="font-bold whitespace-nowrap">{line.qty} แก้ว</span></div>)}

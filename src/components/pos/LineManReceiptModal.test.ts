@@ -4,6 +4,19 @@ import { buildLineManPrintHTML, type LineManReceiptInfo } from './LineManReceipt
 vi.mock('@/hooks/useSettings', () => ({ useSettings: () => ({ data: {} }) }))
 
 describe('LINE MAN stored receipt printing', () => {
+  it('prints the POS bill number when the external order number was omitted', () => {
+    const order: LineManReceiptInfo = {
+      source: 'line_man', orderNo: 'LM-TEST-123',
+      lineManOrderId: 'POS-LM-00000000-0000-4000-8000-000000000001',
+      createdAt: '2026-10-10T12:00:00Z', totalCups: 1,
+      items: [{ name_snapshot: 'ชา', qty: 1, options_text: '', recipe: [] }],
+    }
+    const html = buildLineManPrintHTML(order, 'MOOSTIES', '')
+    expect(html).toContain('LM-TEST-123')
+    expect(html).toContain('ไม่ระบุเลขคำสั่งซื้อ LINE MAN')
+    expect(html).not.toContain(order.lineManOrderId)
+    expect(html).not.toContain('undefined')
+  })
   it('prints database-shaped snapshots, one recipe sticker per cup, without prices', () => {
     const stored: LineManReceiptInfo = JSON.parse(JSON.stringify({
       source: 'line_man', orderNo: 'LM-20260923-D332F4CB', lineManOrderId: '1111',

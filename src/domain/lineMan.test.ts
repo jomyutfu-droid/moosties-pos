@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { lineManOrderItems, normalizeLineManRef } from './lineMan'
+import { displayLineManRef, isAutomaticLineManRef, lineManOrderItems, normalizeLineManRef, resolveLineManRef } from './lineMan'
 import type { CartLine } from '@/types'
 
 const cartLine = (qty = 2): CartLine => ({
@@ -13,6 +13,16 @@ const cartLine = (qty = 2): CartLine => ({
 } as CartLine)
 
 describe('LINE MAN inventory orders', () => {
+  it('uses a unique internal reference for blank input and reuses it for the same checkout', () => {
+    const uuid = '00000000-0000-4000-8000-000000000001'
+    const ref = resolveLineManRef('', uuid)
+    expect(resolveLineManRef('   ', uuid)).toBe(ref)
+    expect(resolveLineManRef('', '00000000-0000-4000-8000-000000000002')).not.toBe(ref)
+    expect(isAutomaticLineManRef(ref)).toBe(true)
+    expect(displayLineManRef(ref, 'LM-TEST-1')).toBe('LM-TEST-1')
+    expect(resolveLineManRef(' 000ab-123 ', uuid)).toBe('000AB-123')
+    expect(displayLineManRef('000AB-123', 'LM-TEST-1')).toBe('000AB-123')
+  })
   it('requires full external reference, normalizes it, and preserves leading zeroes', () => {
     expect(normalizeLineManRef(' 000ab-123 ')).toBe('000AB-123')
     for (const ref of ['', ' ', 'a b', '<script>', 'x'.repeat(81)]) expect(() => normalizeLineManRef(ref)).toThrow()
