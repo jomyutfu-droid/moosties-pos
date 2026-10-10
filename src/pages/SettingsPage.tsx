@@ -105,6 +105,7 @@ export default function SettingsPage() {
           <input
             className="input"
             value={form.promptpay_id}
+            inputMode="numeric"
             onChange={(e) => update('promptpay_id', e.target.value)}
             placeholder="0812345678"
           />

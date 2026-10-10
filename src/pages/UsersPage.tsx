@@ -165,7 +165,7 @@ function UserEditor({ user, onClose }: { user: AppUser | null; onClose: () => vo
           </div>
           <div>
             <label className="label">อีเมล (สำหรับเจ้าของ/ผู้จัดการที่ล็อกอินด้วยรหัสผ่าน)</label>
-            <input className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input type="email" inputMode="email" autoComplete="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div>
             <label className="label">สิทธิ์</label>

@@ -40,7 +40,7 @@ function ToppingEditor({ topping, onClose }: { topping: StoreTopping | null; onC
         <label className="block"><span className="label">ชื่อท็อปปิ้ง</span><input autoFocus required maxLength={100} className="input" value={form.name} onChange={e => change('name', e.target.value)} /></label>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label className="block"><span className="label">ราคาเพิ่ม / ส่วน (บาท)</span><NumberField className="input" value={form.price_delta} parse={parseUnsignedNumber} onChange={n => change('price_delta', n)} /></label>
-          <label className="block"><span className="label">ลำดับแสดง</span><NumberField className="input" value={form.sort_order} parse={parseUnsignedNumber} onChange={n => change('sort_order', n)} /></label>
+          <label className="block"><span className="label">ลำดับแสดง</span><NumberField inputMode="numeric" className="input" value={form.sort_order} parse={parseUnsignedNumber} onChange={n => change('sort_order', n)} /></label>
         </div>
         <div><span className="label">วัตถุดิบที่ตัดสต๊อก</span><SearchSelect label="วัตถุดิบที่ตัดสต๊อก"
           value={form.linked_ingredient_id ?? ''} emptyLabel="ไม่ตัดสต๊อก"

@@ -74,7 +74,7 @@ export function SearchSelect({ value, onChange, options, label, placeholder = '�
         <header className="p-4 border-b space-y-3">
           <div className="flex items-start justify-between gap-3"><h2 id={`${id}-title`} className="font-bold text-lg break-words">{label}</h2>
             <button type="button" className="btn-ghost shrink-0" onClick={() => setOpen(false)}>ปิด</button></div>
-          <input ref={search} type="search" className="input" aria-label={`ค้นหา ${label}`} placeholder="พิมพ์ชื่อเพื่อค้นหา…"
+          <input ref={search} type="search" inputMode="search" className="input" aria-label={`ค้นหา ${label}`} placeholder="พิมพ์ชื่อเพื่อค้นหา…"
             autoComplete="off" value={query} onChange={e => setQuery(e.target.value)} />
           <p role="status" className="text-xs text-gray-500">พบ {matches.length} รายการ</p>
         </header>

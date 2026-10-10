@@ -2,6 +2,7 @@ import { DailyTeaClose } from '@/components/inventory/DailyTeaClose'
 import { useDailyTea } from '@/hooks/useDailyTea'
 import { bangkokDate, teaPreview } from '@/lib/dailyTea'
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useTodaySummary, useSalesByDateRange, useDailySalesByDateRange } from '@/hooks/useReports'
 import { useBillHistory, useVoidBill, type BillHistory } from '@/hooks/useBillManagement'
 import {
@@ -233,6 +234,8 @@ function BillHistoryPanel() {
   const voidBill = useVoidBill()
   const [error, setError] = useState<string | null>(null)
   const [billPage, setBillPage] = useState(1)
+  const [voidTarget, setVoidTarget] = useState<BillHistory | null>(null)
+  const [voidReason, setVoidReason] = useState('')
   const billsPerPage = 5
   const totalBillPages = Math.max(1, Math.ceil(bills.length / billsPerPage))
   const currentBillPage = Math.min(billPage, totalBillPages)
@@ -241,23 +244,17 @@ function BillHistoryPanel() {
   if (role !== 'owner') return null
 
   async function handleVoid(bill: BillHistory) {
-    const reason = window.prompt(
-      'ยกเลิกบิล ' + (bill.order_no ?? bill.id.slice(0, 8)) + '\nกรุณาระบุเหตุผล',
-      'ทดสอบระบบ',
-    )
-    if (reason === null) return
-    const normalizedReason = reason.trim()
+    if (voidBill.isPending) return
+    const normalizedReason = voidReason.trim()
     if (!normalizedReason) {
       setError('กรุณาระบุเหตุผลก่อนยกเลิกบิล')
       return
     }
-    if (!window.confirm(
-      'ยืนยันยกเลิกบิล ' + (bill.order_no ?? bill.id.slice(0, 8)) + ' ยอด ' + formatBahtSymbol(bill.total) + ' ?\nระบบจะคืนสต๊อกและไม่นับบิลนี้ในยอดขาย/เงินสด',
-    )) return
-
     setError(null)
     try {
       await voidBill.mutateAsync({ orderId: bill.id, reason: normalizedReason })
+      setVoidTarget(null)
+      setVoidReason('')
     } catch (err) {
       setError(explainSupabaseError(err, 'ยกเลิกบิลไม่สำเร็จ'))
     }
@@ -265,6 +262,17 @@ function BillHistoryPanel() {
 
   return (
     <section className="card p-4">
+      {voidTarget && createPortal(<div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+        <form role="dialog" aria-modal="true" aria-labelledby="void-bill-title" className="bg-white rounded-2xl p-5 w-full max-w-md space-y-4"
+          onSubmit={event => { event.preventDefault(); void handleVoid(voidTarget) }}>
+          <h3 id="void-bill-title" className="font-bold">ยืนยันยกเลิกบิล {voidTarget.order_no ?? voidTarget.id.slice(0, 8)}</h3>
+          <p>ยอด {formatBahtSymbol(voidTarget.total)} · ระบบจะคืนสต๊อกและไม่นับบิลนี้ในยอดขาย/เงินสด</p>
+          <label className="block">เหตุผลที่ยกเลิก<input autoFocus required className="input mt-2" value={voidReason} disabled={voidBill.isPending} onChange={e => setVoidReason(e.target.value)} /></label>
+          {error && <p className="text-sm text-red-700">{error}</p>}
+          <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" disabled={voidBill.isPending} onClick={() => setVoidTarget(null)}>กลับ</button>
+            <button type="submit" className="btn-danger" disabled={voidBill.isPending || !voidReason.trim()}>{voidBill.isPending ? 'กำลังยกเลิก…' : 'ยืนยันยกเลิกบิล'}</button></div>
+        </form>
+      </div>, document.body)}
       <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
         <div>
           <h2 className="font-semibold">ยกเลิกบิล (เจ้าของร้าน)</h2>
@@ -295,7 +303,7 @@ function BillHistoryPanel() {
               <button
                 className="btn-secondary text-xs mt-2 border-red-200 text-red-700"
                 disabled={voidBill.isPending}
-                onClick={() => handleVoid(bill)}
+                onClick={() => { setVoidTarget(bill); setVoidReason(''); setError(null) }}
               >
                 {voidBill.isPending ? 'กำลังยกเลิก…' : 'ยกเลิกบิล'}
               </button>
@@ -649,7 +657,7 @@ export function CashSessionPanel() {
         <h3 className="font-semibold mb-2">รวมเงินตอนปิดกะ</h3>
         <div className="flex flex-wrap gap-2 items-end">
           <div className="flex-1 min-w-[140px]"><label className="label">นับเงินสดได้จริง (บาท)</label><NumberField className="input" value={countedCash} parse={parseUnsignedNumber} onChange={(n) => { setCountedCash(n); setConfirming(false) }} /></div>
-          <div className="flex-1 min-w-[140px]"><label className="label">จำนวนแก้วที่ขายวันนี้</label><NumberField className="input" value={cupsSold} parse={parseUnsignedNumber} onChange={(n) => { setCupsSold(n); setConfirming(false) }} /><p className="text-[11px] text-gray-500 mt-1">ครบทุก 25 แก้ว ได้โบนัส 50 บาท (เช่น 51 แก้ว = 100 บาท) จากนั้นกด “ยืนยันปิดกะ” เพื่อส่งให้เจ้าของร้านอนุมัติ</p></div>
+          <div className="flex-1 min-w-[140px]"><label className="label">จำนวนแก้วที่ขายวันนี้</label><NumberField inputMode="numeric" className="input" value={cupsSold} parse={parseUnsignedNumber} onChange={(n) => { setCupsSold(n); setConfirming(false) }} /><p className="text-[11px] text-gray-500 mt-1">ครบทุก 25 แก้ว ได้โบนัส 50 บาท (เช่น 51 แก้ว = 100 บาท) จากนั้นกด “ยืนยันปิดกะ” เพื่อส่งให้เจ้าของร้านอนุมัติ</p></div>
           <div className="flex-1 min-w-[140px]"><label className="label">หมายเหตุปิดกะ</label><input className="input" value={closeNote} onChange={(e) => setCloseNote(e.target.value)} /></div>
         </div>
         {countedCash > 0 && (
@@ -857,7 +865,7 @@ function StaffRewardsPanel() {
         <div className="flex flex-wrap gap-2 items-end">
           <div className="min-w-[150px] flex-1"><label className="label">พนักงาน</label><select className="input" disabled={usersLoading || Boolean(usersError)} value={grabUserId} onChange={(e) => setGrabUserId(e.target.value)}><option value="">{usersLoading ? 'กำลังโหลดรายชื่อ…' : 'เลือกพนักงาน'}</option>{users.filter((user) => user.role !== 'owner' && user.is_active).map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}</select></div>
           <div><label className="label">วันที่</label><input type="date" className="input" value={grabDate} onChange={(e) => setGrabDate(e.target.value)} /></div>
-          <div className="w-32"><label className="label">จำนวนครั้ง</label><NumberField className="input" value={grabQuantity} parse={parseUnsignedNumber} onChange={setGrabQuantity} /></div>
+          <div className="w-32"><label className="label">จำนวนครั้ง</label><NumberField inputMode="numeric" className="input" value={grabQuantity} parse={parseUnsignedNumber} onChange={setGrabQuantity} /></div>
           <button className="btn-primary" disabled={recordGrab.isPending} onClick={handleRecordGrab}>{recordGrab.isPending ? 'กำลังบันทึก…' : 'บันทึก Grab'}</button>
         </div>
       </div>
