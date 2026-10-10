@@ -72,7 +72,8 @@ export function TouchKeyboard() {
       pointerTimer = setTimeout(() => { pointerActive = false }, 0)
     }
     function click(event: MouseEvent) {
-      if (panel.current?.contains(event.target as Node)) return
+      // Shift can replace the pressed key before this listener runs; its original event path remains valid.
+      if (panel.current && event.composedPath().includes(panel.current)) return
       pointerActive = false
       if (editableField(event.target)) open(event.target)
       else if (editableField(pendingFocus) && pendingFocus === document.activeElement) open(pendingFocus)
