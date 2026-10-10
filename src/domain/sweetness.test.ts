@@ -31,7 +31,7 @@ describe('sweetness, recipe print and stock integration', () => {
     expect(recipe.map(r => [r.name,r.qty,r.unit])).toEqual([['น้ำผึ้ง',h/10,'ช้อน'],['นมข้นหวาน',m,'g'],['ครีมชีส',60,'g'],['เจลลี่',20,'g']])
     expect(stockMovementsForOrderItem(p,2,options,'sale').map(r => r.qty_delta)).toEqual([-h*2,-m*2,-120,-40])
     expect(unitCost(p, options, ingredients)).toBeCloseTo(h*.2+m*.1+20)
-    const html = buildPrintHTML({ orderNo: 'test', total:228, paid:228, change:0, createdAt:'2026-09-21T00:00:00Z', lines:[line] },{header:'Moosties',footer:''})
+    const html = buildPrintHTML({ orderNo: 'test', total:228, paid:228, change:0, createdAt:'2026-09-21T00:00:00Z', lines:[line] },{header:'Moosties',footer:''}, 'recipes')
     expect(html.match(/class="sticker"/g)).toHaveLength(2)
     for (const r of recipe) expect(html).toContain(`<td class="r">${r.qty}</td><td class="r unit">${r.unit}</td>`)
     expect(optionLabel(options)).toBe(`${level==='less'?'หวานน้อย':level==='more'?'หวานมาก':'หวานปกติ'}, ครีมชีส ×2, เจลลี่`)

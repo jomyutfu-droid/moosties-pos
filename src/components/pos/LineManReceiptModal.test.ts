@@ -17,7 +17,7 @@ describe('LINE MAN stored receipt printing', () => {
     expect(html).not.toContain(order.lineManOrderId)
     expect(html).not.toContain('undefined')
   })
-  it('prints database-shaped snapshots, one recipe sticker per cup, without prices', () => {
+  it('separates a price-free order bill from one recipe sticker per cup', () => {
     const stored: LineManReceiptInfo = JSON.parse(JSON.stringify({
       source: 'line_man', orderNo: 'LM-20260923-D332F4CB', lineManOrderId: '1111',
       createdAt: '2026-09-23T11:33:23Z', totalCups: 2,
@@ -26,10 +26,15 @@ describe('LINE MAN stored receipt printing', () => {
         recipe: [{ name: 'น้ำเชื่อม', qty: 10, unit: 'ml', adjusted: true }] }],
     }))
     const html = buildLineManPrintHTML(stored, 'MOOSTIES', 'ขอบคุณ')
-    expect(html.match(/class="sticker"/g)).toHaveLength(2)
+    const recipes = buildLineManPrintHTML(stored, 'MOOSTIES', 'ขอบคุณ', 'recipes')
+    expect(html).not.toContain('class="sticker"')
+    expect(html).not.toContain('น้ำเชื่อม')
+    expect(recipes.match(/class="sticker"/g)).toHaveLength(2)
+    expect(recipes).not.toContain('class="receipt"')
+    expect(recipes).toContain('หวานน้อย, เจลลี่')
     expect(html).toContain('ชา &lt;ทดสอบ&gt;')
     expect(html).toContain('หวานน้อย, เจลลี่')
-    expect(html).toContain('น้ำเชื่อม')
+    expect(recipes).toContain('น้ำเชื่อม')
     expect(html).toContain('window.print()')
     expect(html).not.toContain('undefined')
     expect(html).not.toContain('ยอดสุทธิ')

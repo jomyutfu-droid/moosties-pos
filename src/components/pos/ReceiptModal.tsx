@@ -1,7 +1,7 @@
 import { adjustedRecipe } from '@/domain/recipe'
 import { optionLabel } from '@/domain/sweetness'
 /**
- * Feature 2: ReceiptModal — ใบเสร็จ + สติกเกอร์ต่อแก้ว
+ * ReceiptModal — แยกพิมพ์ใบเสร็จและใบสูตรต่อแก้ว
  * - ใบเสร็จ: รายการสินค้า, ส่วนลด, ยอดรวม, ยอดรับ, เงินทอน
  * - สติกเกอร์ (ต่อถ้วย): ชื่อสินค้า + ตัวเลือก + วัตถุดิบ (ไม่รวม category "บรรจุภัณฑ์")
  */
@@ -31,9 +31,9 @@ const b = (n: number) => (n % 1 === 0 ? String(Math.round(n)) : n.toFixed(2))
 /** escape ข้อความจากผู้ใช้ก่อนใส่ลง HTML ที่จะพิมพ์ (ใช้ร่วมกับการ์ดสูตรใน CartPanel) */
 const esc = escapeHtml
 
-/** สร้าง HTML ใบเสร็จ + สติกเกอร์สำหรับพิมพ์ผ่าน window.open (80mm thermal) */
+/** สร้าง HTML เฉพาะใบเสร็จหรือใบสูตรสำหรับพิมพ์ผ่าน window.open (80mm thermal) */
 // eslint-disable-next-line react-refresh/only-export-components
-export function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
+export function buildPrintHTML(order: ReceiptInfo, text: ReceiptText, mode: 'receipt' | 'recipes' = 'receipt'): string {
   const dateStr = new Date(order.createdAt).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })
 
   // --- ใบเสร็จ: 4 คอลัมน์ (ชื่อ | จำนวน | ราคา | รวม) ---
@@ -77,7 +77,7 @@ export function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
     </div>`
 
   // --- สติกเกอร์: 1 หน้าต่อแก้ว — ตัดกระดาษหลังทุกหน้า ---
-  const stickerPages = (order.lines ?? []).flatMap((l) => {
+  const stickerPages = (mode === 'recipes' ? order.lines ?? [] : []).flatMap((l) => {
     const optLabel = optionLabel(l.selectedOptions)
     const recipe = adjustedRecipe(l)
 
@@ -150,8 +150,7 @@ export function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
       }
     </style>
   </head><body>
-    ${receiptSection}
-    ${stickerPages.join('')}
+    ${mode === 'receipt' ? receiptSection : stickerPages.join('')}
     <script>
       // รอ 400ms ให้ font render แล้ว print
       setTimeout(function() { window.print() }, 400)
@@ -162,11 +161,11 @@ export function buildPrintHTML(order: ReceiptInfo, text: ReceiptText): string {
 export function ReceiptModal({ order, onClose }: { order: ReceiptInfo; onClose: () => void }) {
   const { data: settings } = useSettings()
 
-  function handlePrint() {
+  function handlePrint(mode: 'receipt' | 'recipes') {
     const html = buildPrintHTML(order, {
       header: settings?.receipt_header?.trim() || settings?.store_name?.trim() || 'MOOSTIES',
       footer: settings?.receipt_footer?.trim() || 'ขอบคุณที่ใช้บริการ',
-    })
+    }, mode)
     // เปิด + พิมพ์ + ปิดหน้าต่างอัตโนมัติ (ปิดจากหน้าต่างแม่ เพราะ Chrome บล็อกการปิดตัวเอง)
     openPrintWindow(html, 420, 700)
   }
@@ -196,11 +195,12 @@ export function ReceiptModal({ order, onClose }: { order: ReceiptInfo; onClose: 
           )}
         </div>
 
-        <div className="flex gap-2 mt-5">
-          <button className="btn-secondary flex-1" onClick={handlePrint}>
-            พิมพ์ใบเสร็จ + สติกเกอร์
+        <div className="flex flex-col gap-2 mt-5">
+          <button className="btn-primary min-h-12 w-full" onClick={() => handlePrint('receipt')}>
+            พิมพ์บิลอย่างเดียว
           </button>
-          <button className="btn-primary flex-1" onClick={onClose}>
+          <button className="btn-secondary min-h-12 w-full" onClick={() => handlePrint('recipes')}>พิมพ์ใบสูตรแต่ละแก้ว</button>
+          <button className="btn-secondary min-h-11 w-full" onClick={onClose}>
             ปิด
           </button>
         </div>
