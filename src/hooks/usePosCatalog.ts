@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/db'
 import { optionsForProduct } from '@/domain/toppings'
+import { compareMenuNames } from '@/domain/menuOrder'
 import type { Category, Ingredient, ProductWithRecipe } from '@/types'
 
 /**
@@ -35,7 +36,7 @@ export function usePosCatalog(): {
     const activeCategoryIds = new Set(categories.filter((c) => c.is_active).map((c) => c.id))
     const productsWithRecipe: ProductWithRecipe[] = products
       .filter((p) => p.is_active && (p.category_id === null || activeCategoryIds.has(p.category_id)))
-      .sort((a, b) => a.sort_order - b.sort_order)
+      .sort(compareMenuNames)
       .map((p) => ({
         ...p,
         recipe_items: (recipeByProduct.get(p.id) ?? [])

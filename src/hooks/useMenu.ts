@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { refreshReferenceData } from '@/lib/sync'
 import { baseCost } from '@/domain/cogs'
+import { compareMenuNames } from '@/domain/menuOrder'
 import { optionsForProduct } from '@/domain/toppings'
 import type { StoreTopping } from '@/types'
 import type { Category, Ingredient, Product, ProductOption, ProductWithRecipe, RecipeItem } from '@/types'
@@ -71,7 +72,7 @@ export function useProducts() {
         .select('*')
         .order('sort_order')
       if (error) throw error
-      return (data ?? []) as Product[]
+      return ((data ?? []) as Product[]).sort(compareMenuNames)
     },
   })
 }
