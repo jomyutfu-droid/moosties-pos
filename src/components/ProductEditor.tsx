@@ -1,5 +1,6 @@
 import { SearchSelect } from '@/components/SearchSelect'
 import { SweetnessEditor } from '@/components/SweetnessEditor'
+import { RecipeIngredientCost } from '@/components/RecipeIngredientCost'
 import { recipeUnitIsValid, recipeUnitSelectValue } from '@/domain/recipeUnits'
 import { sweetnessIngredients } from '@/domain/sweetness'
 import type { SweetnessIngredient } from '@/types'
@@ -108,6 +109,11 @@ export function ProductEditor({
   })
   const profit = unitProfit(price, detail ? previewCost : previewCost)
   const margin = marginPercent(price, previewCost)
+  const missingCostCount = ingredients ? recipeRows.filter((row) => {
+    if (!row.ingredient_id) return false
+    const cost = ingredientsById.get(row.ingredient_id)?.cost_per_unit
+    return cost == null || !Number.isFinite(cost) || cost <= 0
+  }).length : 0
 
   function addRecipeRow() {
     setRecipeRows((rows) => [
@@ -302,6 +308,12 @@ export function ProductEditor({
             <span>มาร์จิ้น: <strong>{margin}%</strong></span>
           </div>
 
+          {missingCostCount > 0 && (
+            <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+              ยังไม่ระบุต้นทุน {missingCostCount} รายการ ยอดต้นทุนรวมยังไม่ครบ กำไรและมาร์จิ้นด้านบนยังไม่รวมต้นทุนรายการเหล่านี้
+            </p>
+          )}
+
           <div>
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-semibold">สูตร (BOM)</h3>
@@ -361,6 +373,14 @@ export function ProductEditor({
                         </option>
                       ))}
                     </select>
+                    {row.ingredient_id && ingredients && (
+                      <RecipeIngredientCost
+                        qty={row.qty}
+                        factor={row.unit_factor || 1}
+                        unit={row.unit_name ?? ing?.unit ?? 'หน่วย'}
+                        costPerBaseUnit={ing?.cost_per_unit}
+                      />
+                    )}
                     <input
                       className="input max-sm:col-span-2"
                       style={{ flex: '1 1 0', minWidth: 0 }}
