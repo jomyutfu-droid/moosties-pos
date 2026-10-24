@@ -197,3 +197,21 @@ body {
 /* ─── Pulse dot for queue live indicator ─────────── */
 @keyframes moo-pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
 .moo-pulse { animation: moo-pulse 1.6s infinite; }
+
+/* Compact rows in the menu recipe editor; other recipe forms retain their layout. */
+.menu-recipe-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+}
+.menu-recipe-row > * { min-width: 0; }
+.menu-recipe-picker { grid-column: 1 / -1; }
+.menu-recipe-delete { min-height: 44px; padding: 4px; }
+@media (min-width: 640px) {
+  .menu-recipe-row { grid-template-columns: minmax(0, 1fr) 90px 100px 44px; }
+  .menu-recipe-picker { grid-column: auto; }
+}

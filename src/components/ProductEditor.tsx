@@ -4,7 +4,7 @@ import { RecipeIngredientCost } from '@/components/RecipeIngredientCost'
 import { recipeUnitIsValid, recipeUnitSelectValue } from '@/domain/recipeUnits'
 import { sweetnessIngredients } from '@/domain/sweetness'
 import type { SweetnessIngredient } from '@/types'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   useCategories,
   useIngredients,
@@ -64,6 +64,13 @@ export function ProductEditor({
   const [recipeRows, setRecipeRows] = useState<RecipeRow[]>([])
   const [removedRecipeIds, setRemovedRecipeIds] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
+  const [newRowKey, setNewRowKey] = useState<string | null>(null)
+  const newRowRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (newRowKey) newRowRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [newRowKey])
+
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -116,6 +123,8 @@ export function ProductEditor({
   }).length : 0
 
   function addRecipeRow() {
+    const key = newKey()
+    setNewRowKey(key)
     setRecipeRows((rows) => [
       ...rows,
       {
@@ -125,7 +134,7 @@ export function ProductEditor({
         unit_factor: 1,
         sort_order: rows.length,
         note: null,
-        _key: newKey(),
+        _key: key,
       },
     ])
   }
@@ -261,12 +270,12 @@ export function ProductEditor({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto max-sm:max-h-[100dvh] max-sm:rounded-none">
-        <div className="p-5 max-sm:p-4 border-b border-gray-200 sticky top-0 bg-white/95 backdrop-blur z-10">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 max-sm:p-0 z-50">
+      <div className="bg-white rounded-2xl shadow-lg w-full max-w-2xl max-h-[90dvh] flex flex-col overflow-hidden max-sm:max-h-[100dvh] max-sm:rounded-none">
+        <div className="p-5 max-sm:p-4 border-b border-gray-200 shrink-0 bg-white">
           <h2 className="text-lg font-bold">{productId ? 'แก้ไขเมนู' : 'เพิ่มเมนูใหม่'}</h2>
         </div>
-        <div className="p-5 max-sm:p-4 space-y-5">
+        <div className="p-5 max-sm:p-4 space-y-5 overflow-y-auto min-h-0 overscroll-contain">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
               <label className="label">ชื่อเมนู</label>
@@ -302,7 +311,7 @@ export function ProductEditor({
             </div>
           </div>
 
-          <div className="card p-3 flex items-center justify-between text-sm">
+          <div className="card p-3 flex flex-wrap gap-2 items-center justify-between text-sm">
             <span>ต้นทุน/แก้ว: <strong>{formatBahtSymbol(previewCost)}</strong></span>
             <span>กำไร/แก้ว: <strong>{formatBahtSymbol(profit)}</strong></span>
             <span>มาร์จิ้น: <strong>{margin}%</strong></span>
@@ -317,9 +326,7 @@ export function ProductEditor({
           <div>
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-semibold">สูตร (BOM)</h3>
-              <button className="btn-secondary text-sm" onClick={addRecipeRow}>
-                + วัตถุดิบ
-              </button>
+              <span className="text-xs text-gray-500">{recipeRows.length} รายการ</span>
             </div>
             <div className="space-y-2">
               {ingredients && recipeRows.some(row => row.ingredient_id && !recipeUnitIsValid(ingredientsById.get(row.ingredient_id), row.unit_name, row.unit_factor)) && (
@@ -331,12 +338,10 @@ export function ProductEditor({
                 const ing = ingredientsById.get(row.ingredient_id)
                 const unitChoices = usageUnitsForIngredient(ing)
                 return (
-                  <div key={row._key} className="recipe-form-row">
-                    <span className="hidden max-sm:block col-span-2 text-xs font-semibold text-gray-500">
-                      วัตถุดิบที่ {index + 1}
-                    </span>
+                  <div key={row._key} ref={row._key === newRowKey ? newRowRef : undefined} className="menu-recipe-row">
                     <SearchSelect
-                      className="recipe-ingredient-picker max-sm:col-span-2"
+                      className="menu-recipe-picker"
+                      autoOpen={row._key === newRowKey}
                       label={`วัตถุดิบในสูตร ${index + 1}`}
                       value={row.ingredient_id}
                       onChange={id => changeRecipeIngredient(row._key, id)}
@@ -345,6 +350,7 @@ export function ProductEditor({
                     />
                     <NumberField
                       className="input"
+                      aria-label={`ปริมาณ ${ing?.name ?? `วัตถุดิบที่ ${index + 1}`}`}
                       title="จำนวนวัตถุดิบต่อแก้ว"
                       value={row.qty}
                       parse={parseUnsignedNumber}
@@ -373,33 +379,26 @@ export function ProductEditor({
                         </option>
                       ))}
                     </select>
+                    <button type="button" className="btn-ghost text-red-600 menu-recipe-delete" aria-label={`ลบ ${ing?.name ?? `วัตถุดิบที่ ${index + 1}`}`} onClick={() => removeRecipeRow(row)}>
+                      ลบ
+                    </button>
                     {row.ingredient_id && ingredients && (
                       <RecipeIngredientCost
+                        compact
                         qty={row.qty}
                         factor={row.unit_factor || 1}
                         unit={row.unit_name ?? ing?.unit ?? 'หน่วย'}
                         costPerBaseUnit={ing?.cost_per_unit}
                       />
                     )}
-                    <input
-                      className="input max-sm:col-span-2"
-                      style={{ flex: '1 1 0', minWidth: 0 }}
-                      placeholder="หมายเหตุ"
-                      value={row.note ?? ''}
-                      onChange={(e) =>
-                        setRecipeRows((rows) =>
-                          rows.map((r) => (r._key === row._key ? { ...r, note: e.target.value } : r)),
-                        )
-                      }
-                    />
-                    <button className="btn-ghost text-red-600" onClick={() => removeRecipeRow(row)}>
-                      ลบ
-                    </button>
                   </div>
                 )
               })}
               {recipeRows.length === 0 && <p className="text-sm text-gray-400">ยังไม่มีวัตถุดิบในสูตร</p>}
             </div>
+            <button type="button" className="btn-secondary w-full mt-3 min-h-12 border-dashed" onClick={addRecipeRow}>
+              ＋ เพิ่มวัตถุดิบ
+            </button>
           </div>
 
           <SweetnessEditor
@@ -417,7 +416,11 @@ export function ProductEditor({
 
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
-        <div className="p-5 max-sm:p-4 border-t border-gray-200 flex justify-end gap-2 sticky bottom-0 bg-white/95 backdrop-blur z-10">
+        <div className="p-4 border-t border-gray-200 shrink-0 flex flex-wrap items-center gap-2 bg-white" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+          <div className="mr-auto" aria-live="polite">
+            <p className="text-xs text-gray-500">ต้นทุนรวม/แก้ว{missingCostCount > 0 ? ' (ยังไม่ครบ)' : ''}</p>
+            <strong className="text-lg text-green-900">{formatBahtSymbol(previewCost)}</strong>
+          </div>
           <button className="btn-ghost" onClick={onClose}>
             ยกเลิก
           </button>

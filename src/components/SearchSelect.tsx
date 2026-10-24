@@ -5,11 +5,11 @@ export interface SearchSelectOption { value: string; label: string }
 
 /** A searchable picker shared by ingredient fields, including fields inside scrollable dialogs. */
 export function SearchSelect({ value, onChange, options, label, placeholder = 'เลือกวัตถุดิบ', emptyLabel,
-  required = false, disabled = false, className = '' }: {
+  required = false, disabled = false, autoOpen = false, className = '' }: {
   value: string; onChange: (value: string) => void; options: SearchSelectOption[]; label: string
-  placeholder?: string; emptyLabel?: string; required?: boolean; disabled?: boolean; className?: string
+  placeholder?: string; emptyLabel?: string; required?: boolean; disabled?: boolean; autoOpen?: boolean; className?: string
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(autoOpen)
   const [query, setQuery] = useState('')
   const trigger = useRef<HTMLButtonElement>(null)
   const panel = useRef<HTMLElement>(null)
