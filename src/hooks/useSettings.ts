@@ -3,9 +3,11 @@ import { supabase } from '@/lib/supabase'
 import { db } from '@/lib/db'
 import { explainSupabaseError } from '@/lib/errors'
 import { createDefaultBusinessHours, normaliseBusinessHours } from '@/lib/businessHours'
+import { normaliseMenuOrder } from '@/domain/menuOrder'
 import type { Settings } from '@/types'
 
 const DEFAULTS: Settings = {
+  menu_order: { mode: 'name', product_ids: [] },
   store_name: 'MOOSTIES',
   promptpay_id: '',
   receipt_header: 'MOOSTIES',
@@ -32,7 +34,7 @@ export function useSettings() {
           if (row.key in merged) {
             ;(merged as unknown as Record<string, unknown>)[row.key] = row.key === 'business_hours'
               ? normaliseBusinessHours(row.value)
-              : row.value
+              : row.key === 'menu_order' ? normaliseMenuOrder(row.value) : row.value
           }
         }
         await db.settings.put({ ...merged, id: 'singleton' })

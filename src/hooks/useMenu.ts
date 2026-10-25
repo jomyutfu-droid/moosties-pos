@@ -322,3 +322,36 @@ export function useSaveProductOptions(productId: string) {
     },
   })
 }
+
+
+/** A single settings row keeps the mode and the full sequence atomic across devices. */
+export function useSaveMenuOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (order: import('@/domain/menuOrder').MenuOrder) => {
+      const { data, error } = await supabase.from('settings').upsert({
+        key: 'menu_order', value: order, updated_at: new Date().toISOString(),
+      }).select('key').single()
+      if (error) throw error
+      if (!data) throw new Error('บันทึกลำดับไม่สำเร็จ กรุณาตรวจสอบสิทธิ์')
+    },
+    onSuccess: async () => { await qc.invalidateQueries({ queryKey: ['settings'] }) },
+  })
+}
+
+export function useSaveCategoryOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (categories: Category[]) => {
+      const { data, error } = await supabase.from('categories').upsert(categories.map((c, index) => ({
+        id: c.id, name: c.name, is_active: c.is_active, sort_order: index,
+      }))).select('id')
+      if (error) throw error
+      if (data?.length !== categories.length) throw new Error('บันทึกลำดับหมวดไม่ครบ กรุณาโหลดใหม่')
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['categories'] })
+      syncCatalogCache()
+    },
+  })
+}

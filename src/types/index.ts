@@ -258,6 +258,7 @@ export interface BusinessHoursSettings {
 }
 
 export interface Settings {
+  menu_order?: import('@/domain/menuOrder').MenuOrder
   store_name: string
   promptpay_id: string
   receipt_header: string
