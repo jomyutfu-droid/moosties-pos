@@ -11,6 +11,13 @@ function render(data: TeaData, enabled = false) {
   return renderToStaticMarkup(<DailyTeaClose data={data} loading={false} error={null} enabled={enabled} brewed="600" onEnabled={() => {}} onBrewed={() => {}} refresh={() => {}} />)
 }
 describe('daily tea closing status', () => {
+  it('removes batch entry after automatic deduction is activated', () => {
+    const html = render({...base, deduction_mode: 'sale'}, true)
+    expect(html).toContain('ตัดผงชาตอนขายอัตโนมัติ')
+    expect(html).toContain('ทิ้งสินค้า')
+    expect(html).not.toContain('type="checkbox"')
+    expect(html).not.toContain('id="daily-tea-volume"')
+  })
   it('shows the closing checkbox for an unsummarized day', () => {
     const html = render(base)
     expect(html).toContain('วันนี้ยังไม่ได้สรุปชา')

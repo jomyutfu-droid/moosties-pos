@@ -52,6 +52,8 @@ export interface IngredientUnit {
 }
 
 export interface Ingredient {
+  auto_prep?: boolean
+  auto_prep_inputs?: { ingredient_id: string; qty_per_unit: number }[]
   daily_prep?: boolean
   id: UUID
   name: string
@@ -298,3 +300,4 @@ export interface CartLine {
   unitPrice: number // price + sum(option.price_delta)
   unitCogs: number // cost_cached + sum(option.qty_delta * ingredient.cost_per_unit)
 }
+

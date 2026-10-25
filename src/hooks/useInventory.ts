@@ -1,3 +1,5 @@
+import { withAutoPrepCosts } from '@/domain/autoPrep'
+import type { ProductionRecipe } from '@/domain/production'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { refreshReferenceData } from '@/lib/sync'
@@ -18,7 +20,9 @@ export function useIngredientsFull() {
         .select('*, units:ingredient_units(*)')
         .order('name')
       if (error) throw error
-      return (data ?? []) as Ingredient[]
+      const auto = await supabase.rpc('get_auto_prep_recipes')
+      if (auto.error) throw auto.error
+      return withAutoPrepCosts((data ?? []) as Ingredient[], (auto.data ?? []) as ProductionRecipe[])
     },
   })
 }

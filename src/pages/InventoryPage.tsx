@@ -161,12 +161,12 @@ export default function InventoryPage() {
                           <span className="ml-1 text-xs text-amber-600">⚠️</span>
                         )}
                       </td>
-                      <td className="p-3 text-right">{formatStockQty(ing.stock_qty, ing.unit)}</td>
+                      <td className="p-3 text-right">{ing.auto_prep ? <span className="text-xs text-green-800">ตัดวัตถุดิบต้นทางเมื่อขาย</span> : formatStockQty(ing.stock_qty, ing.unit)}</td>
                       <td className="p-3 text-right text-gray-500">{formatStockQty(ing.reorder_point, ing.unit)}</td>
                       <td className="p-3 text-right text-gray-500">{formatBahtSymbol(ing.cost_per_unit)}</td>
                       <td className="p-3 align-top">
                         <div className="flex min-w-[220px] flex-wrap justify-end gap-2">
-                        <button className="btn-secondary text-xs" onClick={() => setMovementTarget(ing)}>
+                        <button className="btn-secondary text-xs" disabled={ing.auto_prep} onClick={() => setMovementTarget(ing)}>
                           รับ/ปรับ
                         </button>
                         <button className="btn-ghost text-xs" onClick={() => setEditing(ing)}>

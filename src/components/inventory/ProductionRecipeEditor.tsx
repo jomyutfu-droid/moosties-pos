@@ -39,6 +39,7 @@ export function ProductionRecipeEditor({ recipe, ingredients, token, onClose, on
       <header className="p-5 border-b flex justify-between"><h2 id="recipe-title" className="text-xl font-bold">{recipe ? 'แก้ไขสูตรผลิต' : 'เพิ่มสูตรผลิต'}</h2><button disabled={busy} onClick={onClose}>ปิด</button></header>
       <form className="overflow-y-auto p-5 space-y-5" onSubmit={e => {e.preventDefault(); void save()}}>
         <fieldset disabled={busy} className="space-y-5">
+          <p className="rounded-xl bg-green-50 p-3 text-sm font-semibold">{recipe?.deduction_mode==='sale' ? 'ตัดวัตถุดิบต้นทางเมื่อขายหรือทิ้ง · ไม่ต้องกดผลิต' : 'ตัดวัตถุดิบเมื่อกดผลิต'}</p>
           <label className="block text-sm font-semibold">ชื่อสูตร<input required maxLength={120} className="input mt-1" placeholder="เช่น ครีมชีสสูตรร้าน" value={name} onChange={e=>setName(e.target.value)}/></label>
           <div className="rounded-xl bg-green-50 p-4 space-y-3">
             <div className="text-sm font-semibold">ผลิตเป็นวัตถุดิบอะไร (D)<SearchSelect required className="mt-1" label="ผลิตเป็นวัตถุดิบอะไร (D)" placeholder="เลือกผลผลิต"

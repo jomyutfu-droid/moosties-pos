@@ -5,6 +5,7 @@ export interface ProductionInput {
   ingredient_id: string; input_qty: number; input_unit: string; factor: number; base_unit: string
 }
 export interface ProductionRecipe {
+  deduction_mode?: 'produce' | 'sale'
   id: string; name: string; output_id: string; output_unit: string; expected_qty: number
   instructions: string; is_active: boolean; revision: number; items: ProductionInput[]
 }
@@ -14,7 +15,13 @@ export interface ProductionBatch {
   user_name: string; created_at: string; status: 'completed' | 'cancelled'; note: string; cancel_reason: string | null
   items: { ingredient_id: string; name: string; qty: number; unit: string; unit_cost: number }[]
 }
+export interface PrepWaste {
+  id: string; ingredient_name: string; qty: number; unit: string; business_date: string; reason: string
+  total_cost: number; user_name: string; created_at: string; status: 'completed' | 'cancelled'; cancel_reason: string | null
+  items: { ingredient_id: string; name: string; qty_delta: number; unit: string; unit_cost: number }[]
+}
 export interface ProductionData {
+  waste_history?: PrepWaste[];
   can_manage: boolean; ingredients: Ingredient[]; recipes: ProductionRecipe[]; history: ProductionBatch[]
 }
 export function productionPreview(recipe: ProductionRecipe, rounds: number, ingredients: Ingredient[]) {

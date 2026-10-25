@@ -1,3 +1,5 @@
+import { withAutoPrepCosts } from '@/domain/autoPrep'
+import type { ProductionRecipe } from '@/domain/production'
 import { supabase } from '@/lib/supabase'
 import { db, type OutboxOrder } from '@/lib/db'
 import { errorMessage } from '@/lib/errors'
@@ -18,16 +20,17 @@ export function refreshReferenceData(): Promise<void> {
 }
 
 async function loadReferenceData(): Promise<void> {
-  const [categories, ingredients, products, options, recipeItems, toppings] = await Promise.all([
+  const [categories, ingredients, products, options, recipeItems, toppings, autoRecipes] = await Promise.all([
     supabase.from('categories').select('*').order('sort_order'),
     supabase.from('ingredients').select('*, units:ingredient_units(*)'),
     supabase.from('products').select('*').order('sort_order'),
     supabase.from('product_options').select('*'),
     supabase.from('recipe_items').select('*'),
     supabase.from('store_toppings').select('*').order('sort_order'),
+    supabase.rpc('get_auto_prep_recipes'),
   ])
 
-  const errors = [categories, ingredients, products, options, recipeItems, toppings]
+  const errors = [categories, ingredients, products, options, recipeItems, toppings, autoRecipes]
     .map((r) => r.error)
     .filter(Boolean)
   if (errors.length) {
@@ -46,7 +49,7 @@ async function loadReferenceData(): Promise<void> {
       await db.store_toppings.clear()
 
       if (categories.data) await db.categories.bulkPut(categories.data as Category[])
-      if (ingredients.data) await db.ingredients.bulkPut(ingredients.data as Ingredient[])
+      if (ingredients.data) await db.ingredients.bulkPut(withAutoPrepCosts(ingredients.data as Ingredient[], (autoRecipes.data ?? []) as ProductionRecipe[]))
       if (products.data) await db.products.bulkPut(products.data as Product[])
       if (options.data) await db.product_options.bulkPut(options.data as ProductOption[])
       if (recipeItems.data) await db.recipe_items.bulkPut(recipeItems.data as RecipeItem[])

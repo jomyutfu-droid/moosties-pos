@@ -1,3 +1,4 @@
+import { localPrepMovements } from '@/domain/autoPrep'
 import { useRef, useState } from 'react'
 import { usePosCatalog } from '@/hooks/usePosCatalog'
 import { ProductGrid } from '@/components/pos/ProductGrid'
@@ -116,10 +117,10 @@ export default function PosPage() {
     // อัปเดตสต็อกในแคชทันทีเพื่อให้หน้าสต็อก/POS เห็นยอดล่าสุดแบบออฟไลน์
     // ถ้า cache เครื่องมีปัญหา ให้ outbox ที่บันทึกแล้วเป็นตัวหลักและห้ามทำรายการซ้ำ
     try {
-      for (const mov of stockMovements) {
+      for (const mov of localPrepMovements(stockMovements, await db.ingredients.toArray())) {
         const ing = await db.ingredients.get(mov.ingredient_id)
         if (ing) {
-          await db.ingredients.put({ ...ing, stock_qty: round2(ing.stock_qty + mov.qty_delta) })
+          await db.ingredients.put({ ...ing, stock_qty: Math.round((ing.stock_qty + mov.qty_delta) * 1000) / 1000 })
         }
       }
     } catch {

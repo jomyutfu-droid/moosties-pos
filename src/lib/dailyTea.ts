@@ -6,6 +6,7 @@ export interface TeaTotal {
   spoons: number; powder_grams: number | null; revision: number; current_used_ml: number
 }
 export interface TeaData {
+  deduction_mode?: 'sale'
   date: string; used_ml: number; grams_per_spoon: number | null; started_at: string
   can_manage: boolean; total: TeaTotal | null; history: TeaTotal[]
 }
