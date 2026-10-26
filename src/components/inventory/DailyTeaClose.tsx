@@ -7,9 +7,9 @@ export function DailyTeaClose({ data, loading, error, enabled, brewed, onEnabled
 }) {
   const preview = teaPreview(Number(brewed), Number(data?.used_ml ?? 0))
   const total = data?.total?.id ? data.total : null
-  if (data?.deduction_mode === 'sale') return <section className="my-4 rounded-xl border border-green-200 bg-green-50 p-4 space-y-2">
-    <h3 className="font-semibold">ชามะลิ · ตัดผงชาตอนขายอัตโนมัติ</h3>
-    <p className="text-sm">วันนี้ใช้ชาจากบิลขาย {data.used_ml} มล. ไม่ต้องกรอกยอดชงตอนปิดกะ</p>
+  if (data?.deduction_mode) return <section className="my-4 rounded-xl border border-green-200 bg-green-50 p-4 space-y-2">
+    <h3 className="font-semibold">ชามะลิ · {data.deduction_mode==='sale'?'ตัดผงชาตอนขายอัตโนมัติ':'ตัดผงชาเมื่อกดผลิต'}</h3>
+    <p className="text-sm">วันนี้ใช้ชาจากบิลขาย {data.used_ml} มล. ไม่ต้องกรอกยอดชงตอนปิดกะ{data.deduction_mode==='produce' && ' ให้กดผลิตชาที่หน้าผลิตวัตถุดิบก่อนขาย'}</p>
     <p className="text-sm">หากมีชาเหลือทิ้ง ให้บันทึกที่หน้า ผลิตวัตถุดิบ → ทิ้งสินค้า → ชามะลิชงแล้ว</p>
   </section>
   return <section className="my-4 rounded-xl border border-green-200 bg-green-50 p-4 space-y-3">

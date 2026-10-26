@@ -33,9 +33,9 @@ export function DailyTeaSettings() {
     finally { setBusy(false) }
   }
   const data = query.data
-  if (data?.deduction_mode === 'sale') return <section className="bg-white rounded-2xl border p-4 space-y-3">
-    <h2 className="font-bold text-lg">ชามะลิ · ตัดวัตถุดิบตอนขาย</h2>
-    <p className="text-sm">ดูหรือแก้สัดส่วนได้ในสูตรผลิต “ชามะลิ” ไม่ต้องกดผลิตหรือกรอกยอดชงรายวัน เหลือทิ้งให้เลือก “ชามะลิชงแล้ว” ในปุ่มทิ้งสินค้า</p>
+  if (data?.deduction_mode) return <section className="bg-white rounded-2xl border p-4 space-y-3">
+    <h2 className="font-bold text-lg">ชามะลิ · {data.deduction_mode==='sale'?'ตัดวัตถุดิบตอนขาย':'ตัดวัตถุดิบตอนผลิต'}</h2>
+    <p className="text-sm">เลือกวิธีตัดและแก้สัดส่วนได้ที่ สูตรผลิต → ชามะลิ → แก้ไข{data.deduction_mode==='sale'?' ไม่ต้องกดผลิต':' ให้กดผลิตก่อนขาย'} ไม่ต้องกรอกยอดชงตอนปิดกะ เหลือทิ้งให้เลือก “ชามะลิชงแล้ว” ในปุ่มทิ้งสินค้า</p>
     <p className="text-sm">วันนี้ใช้จากบิลขาย {data.used_ml} มล.</p>
     {!!data.history.length && <details><summary className="text-sm">ประวัติสรุปชาเดิม</summary>{data.history.map(row=><p key={row.id} className="text-sm mt-2">{row.business_date} · ชง {row.brewed_ml} · ใช้ {row.used_ml} · ทิ้ง {row.waste_ml} มล.</p>)}</details>}
   </section>

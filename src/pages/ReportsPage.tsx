@@ -514,9 +514,9 @@ export function CashSessionPanel() {
     if (!session) return
     setError(null)
     try {
-      if (tea.data?.deduction_mode !== 'sale' && closeTea && !tea.data?.total && (tea.isFetching || !tea.data || brewedTea === '' || !teaPreview(Number(brewedTea), Number(tea.data.used_ml)).valid)) throw new Error('กรุณาโหลดยอดใช้ชาและกรอกยอดชงให้ถูกต้อง')
+      if (!tea.data?.deduction_mode && closeTea && !tea.data?.total && (tea.isFetching || !tea.data || brewedTea === '' || !teaPreview(Number(brewedTea), Number(tea.data.used_ml)).valid)) throw new Error('กรุณาโหลดยอดใช้ชาและกรอกยอดชงให้ถูกต้อง')
       const closed = await closeSession.mutateAsync({ session, countedCash, cupsSold, note: closeNote.trim() || null,
-        tea: tea.data?.deduction_mode !== 'sale' && closeTea && tea.data && !tea.data.total ? {brewed_ml: Number(brewedTea), used_ml: Number(tea.data.used_ml), revision: 0} : undefined })
+        tea: !tea.data?.deduction_mode && closeTea && tea.data && !tea.data.total ? {brewed_ml: Number(brewedTea), used_ml: Number(tea.data.used_ml), revision: 0} : undefined })
       setCloseTea(false)
       setBrewedTea('')
       setResult({ ...closed, counted: countedCash })

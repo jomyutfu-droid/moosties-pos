@@ -18,6 +18,12 @@ describe('daily tea closing status', () => {
     expect(html).not.toContain('type="checkbox"')
     expect(html).not.toContain('id="daily-tea-volume"')
   })
+  it('directs production-mode tea to the production form without settling it twice', () => {
+    const html = render({...base, deduction_mode: 'produce'}, true)
+    expect(html).toContain('ตัดผงชาเมื่อกดผลิต')
+    expect(html).not.toContain('type="checkbox"')
+    expect(html).not.toContain('id="daily-tea-volume"')
+  })
   it('shows the closing checkbox for an unsummarized day', () => {
     const html = render(base)
     expect(html).toContain('วันนี้ยังไม่ได้สรุปชา')

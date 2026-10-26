@@ -40,7 +40,7 @@ export default function ProductionPage() {
   const valid=!!recipe?.is_active && !!output?.is_active && output.unit===recipe.output_unit && output.stock_qty>=0 && amount>0 && amount<=1000 && yieldQty>0 && yieldQty<=1000000 && rows.length>0 && rows.every(r=>!r.unavailable && r.shortage===0 && r.qty>0)
   function refresh() {
     void qc.invalidateQueries({queryKey:['production']})
-    for(const key of ['ingredients-full','ingredients','stock-movements']) void qc.invalidateQueries({queryKey:[key]})
+    for(const key of ['ingredients-full','ingredients','stock-movements','daily-tea','products','products-with-recipe']) void qc.invalidateQueries({queryKey:[key]})
     refreshProductionStock()
   }
   function selectRecipe(id:string) {setSelected(id);setRounds('1');setActual('');setNote('');setError('');setMessage('')}
@@ -74,7 +74,7 @@ export default function ProductionPage() {
     {error && !review && !detail && <p role="alert" className="text-red-800 bg-red-50 p-3 rounded-xl">{error}</p>}
     {isLoading ? <p>กำลังโหลดสูตรและสต็อก…</p> : data && <>
     <div hidden={tab!=='waste'}><PrepWasteForm data={data} token={token} onSaved={()=>{setMessage('บันทึกทิ้งและตัดสต๊อกเรียบร้อย');refresh()}} /></div>
-    {tab==='produce' && <p className="text-sm bg-green-50 rounded-xl p-4 text-green-900">โปรตีนสูตรผสมและชามะลิตัดวัตถุดิบตอนขายแล้ว ไม่ต้องกดผลิต หากเหลือทิ้งให้ใช้ปุ่มทิ้งสินค้า</p>}
+    {tab==='produce' && <p className="text-sm bg-green-50 rounded-xl p-4 text-green-900">เลือกวิธีตัดได้ที่ สูตรผลิต → แก้ไขสูตร → เลือกวิธีตัดวัตถุดิบ สูตรที่ตัดเมื่อขายไม่ต้องกดผลิต หากเหลือทิ้งให้ใช้ปุ่มทิ้งสินค้า</p>}
     {tab==='produce' && <div className="grid lg:grid-cols-[1fr_1.1fr] gap-5">
       <section className="bg-white rounded-2xl border p-5 space-y-5">
         <h2 className="font-bold text-lg">1. เลือกสูตรที่จะผลิต</h2>

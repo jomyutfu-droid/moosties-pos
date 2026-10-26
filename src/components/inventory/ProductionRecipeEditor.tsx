@@ -1,3 +1,5 @@
+import { DeductionModePicker, type DeductionMode } from './DeductionModePicker'
+import { autoPrepUsage } from '@/domain/autoPrep'
 import { SearchSelect } from '@/components/SearchSelect'
 import { useRef, useState } from 'react'
 import { IngredientEditor } from './IngredientEditor'
@@ -15,6 +17,8 @@ export function ProductionRecipeEditor({ recipe, ingredients, token, onClose, on
   const [outputId, setOutputId] = useState(recipe?.output_id ?? '')
   const [expected, setExpected] = useState(String(recipe?.expected_qty ?? ''))
   const [instructions, setInstructions] = useState(recipe?.instructions ?? '')
+  const [mode, setMode] = useState<DeductionMode>(recipe?.deduction_mode ?? 'produce')
+  const [opening, setOpening] = useState('')
   const [active, setActive] = useState(recipe?.is_active ?? true)
   const [items, setItems] = useState(() => recipe?.items.map(i => ({ ingredient_id: i.ingredient_id, input_qty: String(i.input_qty), input_unit: i.input_unit })) ?? [{ingredient_id:'', input_qty:'', input_unit:''}])
   const [adding, setAdding] = useState(false)
@@ -22,13 +26,17 @@ export function ProductionRecipeEditor({ recipe, ingredients, token, onClose, on
   const [error, setError] = useState('')
   const lock = useRef(false)
   const output = ingredients.find(i => i.id === outputId)
+  const modeChanged = !!recipe && mode !== (recipe.deduction_mode ?? 'produce')
+  const transferQty = mode === 'sale' ? Number(output?.stock_qty ?? 0) : Number(opening)
+  const transferRows = modeChanged && recipe ? autoPrepUsage(recipe, Math.max(0, transferQty)) : []
   const patchRow = (idx: number, patch: Partial<typeof items[number]>) => setItems(items.map((x,i) => i===idx ? {...x,...patch} : x))
   async function save() {
     if (lock.current) return
     lock.current = true; setBusy(true); setError('')
     try {
       await productionAction(token, 'save_recipe', {id, revision:recipe?.revision ?? 0, name, output_id:outputId,
-        expected_qty:Number(expected), instructions, is_active:active,
+        expected_qty:Number(expected), instructions, is_active:active, deduction_mode:mode,
+        ...(modeChanged ? {mode_stock_qty:output?.stock_qty, opening_qty:mode === 'produce' ? Number(opening) : undefined} : {}),
         items:items.map(i => ({...i,input_qty:Number(i.input_qty)}))})
       onSaved()
     } catch(e) { setError(e instanceof Error ? e.message : 'บันทึกสูตรไม่ได้') }
@@ -39,7 +47,16 @@ export function ProductionRecipeEditor({ recipe, ingredients, token, onClose, on
       <header className="p-5 border-b flex justify-between"><h2 id="recipe-title" className="text-xl font-bold">{recipe ? 'แก้ไขสูตรผลิต' : 'เพิ่มสูตรผลิต'}</h2><button disabled={busy} onClick={onClose}>ปิด</button></header>
       <form className="overflow-y-auto p-5 space-y-5" onSubmit={e => {e.preventDefault(); void save()}}>
         <fieldset disabled={busy} className="space-y-5">
-          <p className="rounded-xl bg-green-50 p-3 text-sm font-semibold">{recipe?.deduction_mode==='sale' ? 'ตัดวัตถุดิบต้นทางเมื่อขายหรือทิ้ง · ไม่ต้องกดผลิต' : 'ตัดวัตถุดิบเมื่อกดผลิต'}</p>
+          <DeductionModePicker value={mode} onChange={setMode} />
+          {modeChanged && <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-3">
+            <p className="font-semibold text-sm">เปลี่ยนวิธีตัดสต๊อกของสูตรนี้</p>
+            {mode === 'sale' ? <p className="text-sm">ระบบจะย้ายผลผลิตคงเหลือ {formatStockQty(output?.stock_qty ?? 0, recipe!.output_unit)} กลับเป็นยอดวัตถุดิบต้นทางตามสูตรเดิม เพื่อไม่ให้ตัดซ้ำเมื่อขาย</p> : <label className="block text-sm font-semibold">จำนวนที่ผสมไว้คงเหลือจริง ({recipe!.output_unit})
+              <input required className="input mt-1" type="number" inputMode="decimal" min="0" max="1000000" step="0.001" value={opening} onChange={e=>setOpening(e.target.value)} placeholder="ใส่ 0 หากไม่มีของที่ผสมไว้" />
+              <span className="block mt-1 text-xs font-normal text-gray-600">ระบบจะตัดต้นทางตามสูตรเดิมเพียงครั้งเดียวและรับจำนวนนี้เข้าสต๊อกผลผลิต จากนั้นค่อยกดผลิตเฉพาะรอบใหม่</span>
+            </label>}
+            {transferQty > 0 && <div className="space-y-1 text-sm">{transferRows.map(row=><p key={row.ingredient_id}>{ingredients.find(i=>i.id===row.ingredient_id)?.name}: {mode==='sale'?'+':'−'}{formatStockQty(row.qty,ingredients.find(i=>i.id===row.ingredient_id)?.unit ?? '')}</p>)}</div>}
+            <p className="text-xs text-gray-600">ระบบจะตรวจยอดล่าสุดก่อนย้ายสต๊อก หากแก้ส่วนผสมด้วยให้บันทึกส่วนผสมก่อน แล้วค่อยเปลี่ยนวิธีตัดแยกอีกครั้ง</p>
+          </div>}
           <label className="block text-sm font-semibold">ชื่อสูตร<input required maxLength={120} className="input mt-1" placeholder="เช่น ครีมชีสสูตรร้าน" value={name} onChange={e=>setName(e.target.value)}/></label>
           <div className="rounded-xl bg-green-50 p-4 space-y-3">
             <div className="text-sm font-semibold">ผลิตเป็นวัตถุดิบอะไร (D)<SearchSelect required className="mt-1" label="ผลิตเป็นวัตถุดิบอะไร (D)" placeholder="เลือกผลผลิต"
@@ -68,7 +85,7 @@ export function ProductionRecipeEditor({ recipe, ingredients, token, onClose, on
           <label className="flex gap-2 text-sm"><input type="checkbox" checked={active} onChange={e=>setActive(e.target.checked)}/>เปิดใช้งานสูตร</label>
         </fieldset>
         {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-red-800">{error}</p>}
-        <button disabled={busy || !items.length} className="btn-primary w-full min-h-12">{busy?'กำลังบันทึก…':'บันทึกสูตร'}</button>
+        <button disabled={busy || !items.length || (modeChanged && mode === 'produce' && opening === '')} className="btn-primary w-full min-h-12">{busy?'กำลังบันทึก…':modeChanged?'บันทึกสูตรและเปลี่ยนวิธีตัด':'บันทึกสูตร'}</button>
       </form>
     </section>
     {adding && <IngredientEditor ingredient={null} onClose={()=>{setAdding(false);reload()}}/>}
