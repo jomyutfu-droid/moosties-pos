@@ -1,3 +1,4 @@
+import { canonicalProductionUnit } from '@/domain/productionUnits'
 import { DeductionModePicker, type DeductionMode } from './DeductionModePicker'
 import { autoPrepUsage } from '@/domain/autoPrep'
 import { SearchSelect } from '@/components/SearchSelect'
@@ -17,10 +18,10 @@ export function ProductionRecipeEditor({ recipe, ingredients, token, onClose, on
   const [outputId, setOutputId] = useState(recipe?.output_id ?? '')
   const [expected, setExpected] = useState(String(recipe?.expected_qty ?? ''))
   const [instructions, setInstructions] = useState(recipe?.instructions ?? '')
-  const [mode, setMode] = useState<DeductionMode>(recipe?.deduction_mode ?? 'produce')
+  const [mode, setMode] = useState<DeductionMode>(recipe ? recipe.deduction_mode ?? 'produce' : 'sale')
   const [opening, setOpening] = useState('')
   const [active, setActive] = useState(recipe?.is_active ?? true)
-  const [items, setItems] = useState(() => recipe?.items.map(i => ({ ingredient_id: i.ingredient_id, input_qty: String(i.input_qty), input_unit: i.input_unit })) ?? [{ingredient_id:'', input_qty:'', input_unit:''}])
+  const [items, setItems] = useState(() => recipe?.items.map(i => ({ ingredient_id: i.ingredient_id, input_qty: String(i.input_qty), input_unit: canonicalProductionUnit(ingredients.find(ingredient=>ingredient.id===i.ingredient_id), i.input_unit, i.factor) })) ?? [{ingredient_id:'', input_qty:'', input_unit:''}])
   const [adding, setAdding] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -76,7 +77,7 @@ export function ProductionRecipeEditor({ recipe, ingredients, token, onClose, on
               {ing && <p className="text-sm break-words">{ing.name}</p>}
               <div className="quantity-unit-row production-quantity">
                 <label className="text-sm">จำนวนต่อ 1 รอบ<input required aria-label={`จำนวนส่วนผสม ${idx+1}`} type="number" inputMode="decimal" min="0.001" max="1000000" step="0.001" placeholder="เช่น 1250.500" className="input mt-1" value={row.input_qty} onChange={e=>patchRow(idx,{input_qty:e.target.value})}/></label>
-                <label className="text-sm">หน่วย<select required disabled={!ing} aria-label={`หน่วยส่วนผสม ${idx+1}`} className="input mt-1" value={row.input_unit} onChange={e=>patchRow(idx,{input_unit:e.target.value})}>{units.map(u=><option key={u.name} value={u.name}>{u.name || 'หน่วย'}</option>)}</select></label>
+                <label className="text-sm">หน่วย<select required disabled={!ing} aria-label={`หน่วยส่วนผสม ${idx+1}`} className="input mt-1" value={row.input_unit} onChange={e=>patchRow(idx,{input_unit:e.target.value})}>{!units.some(u=>u.name===row.input_unit) && row.input_unit && <option value={row.input_unit} disabled>หน่วยเดิม {row.input_unit} · กรุณาเลือกหน่วยที่ถูกต้อง</option>}{units.map(u=><option key={u.name} value={u.name}>{u.name || 'หน่วย'}</option>)}</select></label>
               </div>
               {ing && <p className="text-xs text-gray-500">ตัดสต็อก {formatStockQty(round3(Number(row.input_qty)*factor),ing.unit)} / รอบ</p>}
             </div>

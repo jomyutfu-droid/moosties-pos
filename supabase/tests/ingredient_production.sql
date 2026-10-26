@@ -23,7 +23,7 @@ begin
  insert into public.ingredients(name,unit,stock_qty,cost_per_unit) values('QA cheese B','g',1000,0.4) returning id into c;
  insert into public.ingredients(name,unit,stock_qty,cost_per_unit) values('QA mixed cheese','g',100,1) returning id into d;
  insert into public.ingredient_units(ingredient_id,name,factor_to_base,kind) values(b,'pack',100,'both');
- recipe:=jsonb_build_object('id',recipe_id,'revision',0,'name','QA mixed cheese','output_id',d,'expected_qty',140,'items',jsonb_build_array(
+ recipe:=jsonb_build_object('id',recipe_id,'revision',0,'deduction_mode','produce','name','QA mixed cheese','output_id',d,'expected_qty',140,'items',jsonb_build_array(
   jsonb_build_object('ingredient_id',a,'input_qty',80,'input_unit','g'),
   jsonb_build_object('ingredient_id',b,'input_qty',0.5,'input_unit','pack'),
   jsonb_build_object('ingredient_id',c,'input_qty',12.5,'input_unit','g')));

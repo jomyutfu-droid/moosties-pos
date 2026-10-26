@@ -1,3 +1,4 @@
+import { prepUnitKey, productionUnitIsValid } from './productionUnits'
 import { round3 } from '@/lib/money'
 import type { Ingredient } from '@/types'
 
@@ -28,10 +29,10 @@ export function productionPreview(recipe: ProductionRecipe, rounds: number, ingr
   return recipe.items.map(item => {
     const ingredient = ingredients.find(i => i.id === item.ingredient_id)
     const qty = round3(item.input_qty * item.factor * rounds)
-    const changedUnit = ingredient && item.input_unit !== ingredient.unit && !ingredient.units?.some(u => u.name === item.input_unit && u.factor_to_base === item.factor)
+    const changedUnit = !productionUnitIsValid(ingredient, item.input_unit, Number(item.factor))
     return { ...item, name: ingredient?.name ?? 'ไม่พบวัตถุดิบ', qty,
       stock: ingredient?.stock_qty ?? 0, cost: qty * (ingredient?.cost_per_unit ?? 0),
-      unavailable: !ingredient?.is_active || ingredient.unit !== item.base_unit || !!changedUnit,
+      unavailable: !ingredient?.is_active || prepUnitKey(ingredient.unit) !== prepUnitKey(item.base_unit) || !!changedUnit,
       shortage: Math.max(0, round3(qty - (ingredient?.stock_qty ?? 0))),
     }
   })
