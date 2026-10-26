@@ -16,7 +16,8 @@ export function PrepWasteForm({ data, token, onSaved }: { data: ProductionData; 
   const [error, setError] = useState('')
   const attempt = useRef<object | null>(null)
   const lock = useRef(false)
-  const ingredient = data.ingredients.find(i => i.id === selected)
+  const eligibleIngredients = data.ingredients.filter(i => i.is_active && data.recipes.some(r => r.is_active && r.output_id === i.id))
+  const ingredient = eligibleIngredients.find(i => i.id === selected)
   const recipe = data.recipes.find(r => r.output_id === selected && r.deduction_mode === 'sale')
   const amount = Number(qty)
   const rows = (recipe ? autoPrepUsage(recipe, amount) : [{ ingredient_id: selected, qty: amount }])
@@ -37,10 +38,11 @@ export function PrepWasteForm({ data, token, onSaved }: { data: ProductionData; 
   }
   return <section className="bg-white rounded-2xl border p-5 space-y-4">
     <h2 className="font-bold text-lg">บันทึกทิ้งสินค้า</h2>
-    <p className="text-sm text-gray-600">เลือกของที่ทิ้งและชั่งจำนวนจริง บันทึกในวันที่ทิ้ง ระบบคำนวณวัตถุดิบและต้นทุนให้</p>
+    <p className="text-sm text-gray-600">เลือกผลผลิตที่มีสูตรผลิตและชั่งจำนวนที่ทิ้งจริง ระบบคำนวณวัตถุดิบและต้นทุนให้</p>
+    {!eligibleIngredients.length && <p role="status" className="text-sm text-gray-500">ยังไม่มีผลผลิตจากสูตรผลิตที่เปิดใช้งาน</p>}
     <fieldset disabled={busy || review} className="space-y-4">
       <SearchSelect label="สินค้าที่ทิ้ง" value={selected} onChange={setSelected} emptyLabel="เลือกสินค้า เช่น ชามะลิชงแล้ว / โปรตีนผสม"
-        options={data.ingredients.filter(i => i.is_active).map(i => ({ value: i.id, label: `${i.name} (${i.unit})${i.auto_prep ? ' · ตัดต้นทางอัตโนมัติ' : ''}` }))} />
+        options={eligibleIngredients.map(i => ({ value: i.id, label: `${i.name} (${i.unit})${i.auto_prep ? ' · ตัดต้นทางอัตโนมัติ' : ''}` }))} />
       <label className="block text-sm">จำนวนที่ทิ้ง ({ingredient?.unit ?? 'เลือกสินค้าก่อน'})<input className="input mt-1" type="number" inputMode="decimal" min="0.001" max="1000000" step="0.001" value={qty} onChange={e => setQty(e.target.value)} /></label>
       <label className="block text-sm">วันที่ทิ้ง<input className="input mt-1" type="date" max={bangkokDate()} value={date} onChange={e => setDate(e.target.value)} /></label>
       <label className="block text-sm">เหตุผล<input className="input mt-1" maxLength={500} value={reason} onChange={e => setReason(e.target.value)} /></label>
