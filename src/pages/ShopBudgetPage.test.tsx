@@ -2,6 +2,7 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 const state = vi.hoisted(() => ({ data: { sales: [{ day: '2026-10-30', source: 'store', bills: 1, sales: 100, cogs: 40, missing_cost_bills: 0 }], line_man_days: [], entries: [] }, isError: false, error: new Error('โหลดไม่สำเร็จ'), mutateAsync: vi.fn() }))
 vi.mock('@/hooks/useShopBudget', () => ({ useShopBudget: () => ({ data: state.data, isError: state.isError, error: state.error, isLoading: false, isFetching: false, refetch: vi.fn(), receipt: vi.fn(), mutation: { mutateAsync: state.mutateAsync, isPending: false } }) }))
+vi.mock('@/components/MenuAnalytics', () => ({ MenuAnalytics: () => null }))
 import ShopBudgetPage from './ShopBudgetPage'
 let tree: ReactTestRenderer
 function open() { act(() => { tree = create(<ShopBudgetPage />) }) }

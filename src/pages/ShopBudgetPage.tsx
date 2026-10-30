@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { MenuAnalytics } from '@/components/MenuAnalytics'
 import { budgetPeriod, budgetToday, channelLabels, expenseLabels, summarizeBudget, type BudgetEntry, type BudgetData } from '@/domain/shopBudget'
 import { useShopBudget } from '@/hooks/useShopBudget'
 import { formatBahtSymbol as baht } from '@/lib/money'
@@ -70,6 +71,7 @@ export default function ShopBudgetPage() {
      <div className={`mt-3 rounded-xl px-4 py-3 ${summary.profit < 0 ? 'bg-red-50 text-red-800' : 'bg-green-50 text-green-900'}`}><AmountRow label="กำไร / ขาดทุนจากการดำเนินงาน" value={summary.profit} strong /><p className="text-xs mt-1">เป็นงบบริหารเบื้องต้น ยังไม่รวมรายการที่ไม่ได้บันทึก เช่น ค่าเสื่อมราคา ดอกเบี้ย และภาษีเงินได้</p></div>
     </div>
    </section>
+   <MenuAnalytics from={range.from} to={range.to} />
    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
     <button className="btn-primary min-h-14" onClick={() => add('expense')}>＋ บันทึกค่าใช้จ่าย</button>
     <button className="btn-secondary min-h-14" onClick={() => add('platform')}>＋ บันทึกยอด Grab / LINE MAN</button>
