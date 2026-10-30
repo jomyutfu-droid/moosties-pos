@@ -13,6 +13,7 @@ import MenuPage from '@/pages/MenuPage'
 import InventoryPage from '@/pages/InventoryPage'
 import ProductionPage from '@/pages/ProductionPage'
 import ReportsPage from '@/pages/ReportsPage'
+import ShopBudgetPage from '@/pages/ShopBudgetPage'
 import UsersPage from '@/pages/UsersPage'
 import SettingsPage from '@/pages/SettingsPage'
 import QueuePage from '@/pages/QueuePage'
@@ -83,6 +84,7 @@ function App() {
         <Route path="/toppings" element={<RequireRole roles={['owner']}><ToppingsPage /></RequireRole>} />
         <Route path="/inventory" element={<InventoryPage />} />
         <Route path="/production" element={<ProductionPage />} />
+        <Route path="/shop-budget" element={<RequireSecureRole roles={['owner']}><ShopBudgetPage /></RequireSecureRole>} />
         <Route
           path="/reports"
           element={

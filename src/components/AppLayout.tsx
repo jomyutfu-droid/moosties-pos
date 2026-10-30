@@ -17,6 +17,7 @@ const navItems: { to: string; label: string; roles?: NavRole[] }[] = [
   { to: '/production', label: 'ผลิตวัตถุดิบ', roles: ['owner', 'manager', 'staff'] },
   { to: '/queue', label: 'คิวออเดอร์', roles: ['owner', 'manager', 'staff'] },
   { to: '/time', label: 'เวลาพนักงาน', roles: ['owner', 'manager', 'staff'] },
+  { to: '/shop-budget', label: 'งบบริหารร้าน', roles: ['owner'] },
   { to: '/reports', label: 'รายงาน / เงินสด', roles: ['owner', 'manager', 'staff'] },
   { to: '/users', label: 'ผู้ใช้', roles: ['owner'] },
   { to: '/settings', label: 'ตั้งค่า', roles: ['owner'] },
