@@ -31,6 +31,7 @@ export default function MenuPage() {
   const isOwnerOrManager = activeStaff?.role === 'owner' || activeStaff?.role === 'manager'
 
   const [editingProductId, setEditingProductId] = useState<string | null | undefined>(undefined)
+  const [copyFromId, setCopyFromId] = useState<string | null>(null)
   const [showCategories, setShowCategories] = useState(false)
   const [draft, setDraft] = useState<MenuOrder | null>(null)
   const [orderError, setOrderError] = useState('')
@@ -89,7 +90,8 @@ export default function MenuPage() {
           <button type="button" className="btn-secondary min-h-11 flex-1" aria-label={`เลื่อนลง ${p.name}`} disabled={index === items.length - 1 || saveOrder.isPending} onClick={() => moveProduct(p.id, items[index + 1].id)}>↓ ลง</button>
         </div>
       </div> : <ProductCard product={p} canToggle={isOwnerOrManager && !draft}
-        onEdit={() => { if (!draft) setEditingProductId(p.id) }}
+        onEdit={() => { if (!draft) { setCopyFromId(null); setEditingProductId(p.id) } }}
+        onCopy={() => { if (!draft) { setCopyFromId(p.id); setEditingProductId(null) } }}
         onToggle={() => toggleActive.mutate({ id: p.id, is_active: !p.is_active })} />}
     </div>
   }
@@ -130,7 +132,7 @@ export default function MenuPage() {
               แสดงที่ปิดใช้งาน
             </label>
           )}
-          <button className="btn-primary" disabled={!!draft} onClick={() => setEditingProductId(null)}>
+          <button className="btn-primary" disabled={!!draft} onClick={() => { setCopyFromId(null); setEditingProductId(null) }}>
             + เพิ่มเมนู
           </button>
         </div>
@@ -257,7 +259,7 @@ export default function MenuPage() {
       )}
 
       {editingProductId !== undefined && (
-        <ProductEditor productId={editingProductId} onClose={() => setEditingProductId(undefined)} />
+        <ProductEditor key={`${editingProductId ?? 'new'}:${copyFromId ?? ''}`} productId={editingProductId} copyFromId={copyFromId} onClose={() => { setEditingProductId(undefined); setCopyFromId(null) }} />
       )}
     </div>
   )
@@ -331,11 +333,13 @@ function ProductCard({
   product,
   canToggle,
   onEdit,
+  onCopy,
   onToggle,
 }: {
   product: Product
   canToggle: boolean
   onEdit: () => void
+  onCopy: () => void
   onToggle: () => void
 }) {
   const profit = unitProfit(product.price, product.cost_cached)
@@ -349,6 +353,9 @@ function ProductCard({
         <div className="text-sm mt-1">
           กำไร <span className="font-medium text-brand-700">{formatBahtSymbol(profit)}</span> ({margin}%)
         </div>
+      </button>
+      <button type="button" onClick={onCopy} className="mt-2 w-full btn-secondary" aria-label={`คัดลอกเมนู ${product.name}`}>
+        คัดลอกเมนู / สูตร
       </button>
       {canToggle && (
         <button

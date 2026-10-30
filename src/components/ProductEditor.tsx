@@ -44,14 +44,21 @@ function baseQtyForRow(row: Pick<RecipeRow, 'qty' | 'unit_factor'>): number {
 
 export function ProductEditor({
   productId,
+  copyFromId = null,
   onClose,
 }: {
   productId: string | null // null = สร้างใหม่
+  copyFromId?: string | null
   onClose: () => void
 }) {
   const { data: categories } = useCategories()
   const { data: ingredients } = useIngredients()
-  const { data: detail } = useProductDetail(productId)
+  const sourceId = productId ?? copyFromId
+  const isCopy = !productId && !!copyFromId
+  const { data: detail, isError: detailFailed } = useProductDetail(sourceId)
+  const initializedSource = useRef<string | null>(null)
+  const editorKey = `${productId ? 'edit' : isCopy ? 'copy' : 'new'}:${sourceId ?? ''}`
+  const [ready, setReady] = useState(false)
   const saveProduct = useSaveProduct()
   const saveRecipe = useSaveRecipeItems(productId ?? '')
 
@@ -74,36 +81,41 @@ export function ProductEditor({
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (initializedSource.current === editorKey) return
+    if (sourceId && !detail) return
     if (detail) {
       setSweetnessConfig(sweetnessIngredients(detail))
-      setName(detail.name)
+      setName(isCopy ? `${detail.name} (สำเนา)` : detail.name)
       setPrice(detail.price)
-      setCategoryId(detail.category_id ?? '')
-      setSku(detail.sku ?? '')
+      setCategoryId(isCopy ? '' : detail.category_id ?? '')
+      setSku(isCopy ? '' : detail.sku ?? '')
       setPrepSteps(detail.prep_steps ?? '')
       setRecipeRows(
         detail.recipe_items.map((r) => ({
-          id: r.id,
+          id: isCopy ? undefined : r.id,
           ingredient_id: r.ingredient_id,
           qty: fromBaseQty(r.qty, Number(r.unit_factor) || 1),
           unit_name: r.unit_name ?? r.ingredient?.unit ?? null,
           unit_factor: Number(r.unit_factor) || 1,
           sort_order: r.sort_order,
           note: r.note,
-          _key: r.id,
+          _key: isCopy ? newKey() : r.id,
         })),
       )
     } else if (productId === null) {
       setSweetnessConfig([])
       setName('')
       setPrice(0)
-      setCategoryId(categories?.[0]?.id ?? '')
+      setCategoryId('')
       setSku('')
       setPrepSteps('')
       setRecipeRows([])
       setRemovedRecipeIds([])
     }
-  }, [detail, productId, categories])
+    setRemovedRecipeIds([])
+    initializedSource.current = editorKey
+    setReady(true)
+  }, [detail, productId, sourceId, isCopy, editorKey])
 
   const ingredientsById = new Map((ingredients ?? []).map((i) => [i.id, i]))
   const previewCost = baseCost({
@@ -181,6 +193,11 @@ export function ProductEditor({
   }
 
   async function handleSave() {
+    if (saving || !ready) return
+    if (!categoryId || !categories?.some(category => category.id === categoryId)) {
+      setError('กรุณาเลือกหมวดหมู่ก่อนบันทึก')
+      return
+    }
     setSaving(true)
     setError(null)
     try {
@@ -197,15 +214,15 @@ export function ProductEditor({
       }
       const saved = await saveProduct.mutateAsync({
         id: productId ?? undefined,
-        name,
+        name: name.trim(),
         price,
         category_id: categoryId || null,
         sku: sku || null,
         prep_steps: prepSteps || null,
         sweetness_config: sweetnessConfig,
         // อย่าบังคับ true — ไม่งั้นการแก้ไขเมนูที่ถูกปิดไว้จะเปิดใช้งานกลับมาเงียบ ๆ
-        is_active: detail?.is_active ?? true,
-        sort_order: detail?.sort_order ?? 0,
+        is_active: isCopy ? true : detail?.is_active ?? true,
+        sort_order: isCopy ? 0 : detail?.sort_order ?? 0,
       } as never)
 
       const targetId = productId ?? saved.id
@@ -273,9 +290,11 @@ export function ProductEditor({
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 max-sm:p-0 z-50">
       <div className="bg-white rounded-2xl shadow-lg w-full max-w-2xl max-h-[90dvh] flex flex-col overflow-hidden max-sm:max-h-[100dvh] max-sm:rounded-none">
         <div className="p-5 max-sm:p-4 border-b border-gray-200 shrink-0 bg-white">
-          <h2 className="text-lg font-bold">{productId ? 'แก้ไขเมนู' : 'เพิ่มเมนูใหม่'}</h2>
+          <h2 className="text-lg font-bold">{productId ? 'แก้ไขเมนู' : isCopy ? 'คัดลอกเมนู / สูตร' : 'เพิ่มเมนูใหม่'}</h2>
         </div>
         <div className="p-5 max-sm:p-4 space-y-5 overflow-y-auto min-h-0 overscroll-contain">
+          {!ready && <p role="status">{detailFailed ? 'โหลดสูตรไม่สำเร็จ กรุณาปิดแล้วลองใหม่' : 'กำลังโหลดสูตร…'}</p>}
+          {isCopy && ready && <p className="text-sm text-green-800">คัดลอกจาก “{detail?.name}” แก้ไขชื่อและสูตร แล้วเลือกหมวดหมู่ก่อนบันทึกเป็นเมนูใหม่</p>}
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
               <label className="label">ชื่อเมนู</label>
@@ -286,9 +305,9 @@ export function ProductEditor({
               <NumberField className="input" value={price} parse={parseUnsignedNumber} onChange={setPrice} />
             </div>
             <div>
-              <label className="label">หมวด</label>
-              <select className="input" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-                <option value="">-</option>
+              <label className="label" htmlFor="product-category">หมวดหมู่ *</label>
+              <select id="product-category" required aria-required="true" className="input" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+                <option value="" disabled>กรุณาเลือกหมวดหมู่</option>
                 {categories?.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -414,7 +433,7 @@ export function ProductEditor({
             <a className="underline inline-block mt-2" href="/toppings">จัดการท็อปปิ้งกลาง</a>
           </section>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
         </div>
         <div className="p-4 border-t border-gray-200 shrink-0 flex flex-wrap items-center gap-2 bg-white" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
           <div className="mr-auto" aria-live="polite">
@@ -424,7 +443,7 @@ export function ProductEditor({
           <button className="btn-ghost" onClick={onClose}>
             ยกเลิก
           </button>
-          <button className="btn-primary" disabled={saving || !name} onClick={handleSave}>
+          <button className="btn-primary" disabled={saving || !ready || !name.trim()} onClick={handleSave}>
             {saving ? 'กำลังบันทึก…' : 'บันทึก'}
           </button>
         </div>
